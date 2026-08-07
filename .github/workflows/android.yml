@@ -1,0 +1,27 @@
+name: android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sample:
+    name: sample app (debug + R8 release)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build sample against SDK source
+        run: ./gradlew :app:assembleDebug :app:assembleRelease

@@ -4,6 +4,7 @@
 
 [![swift](https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml)
 [![kotlin](https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml)
+[![android](https://github.com/vsima/canton-mobile-sdk/actions/workflows/android.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/android.yml)
 [![protos](https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Canton](https://img.shields.io/badge/Canton-3.5.11-6f42c1)](https://github.com/digital-asset/canton/releases/tag/v3.5.11)
@@ -130,6 +131,8 @@ canton-mobile-sdk/
 ├── kotlin/
 │   ├── canton-ledger-api/         # generated bindings module (protoc at build time)
 │   └── canton-sdk/                # ergonomic layer
+├── examples/
+│   └── android/                   # sample app; CI builds debug + R8 release
 ├── testdata/                # golden vectors both SDKs must satisfy
 ├── integration/             # local Canton harness for end-to-end testing
 └── tools/                   # proto sync + pinned codegen plugin builds
@@ -169,6 +172,12 @@ integration/run-canton.sh        # boot a local Canton participant + synchronize
 
 Bumping Canton: `make sync-protos VERSION=x.y.z && make generate`, review the
 diff, and let the `protos` workflow flag wire-level breaking changes.
+
+The Android sample (`examples/android`) is a composite build against the SDK
+source — open it in Android Studio or build it with
+`cd examples/android && ./gradlew :app:assembleRelease`. CI builds both the
+debug and the R8-minified release variant, so shrinker regressions surface in
+our PRs instead of in consumers' release builds.
 
 ## Compatibility
 
