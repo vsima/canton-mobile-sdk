@@ -376,7 +376,13 @@ Coming from the TS SDK? There's a
       tool-hosted on Apple Silicon Macs (`SecureEnclaveIntegrationTests`),
       so ordinary CI exercises the enclave; the sample app carries an
       on-device self-check (`EnclaveSelfCheck`, drive via `devicectl`)
-- [ ] StrongBox-backed Android driver (needs an Android library module)
+- [x] Android Keystore driver (`canton-wallet-android`,
+      `AndroidKeystoreSigningDriver`): attempts StrongBox, falls back to the
+      TEE-backed keystore, and reports the achieved security level honestly.
+      Hardware-verified on a OnePlus Open (Android 16): TEE-resident P-256
+      key signs with Canton's encodings, reloads by alias, deletes cleanly
+- [ ] StrongBox branch verification (needs a device that ships the
+      StrongBox HAL — Pixel 3+, Samsung Galaxy S)
 - [x] CIP-0056 token standard client, first slice: holdings and the
       pending-instruction inbox (interface-filtered ACS reads), two-step
       transfers (create / accept / reject / withdraw) built from registry
