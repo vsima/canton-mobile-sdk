@@ -1,0 +1,12 @@
+name: license
+
+on:
+  pull_request:
+
+jobs:
+  headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: License headers present on hand-written sources
+        run: tools/check-license-headers.sh

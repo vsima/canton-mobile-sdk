@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Victor Sima
+// SPDX-License-Identifier: Apache-2.0
+
 /// Exponential backoff policy applied to retryable ledger errors
 /// (see ``CantonError/isRetryable``). A server-suggested delay from
 /// `RetryInfo` takes precedence over the computed backoff when it is longer.
