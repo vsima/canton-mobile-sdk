@@ -8,7 +8,7 @@
 [![ios](https://github.com/vsima/canton-mobile-sdk/actions/workflows/ios.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/ios.yml)
 [![protos](https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Canton](https://img.shields.io/badge/Canton-3.5.11-6f42c1)](https://github.com/digital-asset/canton/releases/tag/v3.5.11)
+[![Canton](https://img.shields.io/badge/Canton-3.5.12-6f42c1)](https://github.com/digital-asset/canton/releases/tag/v3.5.12)
 
 Build iOS and Android apps that talk directly to a Canton participant node
 over gRPC — command submission, transaction streams, active contracts, and
@@ -282,7 +282,7 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 
 | SDK version | Canton release | Ledger API |
 |---|---|---|
-| 0.1.x | 3.5.11 | `com.daml.ledger.api.v2` |
+| 0.1.x – 0.3.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
 
 ## Roadmap
 
