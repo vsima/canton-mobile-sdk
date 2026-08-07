@@ -346,6 +346,8 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 The goal is wallet-grade parity with the official TypeScript
 [`@canton-network/wallet-sdk`](https://github.com/canton-network/wallet) —
 natively, on the canonical gRPC Ledger API, with device-held keys.
+Coming from the TS SDK? There's a
+[method-level migration map](docs/migrating-from-wallet-sdk.md).
 
 **Core layer (shipped)**
 
@@ -397,7 +399,12 @@ natively, on the canonical gRPC Ledger API, with device-held keys.
 - [ ] Read layer hardening: scan holdings summaries (needs server-side ACS
       snapshots), richer transfer-level history semantics matched to the TS
       SDK via golden vectors
-- [ ] Custody signing drivers (Fireblocks et al.) and a persistence protocol
+- [x] Custody hook and persistence: `DelegatingSigningDriver` adapts any
+      external signer (Fireblocks, BitGo, HSMs) to the driver interface via
+      two async callbacks; `WalletStore` persists party ↔ key-handle
+      bindings, with in-memory and (Apple) Keychain implementations
+- [ ] First-party custody integrations built on the hook (Fireblocks raw
+      signing, BitGo) — need provider accounts to verify honestly
 - [ ] CIP-0103 dApp connectivity (deferred; revisit when the mobile
       transport story firms up)
 
