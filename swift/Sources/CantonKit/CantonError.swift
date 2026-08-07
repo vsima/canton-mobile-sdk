@@ -27,6 +27,22 @@ public struct CantonError: Error, Sendable, Hashable {
     /// Human-readable description from the server.
     public let message: String
 
+    init(
+        grpcCode: RPCError.Code,
+        errorCode: String?,
+        correlationId: String?,
+        isRetryable: Bool,
+        retryDelay: Duration?,
+        message: String
+    ) {
+        self.grpcCode = grpcCode
+        self.errorCode = errorCode
+        self.correlationId = correlationId
+        self.isRetryable = isRetryable
+        self.retryDelay = retryDelay
+        self.message = message
+    }
+
     /// Decodes a `CantonError` from a gRPC failure, or returns nil if
     /// `error` is not a gRPC status error.
     public init?(_ error: any Error) {

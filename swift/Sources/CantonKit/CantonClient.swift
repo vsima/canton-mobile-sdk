@@ -69,9 +69,47 @@ public struct CantonClient: Sendable {
     ///
     /// - Throws: ``CantonError`` if the call fails with a gRPC error.
     public func ledgerApiVersion() async throws -> String {
-        try await mapCantonErrors {
-            try await withServices { services in
-                try await services.version.getLedgerApiVersion(.init()).version
+        try await withRetries(configuration.retryPolicy) {
+            try await mapCantonErrors {
+                try await withServices { services in
+                    try await services.version.getLedgerApiVersion(.init()).version
+                }
+            }
+        }
+    }
+
+    /// Submits `submission` and waits for it to be committed, returning the
+    /// update id. Retryable failures are retried with the same command id,
+    /// so the participant deduplicates re-executions.
+    ///
+    /// - Throws: ``CantonError`` if the submission ultimately fails.
+    public func submitAndWait(_ submission: CommandSubmission) async throws -> String {
+        try await withRetries(configuration.retryPolicy) {
+            try await mapCantonErrors {
+                try await withServices { services in
+                    var request = Com_Daml_Ledger_Api_V2_SubmitAndWaitRequest()
+                    request.commands = submission.proto
+                    return try await services.command.submitAndWait(request).updateID
+                }
+            }
+        }
+    }
+
+    /// Submits `submission`, waits for it to be committed, and returns the
+    /// resulting transaction (flat/ACS-delta shape, filtered to the
+    /// submitting parties). Retries reuse the same command id.
+    ///
+    /// - Throws: ``CantonError`` if the submission ultimately fails.
+    public func submitAndWaitForTransaction(
+        _ submission: CommandSubmission
+    ) async throws -> Com_Daml_Ledger_Api_V2_Transaction {
+        try await withRetries(configuration.retryPolicy) {
+            try await mapCantonErrors {
+                try await withServices { services in
+                    var request = Com_Daml_Ledger_Api_V2_SubmitAndWaitForTransactionRequest()
+                    request.commands = submission.proto
+                    return try await services.command.submitAndWaitForTransaction(request).transaction
+                }
             }
         }
     }

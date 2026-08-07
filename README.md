@@ -115,6 +115,25 @@ val version = client.ledgerApiVersion()
 The full generated Ledger API surface (`com.daml.ledger.api.v2.*`) ships in
 `canton-ledger-api` and works with any `ManagedChannel` you build.
 
+### Submitting commands
+
+Build commands with the generated types, submit through the client: the SDK
+generates a stable command id, retries transient failures with backoff, and
+lets the participant deduplicate — so a retried submission can never execute
+twice:
+
+```swift
+let transaction = try await client.submitAndWaitForTransaction(
+    CommandSubmission(commands: [createCommand], actAs: [party])
+)
+```
+
+```kotlin
+val transaction = client.submitAndWaitForTransaction(
+    CommandSubmission(commands = listOf(createCommand), actAs = listOf(party))
+)
+```
+
 ### Error handling
 
 Failed calls throw a typed error decoded from Canton's structured
@@ -211,7 +230,7 @@ our PRs instead of in consumers' release builds.
 
 ## Roadmap
 
-- [ ] Command submission with deduplication + completion correlation
+- [x] Command submission with deduplication and automatic retry (`submitAndWait`, `submitAndWaitForTransaction`)
 - [ ] Transaction stream decoding with reconnect / offset resumption
 - [ ] Daml value ↔ native type codecs (shared golden vectors in `testdata/`)
 - [ ] Network.framework transport (NIOTS) on Apple platforms
