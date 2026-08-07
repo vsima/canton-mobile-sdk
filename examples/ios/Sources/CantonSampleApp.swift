@@ -17,12 +17,19 @@ struct CantonSampleApp: App {
 
 struct ContentView: View {
     @State private var status = "Connecting to ledger…"
+    @State private var enclaveStatus = "Checking Secure Enclave…"
 
     var body: some View {
-        Text(status)
+        VStack(spacing: 16) {
+            Text(status)
+            Text(enclaveStatus)
+        }
             .font(.callout)
             .multilineTextAlignment(.center)
             .padding()
+            .task {
+                enclaveStatus = await EnclaveSelfCheck.run()
+            }
             .task {
                 let environment = ProcessInfo.processInfo.environment
                 let client = CantonClient(
