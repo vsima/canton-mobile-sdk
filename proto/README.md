@@ -20,3 +20,13 @@ git diff                     # review; buf breaking checks also run in CI
 ```
 
 Do not hand-edit anything in this directory except this README.
+
+## google.rpc protos
+
+`googleapis/` holds `google/rpc/status.proto` and `error_details.proto`,
+vendored from [googleapis](https://github.com/googleapis/googleapis) at the
+commit pinned in `googleapis/GOOGLEAPIS_REF`. The Ledger API references
+`google.rpc.Status` (e.g. `Completion.status`), and Canton's rich errors use
+the `error_details` types. They are compiled into both SDKs directly — the
+pre-built `proto-google-common-protos` artifact only supports the full
+protobuf runtime, and the Kotlin SDK uses protobuf **lite**.

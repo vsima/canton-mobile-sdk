@@ -1,15 +1,10 @@
 version: v2
 clean: true
 inputs:
-  # The vendored Canton proto roots (see buf.yaml).
-  - directory: .
-  # google.rpc types referenced by the Ledger API (e.g. Completion.status) and
-  # by Canton's rich error details. Well-known types (google.protobuf.*) are
+  # All vendored proto roots (see buf.yaml): the Canton Ledger API plus the
+  # google.rpc types it references. Well-known types (google.protobuf.*) are
   # NOT generated — the SwiftProtobuf runtime already ships them.
-  - module: buf.build/googleapis/googleapis
-    paths:
-      - google/rpc/status.proto
-      - google/rpc/error_details.proto
+  - directory: .
 # Plugins are built locally at pinned versions by `make codegen-plugins`
 # (see tools/codegen-plugins). The hosted buf.build/grpc/swift plugin still
 # targets gRPC Swift v1, so we build protoc-gen-grpc-swift-2 ourselves.

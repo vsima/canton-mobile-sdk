@@ -14,12 +14,12 @@ kotlin {
 }
 
 dependencies {
-    api(libs.grpc.protobuf)
+    // Lite protobuf runtime: Android-safe (the full protobuf-java runtime
+    // conflicts with the protobuf-javalite that DataStore/Firebase pull in).
+    api(libs.grpc.protobuf.lite)
     api(libs.grpc.stub)
     api(libs.grpc.kotlin.stub)
-    api(libs.protobuf.kotlin)
-    // Pre-built google.rpc/google.type classes (referenced by e.g. Completion.status).
-    api(libs.proto.google.common.protos)
+    api(libs.protobuf.kotlin.lite)
     api(libs.coroutines.core)
 }
 
@@ -28,6 +28,9 @@ sourceSets {
         proto {
             srcDir("../../proto/ledger-api")
             srcDir("../../proto/ledger-api-value")
+            // google.rpc types referenced by the Ledger API, compiled lite
+            // into this artifact (proto-google-common-protos is full-only).
+            srcDir("../../proto/googleapis")
         }
     }
 }
@@ -47,11 +50,12 @@ protobuf {
     generateProtoTasks {
         all().forEach { task ->
             task.plugins {
-                id("grpc")
-                id("grpckt")
+                id("grpc") { option("lite") }
+                id("grpckt") { option("lite") }
             }
             task.builtins {
-                id("kotlin")
+                getByName("java") { option("lite") }
+                id("kotlin") { option("lite") }
             }
         }
     }

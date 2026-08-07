@@ -146,6 +146,11 @@ Design decisions worth knowing:
 - **Swift stubs are checked in** so SPM consumers never need `protoc`. The
   codegen plugins are built at pinned versions (`tools/codegen-plugins`)
   because the hosted buf plugin still targets gRPC Swift v1.
+- **Kotlin uses the protobuf _lite_ runtime.** The full `protobuf-java`
+  runtime duplicate-classes against the `protobuf-javalite` that AndroidX
+  DataStore, Firebase, and friends already put on most Android classpaths —
+  so this SDK ships lite-generated code (including its own `google.rpc`
+  types) and never drags the full runtime into your app.
 - **Lockstep releases.** A single `vX.Y.Z` tag releases both SDKs (SPM
   requires semver tags on the repo root).
 
@@ -178,7 +183,6 @@ diff, and let the `protos` workflow flag wire-level breaking changes.
 - [ ] Daml value ↔ native type codecs (shared golden vectors in `testdata/`)
 - [ ] Network.framework transport (NIOTS) on Apple platforms
 - [ ] Integration harness in CI (both SDKs against a live Canton node)
-- [ ] Evaluate protobuf-lite for smaller Android footprint
 - [ ] JSON Ledger API fallback transport for proxy-hostile networks
 - [ ] Maven Central + first tagged release
 
