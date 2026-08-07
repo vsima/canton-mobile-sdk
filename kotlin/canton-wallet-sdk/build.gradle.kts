@@ -11,6 +11,11 @@ kotlin {
 
 dependencies {
     api(project(":canton-sdk"))
+    // Registry (off-ledger) HTTP APIs: OkHttp is already on the classpath
+    // transitively via grpc-okhttp; kotlinx-serialization-json is used via
+    // its JsonElement API only (no compiler plugin required).
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.grpc.okhttp)

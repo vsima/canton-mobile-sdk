@@ -33,6 +33,7 @@ public class InteractiveSubmissionClient(channel: Channel) {
         synchronizerId: String,
         userId: String? = null,
         commandId: String = UUID.randomUUID().toString(),
+        disclosedContracts: List<CommandsOuterClass.DisclosedContract> = emptyList(),
     ): PrepareSubmissionResponse =
         stub.prepareSubmission(
             PrepareSubmissionRequest.newBuilder()
@@ -41,6 +42,7 @@ public class InteractiveSubmissionClient(channel: Channel) {
                 .setSynchronizerId(synchronizerId)
                 .setCommandId(commandId)
                 .apply { userId?.let { setUserId(it) } }
+                .addAllDisclosedContracts(disclosedContracts)
                 .setVerboseHashing(false)
                 .build()
         )
