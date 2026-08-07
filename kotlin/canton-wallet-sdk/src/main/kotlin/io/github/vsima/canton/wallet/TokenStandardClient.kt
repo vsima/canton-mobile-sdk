@@ -6,6 +6,8 @@ import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsRequest
 import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v2.StateServiceOuterClass.GetLedgerEndRequest
 import com.daml.ledger.api.v2.TransactionFilterOuterClass
+import com.daml.ledger.api.v2.UpdateServiceGrpcKt
+import com.daml.ledger.api.v2.UpdateServiceOuterClass.GetUpdatesRequest
 import com.daml.ledger.api.v2.ValueOuterClass
 import io.github.vsima.canton.DamlValues
 import io.grpc.Channel
@@ -32,7 +34,22 @@ public class TokenStandardClient(
     private val registry: TransferRegistryClient? = null,
 ) {
     private val state = StateServiceGrpcKt.StateServiceCoroutineStub(channel)
+    private val update = UpdateServiceGrpcKt.UpdateServiceCoroutineStub(channel)
     private val submission = InteractiveSubmissionClient(channel)
+
+    /**
+     * One committed update's effect on a party's holdings: created holdings
+     * carry full views (credits); archived holdings surface as contract ids —
+     * resolve amounts against previously-seen state (the wallet's local UTXO
+     * set), which ACS-delta streams keep consistent by construction.
+     */
+    public data class HoldingsChange(
+        val updateId: String,
+        val offset: Long,
+        val recordTime: Instant,
+        val created: List<Holding>,
+        val archivedContractIds: List<String>,
+    )
 
     /** Active holding UTXOs visible to [partyId], any CIP-0056 instrument. */
     public suspend fun listHoldings(partyId: String): List<Holding> =
@@ -47,6 +64,64 @@ public class TokenStandardClient(
     public suspend fun pendingTransferInstructions(partyId: String): List<TransferInstruction> =
         activeInterfaceViews(partyId, TokenStandard.transferInstructionInterfaceId)
             .map { (contractId, view) -> transferInstructionFromView(contractId, view) }
+
+    /**
+     * The party's holdings history between two offsets: every committed
+     * update that created or archived one of its CIP-0056 holdings, oldest
+     * first. Defaults to genesis → current ledger end (a finite read).
+     */
+    public suspend fun holdingsHistory(
+        partyId: String,
+        beginExclusive: Long = 0,
+        endInclusive: Long? = null,
+    ): List<HoldingsChange> {
+        val end = endInclusive
+            ?: state.getLedgerEnd(GetLedgerEndRequest.getDefaultInstance()).offset
+        if (end <= beginExclusive) return emptyList()
+
+        val request = GetUpdatesRequest.newBuilder()
+            .setBeginExclusive(beginExclusive)
+            .setEndInclusive(end)
+            .setUpdateFormat(
+                TransactionFilterOuterClass.UpdateFormat.newBuilder()
+                    .setIncludeTransactions(
+                        TransactionFilterOuterClass.TransactionFormat.newBuilder()
+                            .setEventFormat(interfaceEventFormat(partyId, TokenStandard.holdingInterfaceId))
+                            .setTransactionShape(
+                                TransactionFilterOuterClass.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+                            )
+                    )
+            )
+            .build()
+
+        return update.getUpdates(request).toList().mapNotNull { response ->
+            if (!response.hasTransaction()) return@mapNotNull null
+            val transaction = response.transaction
+            val created = mutableListOf<Holding>()
+            val archived = mutableListOf<String>()
+            for (event in transaction.eventsList) {
+                when {
+                    event.hasCreated() -> {
+                        val view = event.created.interfaceViewsList.firstOrNull { it.hasViewValue() }
+                            ?: continue
+                        created += holdingFromView(event.created.contractId, view.viewValue)
+                    }
+                    event.hasArchived() -> archived += event.archived.contractId
+                }
+            }
+            if (created.isEmpty() && archived.isEmpty()) return@mapNotNull null
+            HoldingsChange(
+                updateId = transaction.updateId,
+                offset = transaction.offset,
+                recordTime = Instant.ofEpochSecond(
+                    transaction.recordTime.seconds,
+                    transaction.recordTime.nanos.toLong(),
+                ),
+                created = created,
+                archivedContractIds = archived,
+            )
+        }
+    }
 
     /**
      * Initiates a transfer as [party] (externally signed). Returns the
@@ -164,11 +239,10 @@ public class TokenStandardClient(
             "this operation needs a TransferRegistryClient; pass one to TokenStandardClient"
         )
 
-    private suspend fun activeInterfaceViews(
+    private fun interfaceEventFormat(
         partyId: String,
         interfaceId: ValueOuterClass.Identifier,
-    ): List<Pair<String, ValueOuterClass.Record>> {
-        val ledgerEnd = state.getLedgerEnd(GetLedgerEndRequest.getDefaultInstance()).offset
+    ): TransactionFilterOuterClass.EventFormat {
         val filters = TransactionFilterOuterClass.Filters.newBuilder()
             .addCumulative(
                 TransactionFilterOuterClass.CumulativeFilter.newBuilder()
@@ -179,15 +253,22 @@ public class TokenStandardClient(
                     )
             )
             .build()
+        return TransactionFilterOuterClass.EventFormat.newBuilder()
+            .putFiltersByParty(partyId, filters)
+            // Non-verbose values omit record field labels, which the view
+            // decoders match on.
+            .setVerbose(true)
+            .build()
+    }
+
+    private suspend fun activeInterfaceViews(
+        partyId: String,
+        interfaceId: ValueOuterClass.Identifier,
+    ): List<Pair<String, ValueOuterClass.Record>> {
+        val ledgerEnd = state.getLedgerEnd(GetLedgerEndRequest.getDefaultInstance()).offset
         val request = GetActiveContractsRequest.newBuilder()
             .setActiveAtOffset(ledgerEnd)
-            .setEventFormat(
-                TransactionFilterOuterClass.EventFormat.newBuilder()
-                    .putFiltersByParty(partyId, filters)
-                    // Non-verbose values omit record field labels, which the
-                    // view decoders match on.
-                    .setVerbose(true)
-            )
+            .setEventFormat(interfaceEventFormat(partyId, interfaceId))
             .build()
 
         return state.getActiveContracts(request).toList().mapNotNull { response ->
