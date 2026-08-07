@@ -33,11 +33,60 @@ private var examplesDarPath: String? {
         let client = CantonClient(
             configuration: .init(host: host, port: liveLedgerPort!, useTLS: false)
         )
+        let party = try await allocatePartyAndUploadDar(client: client)
 
-        // Admin setup through the generated clients: allocate a fresh party
-        // and make sure the CantonExamples package is on the participant.
+        let transaction = try await client.submitAndWaitForTransaction(iouSubmission(party))
+        print("created Iou contract in update \(transaction.updateID)")
+        #expect(!transaction.updateID.isEmpty)
+        #expect(
+            transaction.events.contains { event in
+                if case .created = event.event { return true } else { return false }
+            }
+        )
+    }
+
+    @Test(.enabled(if: liveLedgerPort != nil && examplesDarPath != nil))
+    func streamsCommittedTransactionsAndResumes() async throws {
+        let client = CantonClient(
+            configuration: .init(host: host, port: liveLedgerPort!, useTLS: false)
+        )
+        let party = try await allocatePartyAndUploadDar(client: client)
+
+        let before = try await client.ledgerEnd()
+        _ = try await client.submitAndWait(iouSubmission(party))
+        _ = try await client.submitAndWait(iouSubmission(party))
+        let after = try await client.ledgerEnd()
+
+        var transactions: [Com_Daml_Ledger_Api_V2_Transaction] = []
+        for try await update in client.updates(
+            .init(parties: [party], beginExclusive: before, endInclusive: after)
+        ) {
+            if case .transaction(let transaction) = update {
+                transactions.append(transaction)
+            }
+        }
+        print("streamed \(transactions.count) transactions between offsets \(before)...\(after)")
+        #expect(transactions.count == 2)
+        #expect(transactions.allSatisfy { $0.offset > before && $0.offset <= after })
+
+        // Resume mid-window: only the second transaction remains.
+        var resumed: [Com_Daml_Ledger_Api_V2_Transaction] = []
+        for try await update in client.updates(
+            .init(parties: [party], beginExclusive: transactions[0].offset, endInclusive: after)
+        ) {
+            if case .transaction(let transaction) = update {
+                resumed.append(transaction)
+            }
+        }
+        #expect(resumed.count == 1)
+        #expect(resumed.first?.updateID == transactions.last?.updateID)
+    }
+
+    /// Admin setup through the generated clients: allocate a fresh party and
+    /// make sure the CantonExamples package is on the participant.
+    private func allocatePartyAndUploadDar(client: CantonClient) async throws -> String {
         let dar = try Data(contentsOf: URL(fileURLWithPath: examplesDarPath!))
-        let party = try await client.withServices { services in
+        return try await client.withServices { services in
             let partyManagement = Com_Daml_Ledger_Api_V2_Admin_PartyManagementService.Client(
                 wrapping: services.grpc
             )
@@ -53,22 +102,15 @@ private var examplesDarPath: String? {
             _ = try await packageManagement.uploadDarFile(upload)
             return party
         }
+    }
 
-        let transaction = try await client.submitAndWaitForTransaction(
-            CommandSubmission(
-                commands: [iouCreate(payer: party)],
-                actAs: [party],
-                // No auth on the test ledger, so user_id cannot be defaulted
-                // from token claims and must be explicit.
-                userId: "participant_admin"
-            )
-        )
-        print("created Iou contract in update \(transaction.updateID)")
-        #expect(!transaction.updateID.isEmpty)
-        #expect(
-            transaction.events.contains { event in
-                if case .created = event.event { return true } else { return false }
-            }
+    private func iouSubmission(_ party: String) -> CommandSubmission {
+        CommandSubmission(
+            commands: [iouCreate(payer: party)],
+            actAs: [party],
+            // No auth on the test ledger, so user_id cannot be defaulted
+            // from token claims and must be explicit.
+            userId: "participant_admin"
         )
     }
 

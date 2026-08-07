@@ -2,7 +2,10 @@ package io.github.vsima.canton
 
 import com.daml.ledger.api.v2.CommandServiceGrpcKt
 import com.daml.ledger.api.v2.CommandServiceOuterClass
+import com.daml.ledger.api.v2.StateServiceGrpcKt
+import com.daml.ledger.api.v2.StateServiceOuterClass.GetLedgerEndRequest
 import com.daml.ledger.api.v2.TransactionOuterClass
+import com.daml.ledger.api.v2.UpdateServiceGrpcKt
 import com.daml.ledger.api.v2.VersionServiceGrpcKt
 import com.daml.ledger.api.v2.VersionServiceOuterClass.GetLedgerApiVersionRequest
 import io.grpc.CallCredentials
@@ -11,6 +14,10 @@ import io.grpc.okhttp.OkHttpChannelBuilder
 import io.grpc.stub.AbstractStub
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 /**
  * A client for the Canton Ledger API.
@@ -41,6 +48,10 @@ public class CantonClient(
         VersionServiceGrpcKt.VersionServiceCoroutineStub(channel).withAuth(callCredentials)
     private val commandService =
         CommandServiceGrpcKt.CommandServiceCoroutineStub(channel).withAuth(callCredentials)
+    private val updateService =
+        UpdateServiceGrpcKt.UpdateServiceCoroutineStub(channel).withAuth(callCredentials)
+    private val stateService =
+        StateServiceGrpcKt.StateServiceCoroutineStub(channel).withAuth(callCredentials)
 
     /**
      * Fetches the Ledger API version from the participant.
@@ -92,6 +103,51 @@ public class CantonClient(
                 ).transaction
             }
         }
+
+    /**
+     * The participant's current ledger end offset — the natural
+     * [UpdateSubscription.beginExclusive] for a fresh subscription.
+     *
+     * @throws CantonException if the call fails with a gRPC error.
+     */
+    public suspend fun ledgerEnd(): Long = withRetries(retryPolicy) {
+        mapCantonErrors {
+            stateService.getLedgerEnd(GetLedgerEndRequest.getDefaultInstance()).offset
+        }
+    }
+
+    /**
+     * Streams ledger updates for [subscription], transparently reconnecting
+     * on retryable failures and resuming from the offset of the last
+     * received update — consumers see one uninterrupted, gap-free stream.
+     * The retry budget resets whenever an update is received.
+     *
+     * The flow completes normally when the server ends the stream (only for
+     * subscriptions with [UpdateSubscription.endInclusive] set) and throws
+     * [CantonException] on non-retryable failures.
+     */
+    public fun updates(subscription: UpdateSubscription): Flow<LedgerUpdate> = flow {
+        var cursor = subscription.beginExclusive
+        var attempt = 1
+        while (true) {
+            try {
+                updateService.getUpdates(subscription.toRequest(cursor)).collect { response ->
+                    val update = LedgerUpdate.from(response) ?: return@collect
+                    cursor = update.offset
+                    attempt = 1
+                    emit(update)
+                }
+                return@flow // server completed the stream (finite subscription)
+            } catch (t: Throwable) {
+                val error = CantonError.from(t) ?: throw t
+                if (!error.retryable || attempt >= retryPolicy.maxAttempts) {
+                    throw CantonException(error, t)
+                }
+                delay(maxOf(retryPolicy.backoffFor(attempt), error.retryDelay ?: Duration.ZERO))
+                attempt++
+            }
+        }
+    }
 
     override fun close() {
         channel.shutdown()
