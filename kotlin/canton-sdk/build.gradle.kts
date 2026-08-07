@@ -22,6 +22,8 @@ tasks.test {
 }
 
 mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
     coordinates(group.toString(), "canton-sdk", version.toString())
     pom {
         name = "Canton Kotlin SDK"
