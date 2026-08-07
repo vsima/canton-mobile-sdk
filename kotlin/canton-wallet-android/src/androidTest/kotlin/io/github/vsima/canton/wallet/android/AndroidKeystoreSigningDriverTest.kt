@@ -99,4 +99,38 @@ class AndroidKeystoreSigningDriverTest {
         AndroidKeystoreSigningDriver.delete(alias)
         assertEquals(null, AndroidKeystoreSigningDriver.load(alias))
     }
+
+    /**
+     * The StrongBox branch, on devices that ship the StrongBox HAL: a key
+     * generated with `requireStrongBox = true` must land in the dedicated
+     * secure element — no silent TEE fallback — and still sign with
+     * Canton's encodings. Skipped where the feature flag is absent.
+     */
+    @Test
+    fun strongBoxKeyLandsInTheSecureElementWhereSupported() = runBlocking {
+        val context = androidx.test.platform.app.InstrumentationRegistry
+            .getInstrumentation().targetContext
+        org.junit.Assume.assumeTrue(
+            "device does not declare android.hardware.strongbox_keystore; skipping",
+            context.packageManager.hasSystemFeature(
+                android.content.pm.PackageManager.FEATURE_STRONGBOX_KEYSTORE
+            ),
+        )
+
+        val alias = "canton-test-sb-${UUID.randomUUID()}"
+        try {
+            val driver = AndroidKeystoreSigningDriver.generate(alias, requireStrongBox = true)
+            println("KEYSTORE-CHECK: strongbox securityLevel=${driver.securityLevel}")
+            assertEquals(
+                AndroidKeystoreSigningDriver.SecurityLevel.STRONGBOX,
+                driver.securityLevel,
+            )
+
+            val hash = ByteArray(32) { (it * 7).toByte() }
+            assertTrue(verify(driver.publicKey(), driver.sign(hash), hash))
+            println("KEYSTORE-CHECK: PASS StrongBox-resident key signs; encodings verified")
+        } finally {
+            AndroidKeystoreSigningDriver.delete(alias)
+        }
+    }
 }
