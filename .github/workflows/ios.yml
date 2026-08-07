@@ -1,0 +1,29 @@
+name: ios
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sample:
+    name: sample app (simulator build)
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: examples/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install xcodegen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build sample against SDK source
+        run: >
+          xcodebuild -project CantonSample.xcodeproj -scheme CantonSample
+          -destination 'generic/platform=iOS Simulator'
+          build CODE_SIGNING_ALLOWED=NO

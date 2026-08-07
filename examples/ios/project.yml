@@ -1,0 +1,23 @@
+# Generate the Xcode project with: xcodegen generate  (brew install xcodegen)
+# The project is not committed — this file is the source of truth.
+name: CantonSample
+options:
+  bundleIdPrefix: io.github.vsima
+packages:
+  canton-mobile-sdk:
+    path: ../..
+targets:
+  CantonSample:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources: [Sources]
+    dependencies:
+      - package: canton-mobile-sdk
+        product: CantonKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.vsima.canton.sample
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1"

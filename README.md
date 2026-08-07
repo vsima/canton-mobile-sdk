@@ -5,6 +5,7 @@
 [![swift](https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml)
 [![kotlin](https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml)
 [![android](https://github.com/vsima/canton-mobile-sdk/actions/workflows/android.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/android.yml)
+[![ios](https://github.com/vsima/canton-mobile-sdk/actions/workflows/ios.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/ios.yml)
 [![protos](https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Canton](https://img.shields.io/badge/Canton-3.5.11-6f42c1)](https://github.com/digital-asset/canton/releases/tag/v3.5.11)
@@ -202,7 +203,8 @@ canton-mobile-sdk/
 │   ├── canton-ledger-api/         # generated bindings module (protoc at build time)
 │   └── canton-sdk/                # ergonomic layer
 ├── examples/
-│   └── android/                   # sample app; CI builds debug + R8 release
+│   ├── android/                   # sample app; CI builds debug + R8 release
+│   └── ios/                       # sample app; xcodegen project, CI simulator build
 ├── testdata/                # golden vectors both SDKs must satisfy
 ├── integration/             # local Canton harness for end-to-end testing
 └── tools/                   # proto sync + pinned codegen plugin builds
@@ -248,6 +250,12 @@ source — open it in Android Studio or build it with
 `cd examples/android && ./gradlew :app:assembleRelease`. CI builds both the
 debug and the R8-minified release variant, so shrinker regressions surface in
 our PRs instead of in consumers' release builds.
+
+The iOS sample (`examples/ios`) mirrors it: a SwiftUI app depending on
+`CantonKit` from source. Generate the project with
+`cd examples/ios && xcodegen generate`, then open it in Xcode or build with
+`xcodebuild`. Both samples default to a local `integration/run-canton.sh`
+ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 
 ## Compatibility
 
