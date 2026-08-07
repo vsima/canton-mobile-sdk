@@ -79,6 +79,28 @@ class CantonLedgerIntegrationTest {
         }
     }
 
+    @Test
+    fun `bootstraps state from an acs snapshot and follows with updates`() {
+        withLiveLedger { client, _, party ->
+            client.submitAndWait(iouSubmission(party))
+            client.submitAndWait(iouSubmission(party))
+
+            val snapshot = client.activeContractsSnapshot(listOf(party))
+            println("acs snapshot at offset ${snapshot.offset}: ${snapshot.contracts.size} contracts")
+            assertEquals(2, snapshot.contracts.size)
+            assertTrue(snapshot.contracts.all { it.createdEvent.contractId.isNotBlank() })
+            assertTrue(snapshot.contracts.all { it.synchronizerId.isNotBlank() })
+
+            // Deltas after the snapshot offset: exactly the third create.
+            client.submitAndWait(iouSubmission(party))
+            val after = client.ledgerEnd()
+            val transactions = client.updates(
+                UpdateSubscription(parties = listOf(party), beginExclusive = snapshot.offset, endInclusive = after)
+            ).toList().filterIsInstance<LedgerUpdate.Transaction>()
+            assertEquals(1, transactions.size)
+        }
+    }
+
     private fun withLiveLedger(block: suspend (CantonClient, io.grpc.ManagedChannel, String) -> Unit) {
         assumeTrue(port != null, "CANTON_LEDGER_PORT not set; skipping live-ledger test")
         val darPath = System.getenv("CANTON_EXAMPLES_DAR")

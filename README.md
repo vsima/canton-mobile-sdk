@@ -38,7 +38,7 @@ Canton release.
 |---|---|---|
 | Minimum OS | iOS 18, macOS 15, tvOS 18, watchOS 11, visionOS 2 ¹ | Android API 21+ / any JVM 17+ |
 | Toolchain | Swift 6 / Xcode 16+ | JDK 17+, Gradle 9 |
-| Transport | [gRPC Swift 2](https://github.com/grpc/grpc-swift-2) (SwiftNIO) | [gRPC Kotlin](https://github.com/grpc/grpc-kotlin) + OkHttp |
+| Transport | [gRPC Swift 2](https://github.com/grpc/grpc-swift-2) over Network.framework | [gRPC Kotlin](https://github.com/grpc/grpc-kotlin) + OkHttp |
 
 ¹ Inherited from gRPC Swift 2, which supports these platforms as minimums.
 
@@ -133,6 +133,27 @@ let transaction = try await client.submitAndWaitForTransaction(
 val transaction = client.submitAndWaitForTransaction(
     CommandSubmission(commands = listOf(createCommand), actAs = listOf(party))
 )
+```
+
+### State sync: snapshot + stream
+
+Bootstrap local state from the active contract set, then follow the update
+stream from the snapshot's offset — no gaps, no duplicates:
+
+```swift
+let snapshot = try await client.activeContractsSnapshot(parties: [party])
+// apply snapshot.contracts to local state ...
+for try await update in client.updates(
+    .init(parties: [party], beginExclusive: snapshot.offset)
+) { /* deltas */ }
+```
+
+```kotlin
+val snapshot = client.activeContractsSnapshot(listOf(party))
+// apply snapshot.contracts to local state ...
+client.updates(
+    UpdateSubscription(parties = listOf(party), beginExclusive = snapshot.offset)
+).collect { /* deltas */ }
 ```
 
 ### Streaming updates
@@ -268,7 +289,8 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 - [x] Command submission with deduplication and automatic retry (`submitAndWait`, `submitAndWaitForTransaction`)
 - [x] Update streams (`AsyncSequence`/`Flow`) with reconnect and offset resumption
 - [x] Daml value builders + typed readers, held to shared golden vectors in `testdata/values/`
-- [ ] Network.framework transport (NIOTS) on Apple platforms
+- [x] Network.framework transport (NIOTS) on Apple platforms
+- [x] ACS bootstrap (`activeContractsSnapshot` + update stream = gap-free state sync)
 - [x] Integration harness in CI (both SDKs against a live Canton node)
 - [x] Typed errors decoding Canton's `google.rpc` details (code, correlation id, retry hints)
 - [ ] JSON Ledger API fallback transport for proxy-hostile networks

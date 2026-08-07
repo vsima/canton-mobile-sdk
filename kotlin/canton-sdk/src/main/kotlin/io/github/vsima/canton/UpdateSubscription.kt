@@ -29,16 +29,7 @@ public data class UpdateSubscription(
     }
 
     internal fun toRequest(begin: Long): GetUpdatesRequest {
-        val wildcard = TransactionFilterOuterClass.Filters.newBuilder()
-            .addCumulative(
-                TransactionFilterOuterClass.CumulativeFilter.newBuilder()
-                    .setWildcardFilter(TransactionFilterOuterClass.WildcardFilter.getDefaultInstance())
-            )
-            .build()
-        val eventFormat = TransactionFilterOuterClass.EventFormat.newBuilder()
-            .putAllFiltersByParty(parties.associateWith { wildcard })
-            .setVerbose(verbose)
-            .build()
+        val eventFormat = wildcardEventFormat(parties, verbose)
         val updateFormat = TransactionFilterOuterClass.UpdateFormat.newBuilder()
             .setIncludeTransactions(
                 TransactionFilterOuterClass.TransactionFormat.newBuilder()
@@ -61,4 +52,21 @@ public data class UpdateSubscription(
             .setUpdateFormat(updateFormat)
             .build()
     }
+}
+
+/** Wildcard (all templates) event format for [parties]. */
+internal fun wildcardEventFormat(
+    parties: List<String>,
+    verbose: Boolean,
+): TransactionFilterOuterClass.EventFormat {
+    val wildcard = TransactionFilterOuterClass.Filters.newBuilder()
+        .addCumulative(
+            TransactionFilterOuterClass.CumulativeFilter.newBuilder()
+                .setWildcardFilter(TransactionFilterOuterClass.WildcardFilter.getDefaultInstance())
+        )
+        .build()
+    return TransactionFilterOuterClass.EventFormat.newBuilder()
+        .putAllFiltersByParty(parties.associateWith { wildcard })
+        .setVerbose(verbose)
+        .build()
 }

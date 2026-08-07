@@ -42,14 +42,7 @@ public struct UpdateSubscription: Sendable {
     }
 
     func request(from begin: Int64) -> Com_Daml_Ledger_Api_V2_GetUpdatesRequest {
-        var wildcard = Com_Daml_Ledger_Api_V2_CumulativeFilter()
-        wildcard.wildcardFilter = Com_Daml_Ledger_Api_V2_WildcardFilter()
-        var filters = Com_Daml_Ledger_Api_V2_Filters()
-        filters.cumulative = [wildcard]
-
-        var eventFormat = Com_Daml_Ledger_Api_V2_EventFormat()
-        eventFormat.filtersByParty = Dictionary(uniqueKeysWithValues: parties.map { ($0, filters) })
-        eventFormat.verbose = verbose
+        let eventFormat = wildcardEventFormat(parties: parties, verbose: verbose)
 
         var transactionFormat = Com_Daml_Ledger_Api_V2_TransactionFormat()
         transactionFormat.eventFormat = eventFormat
@@ -69,4 +62,17 @@ public struct UpdateSubscription: Sendable {
         request.updateFormat = updateFormat
         return request
     }
+}
+
+/// Wildcard (all templates) event format for `parties`.
+func wildcardEventFormat(parties: [String], verbose: Bool) -> Com_Daml_Ledger_Api_V2_EventFormat {
+    var wildcard = Com_Daml_Ledger_Api_V2_CumulativeFilter()
+    wildcard.wildcardFilter = Com_Daml_Ledger_Api_V2_WildcardFilter()
+    var filters = Com_Daml_Ledger_Api_V2_Filters()
+    filters.cumulative = [wildcard]
+
+    var eventFormat = Com_Daml_Ledger_Api_V2_EventFormat()
+    eventFormat.filtersByParty = Dictionary(uniqueKeysWithValues: parties.map { ($0, filters) })
+    eventFormat.verbose = verbose
+    return eventFormat
 }

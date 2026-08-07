@@ -3,6 +3,7 @@ package io.github.vsima.canton
 import com.daml.ledger.api.v2.CommandServiceGrpcKt
 import com.daml.ledger.api.v2.CommandServiceOuterClass
 import com.daml.ledger.api.v2.StateServiceGrpcKt
+import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsRequest
 import com.daml.ledger.api.v2.StateServiceOuterClass.GetLedgerEndRequest
 import com.daml.ledger.api.v2.TransactionOuterClass
 import com.daml.ledger.api.v2.UpdateServiceGrpcKt
@@ -114,6 +115,58 @@ public class CantonClient(
         mapCantonErrors {
             stateService.getLedgerEnd(GetLedgerEndRequest.getDefaultInstance()).offset
         }
+    }
+
+    /**
+     * The active contract set visible to [parties] at [activeAtOffset]
+     * (all templates). Retryable failures restart the snapshot from scratch,
+     * so the result is never partial.
+     *
+     * @throws CantonException if the call ultimately fails.
+     */
+    public suspend fun activeContracts(
+        parties: List<String>,
+        activeAtOffset: Long,
+        verbose: Boolean = true,
+    ): List<ActiveContract> = withRetries(retryPolicy) {
+        mapCantonErrors {
+            val request = GetActiveContractsRequest.newBuilder()
+                .setActiveAtOffset(activeAtOffset)
+                .setEventFormat(wildcardEventFormat(parties, verbose))
+                .build()
+            val contracts = mutableListOf<ActiveContract>()
+            stateService.getActiveContracts(request).collect { response ->
+                if (response.hasActiveContract()) {
+                    val entry = response.activeContract
+                    contracts += ActiveContract(
+                        createdEvent = entry.createdEvent,
+                        synchronizerId = entry.synchronizerId,
+                        reassignmentCounter = entry.reassignmentCounter,
+                    )
+                }
+            }
+            contracts
+        }
+    }
+
+    /**
+     * The active contract set at the current ledger end — the starting point
+     * for a full state sync. Apply [ActiveContractsSnapshot.contracts], then
+     * consume [updates] from [ActiveContractsSnapshot.offset]:
+     *
+     * ```kotlin
+     * val snapshot = client.activeContractsSnapshot(listOf(party))
+     * // apply snapshot.contracts ...
+     * client.updates(UpdateSubscription(listOf(party), beginExclusive = snapshot.offset))
+     *     .collect { /* deltas, gap-free */ }
+     * ```
+     */
+    public suspend fun activeContractsSnapshot(
+        parties: List<String>,
+        verbose: Boolean = true,
+    ): ActiveContractsSnapshot {
+        val offset = ledgerEnd()
+        return ActiveContractsSnapshot(offset, activeContracts(parties, offset, verbose))
     }
 
     /**
