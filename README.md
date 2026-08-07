@@ -215,7 +215,8 @@ our PRs instead of in consumers' release builds.
 - [ ] Transaction stream decoding with reconnect / offset resumption
 - [ ] Daml value ↔ native type codecs (shared golden vectors in `testdata/`)
 - [ ] Network.framework transport (NIOTS) on Apple platforms
-- [ ] Integration harness in CI (both SDKs against a live Canton node)
+- [x] Integration harness in CI (both SDKs against a live Canton node)
+- [x] Typed errors decoding Canton's `google.rpc` details (code, correlation id, retry hints)
 - [ ] JSON Ledger API fallback transport for proxy-hostile networks
 - [x] Maven Central + first tagged release (`v0.1.0`)
 
