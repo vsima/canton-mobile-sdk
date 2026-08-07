@@ -115,6 +115,33 @@ val version = client.ledgerApiVersion()
 The full generated Ledger API surface (`com.daml.ledger.api.v2.*`) ships in
 `canton-ledger-api` and works with any `ManagedChannel` you build.
 
+### Error handling
+
+Failed calls throw a typed error decoded from Canton's structured
+`google.rpc` details — error code, correlation id, and retry hints:
+
+```swift
+do {
+    let version = try await client.ledgerApiVersion()
+} catch let error as CantonError {
+    if error.isRetryable {
+        // schedule a retry after error.retryDelay (server-suggested backoff)
+    }
+    log.error("\(error.errorCode ?? "UNKNOWN") — correlation id \(error.correlationId ?? "n/a")")
+}
+```
+
+```kotlin
+try {
+    client.ledgerApiVersion()
+} catch (e: CantonException) {
+    if (e.error.retryable) {
+        // schedule a retry after e.error.retryDelay (server-suggested backoff)
+    }
+    log.error("${e.error.errorCode} — correlation id ${e.error.correlationId}")
+}
+```
+
 ## Repository layout
 
 ```

@@ -35,11 +35,16 @@ public class CantonClient(
         VersionServiceGrpcKt.VersionServiceCoroutineStub(channel)
             .let { stub -> callCredentials?.let(stub::withCallCredentials) ?: stub }
 
-    /** Fetches the Ledger API version from the participant. */
-    public suspend fun ledgerApiVersion(): String =
+    /**
+     * Fetches the Ledger API version from the participant.
+     *
+     * @throws CantonException if the call fails with a gRPC error.
+     */
+    public suspend fun ledgerApiVersion(): String = mapCantonErrors {
         versionService
             .getLedgerApiVersion(GetLedgerApiVersionRequest.getDefaultInstance())
             .version
+    }
 
     override fun close() {
         channel.shutdown()

@@ -66,9 +66,13 @@ public struct CantonClient: Sendable {
     }
 
     /// Convenience: fetches the Ledger API version from the participant.
+    ///
+    /// - Throws: ``CantonError`` if the call fails with a gRPC error.
     public func ledgerApiVersion() async throws -> String {
-        try await withServices { services in
-            try await services.version.getLedgerApiVersion(.init()).version
+        try await mapCantonErrors {
+            try await withServices { services in
+                try await services.version.getLedgerApiVersion(.init()).version
+            }
         }
     }
 }
