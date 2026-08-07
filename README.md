@@ -293,8 +293,14 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 - [x] ACS bootstrap (`activeContractsSnapshot` + update stream = gap-free state sync)
 - [x] Integration harness in CI (both SDKs against a live Canton node)
 - [x] Typed errors decoding Canton's `google.rpc` details (code, correlation id, retry hints)
-- [ ] JSON Ledger API fallback transport for proxy-hostile networks
 - [x] Maven Central + first tagged release (`v0.1.0`)
+
+Deliberately out of scope: a JSON Ledger API fallback transport. The classic
+HTTP/2-hostility that motivates JSON fallbacks is a browser problem; native
+sockets (Network.framework on Apple, OkHttp on Android) don't hit it, and a
+second protocol would double the parity surface of everything above. We'll
+revisit only on evidence — transport-level failures attributable to specific
+carriers or MDM-managed networks.
 
 ## Contributing
 
