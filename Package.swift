@@ -13,6 +13,7 @@ let package = Package(
     ],
     products: [
         .library(name: "CantonKit", targets: ["CantonKit"]),
+        .library(name: "CantonWalletKit", targets: ["CantonWalletKit"]),
         .library(name: "CantonLedgerAPI", targets: ["CantonLedgerAPI"]),
     ],
     dependencies: [
@@ -44,10 +45,22 @@ let package = Package(
             ],
             path: "swift/Sources/CantonKit"
         ),
+        // Wallet-grade layer: external signing (device-held keys), party
+        // onboarding, token standard, and scan reads.
+        .target(
+            name: "CantonWalletKit",
+            dependencies: ["CantonKit", "CantonLedgerAPI"],
+            path: "swift/Sources/CantonWalletKit"
+        ),
         .testTarget(
             name: "CantonKitTests",
             dependencies: ["CantonKit"],
             path: "swift/Tests/CantonKitTests"
+        ),
+        .testTarget(
+            name: "CantonWalletKitTests",
+            dependencies: ["CantonWalletKit"],
+            path: "swift/Tests/CantonWalletKitTests"
         ),
     ]
 )
