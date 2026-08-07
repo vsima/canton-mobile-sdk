@@ -9,9 +9,11 @@ import com.daml.ledger.api.v2.admin.PartyManagementServiceOuterClass.AllocatePar
 import com.google.protobuf.ByteString
 import io.grpc.okhttp.OkHttpChannelBuilder
 import java.io.File
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -40,6 +42,44 @@ class CantonLedgerIntegrationTest {
 
     @Test
     fun `allocates a party, uploads a dar, and creates a contract`() {
+        withLiveLedger { client, _, party ->
+            val transaction = client.submitAndWaitForTransaction(iouSubmission(party))
+            println("created Iou contract in update ${transaction.updateId}")
+            assertTrue(transaction.updateId.isNotBlank())
+            assertTrue(transaction.eventsList.any { it.hasCreated() })
+        }
+    }
+
+    @Test
+    fun `streams committed transactions and resumes from an offset`() {
+        withLiveLedger { client, _, party ->
+            val before = client.ledgerEnd()
+            client.submitAndWait(iouSubmission(party))
+            client.submitAndWait(iouSubmission(party))
+            val after = client.ledgerEnd()
+
+            val updates = client.updates(
+                UpdateSubscription(parties = listOf(party), beginExclusive = before, endInclusive = after)
+            ).toList()
+            val transactions = updates.filterIsInstance<LedgerUpdate.Transaction>()
+            println("streamed ${transactions.size} transactions between offsets $before..$after")
+            assertEquals(2, transactions.size)
+            assertTrue(transactions.all { it.offset in (before + 1)..after })
+
+            // Resume mid-window: only the second transaction remains.
+            val resumed = client.updates(
+                UpdateSubscription(
+                    parties = listOf(party),
+                    beginExclusive = transactions.first().offset,
+                    endInclusive = after,
+                )
+            ).toList().filterIsInstance<LedgerUpdate.Transaction>()
+            assertEquals(1, resumed.size)
+            assertEquals(transactions.last().transaction.updateId, resumed.single().transaction.updateId)
+        }
+    }
+
+    private fun withLiveLedger(block: suspend (CantonClient, io.grpc.ManagedChannel, String) -> Unit) {
         assumeTrue(port != null, "CANTON_LEDGER_PORT not set; skipping live-ledger test")
         val darPath = System.getenv("CANTON_EXAMPLES_DAR")
         assumeTrue(darPath != null, "CANTON_EXAMPLES_DAR not set; skipping submission test")
@@ -59,23 +99,21 @@ class CantonLedgerIntegrationTest {
                             .build()
                     )
 
-                val transaction = client.submitAndWaitForTransaction(
-                    CommandSubmission(
-                        commands = listOf(iouCreate(payer = party)),
-                        actAs = listOf(party),
-                        // No auth on the test ledger, so user_id cannot be
-                        // defaulted from token claims and must be explicit.
-                        userId = "participant_admin",
-                    )
-                )
-                println("created Iou contract in update ${transaction.updateId}")
-                assertTrue(transaction.updateId.isNotBlank())
-                assertTrue(transaction.eventsList.any { it.hasCreated() })
+                block(client, channel, party)
             }
         } finally {
             client.close()
         }
     }
+
+    private fun iouSubmission(party: String): CommandSubmission =
+        CommandSubmission(
+            commands = listOf(iouCreate(payer = party)),
+            actAs = listOf(party),
+            // No auth on the test ledger, so user_id cannot be defaulted
+            // from token claims and must be explicit.
+            userId = "participant_admin",
+        )
 
     private fun iouCreate(payer: String): CommandsOuterClass.Command {
         fun value(build: ValueOuterClass.Value.Builder.() -> Unit): ValueOuterClass.Value =

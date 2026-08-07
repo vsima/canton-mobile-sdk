@@ -134,6 +134,33 @@ val transaction = client.submitAndWaitForTransaction(
 )
 ```
 
+### Streaming updates
+
+Subscribe to committed ledger updates as an `AsyncSequence` / `Flow`. The SDK
+reconnects on transient failures and resumes from the last received offset —
+one uninterrupted, gap-free stream, which is exactly what flaky mobile
+networks need:
+
+```swift
+for try await update in client.updates(
+    .init(parties: [party], beginExclusive: try await client.ledgerEnd())
+) {
+    if case .transaction(let transaction) = update {
+        // apply to local state; persist update.offset to resume next launch
+    }
+}
+```
+
+```kotlin
+client.updates(
+    UpdateSubscription(parties = listOf(party), beginExclusive = client.ledgerEnd())
+).collect { update ->
+    if (update is LedgerUpdate.Transaction) {
+        // apply to local state; persist update.offset to resume next launch
+    }
+}
+```
+
 ### Error handling
 
 Failed calls throw a typed error decoded from Canton's structured
@@ -231,7 +258,7 @@ our PRs instead of in consumers' release builds.
 ## Roadmap
 
 - [x] Command submission with deduplication and automatic retry (`submitAndWait`, `submitAndWaitForTransaction`)
-- [ ] Transaction stream decoding with reconnect / offset resumption
+- [x] Update streams (`AsyncSequence`/`Flow`) with reconnect and offset resumption
 - [ ] Daml value ↔ native type codecs (shared golden vectors in `testdata/`)
 - [ ] Network.framework transport (NIOTS) on Apple platforms
 - [x] Integration harness in CI (both SDKs against a live Canton node)
