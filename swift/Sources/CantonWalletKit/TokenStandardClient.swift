@@ -178,6 +178,45 @@ public struct TokenStandardClient: Sendable {
         )
     }
 
+    /// Requests a transfer preapproval for `party` (externally signed): once
+    /// `provider` — typically the party's validator operator — accepts and
+    /// pays, transfers to this party settle directly with no inbox
+    /// round-trip. Track acceptance via
+    /// ``ScanClient/transferPreapprovalByParty(_:)``.
+    public func requestTransferPreapproval(
+        driver: any SigningDriver,
+        party: AllocatedExternalParty,
+        provider: String,
+        dso: String,
+        synchronizerId: String,
+        userId: String? = nil
+    ) async throws {
+        var create = Com_Daml_Ledger_Api_V2_CreateCommand()
+        create.templateID = SpliceWallet.transferPreapprovalProposalTemplateID
+        create.createArguments = .of([
+            "receiver": .party(party.partyId),
+            "provider": .party(provider),
+            "expectedDso": .optional(.party(dso)),
+        ])
+        var command = Com_Daml_Ledger_Api_V2_Command()
+        command.create = create
+
+        let submission = InteractiveSubmissionClient(client: client)
+        let prepared = try await submission.prepare(
+            commands: [command],
+            actAs: party.partyId,
+            synchronizerId: synchronizerId,
+            userId: userId
+        )
+        try await submission.signAndExecute(
+            prepared: prepared,
+            driver: driver,
+            partyId: party.partyId,
+            keyFingerprint: party.publicKeyFingerprint,
+            userId: userId
+        )
+    }
+
     /// Accept/reject (receiver) or withdraw (sender) a pending instruction.
     public func exerciseTransferInstruction(
         driver: any SigningDriver,

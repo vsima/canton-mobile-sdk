@@ -57,6 +57,40 @@ public struct ScanClient: Sendable {
         return try ansEntry(entry)
     }
 
+    /// An active TransferPreapproval: senders can transfer to `receiver` directly.
+    public struct TransferPreapprovalInfo: Sendable, Equatable {
+        public let contractId: String
+        public let receiver: String?
+        public let provider: String?
+        public let expiresAt: Date?
+    }
+
+    /// The active preapproval for `partyId`, or nil if none — the signal
+    /// that transfers to this party settle in one step ("direct") instead of
+    /// the two-step offer flow.
+    public func transferPreapprovalByParty(_ partyId: String) async throws -> TransferPreapprovalInfo? {
+        guard
+            let response = try await get(path: "v0/transfer-preapprovals/by-party/\(partyId)"),
+            let contract = (response["transfer_preapproval"] as? [String: Any])?["contract"]
+                as? [String: Any],
+            let contractId = contract["contract_id"] as? String
+        else {
+            return nil
+        }
+        let payload = contract["payload"] as? [String: Any]
+        let expiresAt = (payload?["expiresAt"] as? String).flatMap { iso -> Date? in
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return fractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        }
+        return TransferPreapprovalInfo(
+            contractId: contractId,
+            receiver: payload?["receiver"] as? String,
+            provider: payload?["provider"] as? String,
+            expiresAt: expiresAt
+        )
+    }
+
     /// Lists ANS entries, optionally filtered by a name prefix.
     public func listAnsEntries(pageSize: Int = 100, namePrefix: String? = nil) async throws -> [AnsEntry] {
         var query = [URLQueryItem(name: "page_size", value: String(pageSize))]
