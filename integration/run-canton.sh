@@ -25,4 +25,7 @@ fi
 CONF="$DIST/examples/01-simple-topology/simple-topology.conf"
 BOOTSTRAP="$DIST/examples/01-simple-topology/simple-ping.canton"
 
+echo "Ledger API (participant1): localhost:5011 (plaintext, no auth)"
+echo "Run SDK integration tests with: CANTON_LEDGER_PORT=5011"
+
 exec "$DIST/bin/canton" daemon -c "$CONF" --bootstrap "$BOOTSTRAP"

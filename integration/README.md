@@ -18,8 +18,18 @@ For a full Canton Network stack (validator, Canton Coin, scan), see
 [cn-quickstart](https://github.com/digital-asset/cn-quickstart) instead — it
 is heavier but closer to production topology.
 
-## Status
+The example topology serves `participant1`'s Ledger API on
+`localhost:5011` (plaintext, no auth).
 
-The harness is not yet wired into CI. The plan: boot the simple topology in a
-scheduled workflow and run the same golden scenarios (see `testdata/`) through
-both the Swift and Kotlin SDKs against it.
+## Running the SDK integration tests
+
+Both SDKs ship live-ledger tests that are skipped unless `CANTON_LEDGER_PORT`
+is set:
+
+```sh
+CANTON_LEDGER_PORT=5011 swift test --filter CantonLedgerIntegrationTests
+cd kotlin && CANTON_LEDGER_PORT=5011 ./gradlew :canton-sdk:test --rerun
+```
+
+CI runs these weekly and on demand via the `integration` workflow
+(`workflow_dispatch`).

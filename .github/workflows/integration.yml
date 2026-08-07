@@ -1,0 +1,59 @@
+name: integration
+
+# Boots a real Canton participant + synchronizer (simple topology) and runs
+# both SDKs' live integration tests against it. Heavier than the unit
+# workflows, so it runs on demand and weekly rather than per-PR.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays 06:17 UTC
+
+jobs:
+  live-canton:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache canton distribution
+        uses: actions/cache@v4
+        with:
+          path: integration/.cache
+          key: canton-${{ hashFiles('proto/UPSTREAM_VERSION') }}
+
+      - name: Boot canton
+        run: |
+          integration/run-canton.sh > canton.log 2>&1 &
+
+      - name: Wait for the Ledger API
+        run: |
+          for i in $(seq 1 90); do
+            if nc -z 127.0.0.1 5011 2>/dev/null; then
+              echo "ledger api ready after ~$((i*5))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "canton did not become ready"
+          tail -50 canton.log
+          exit 1
+
+      - name: Swift live test
+        env:
+          CANTON_LEDGER_PORT: "5011"
+        run: swift test --filter CantonLedgerIntegrationTests
+
+      - name: Kotlin live test
+        env:
+          CANTON_LEDGER_PORT: "5011"
+        working-directory: kotlin
+        run: ./gradlew :canton-sdk:test --tests 'io.github.vsima.canton.CantonLedgerIntegrationTest' --rerun
+
+      - name: Canton log on failure
+        if: failure()
+        run: tail -100 canton.log
