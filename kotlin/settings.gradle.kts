@@ -23,3 +23,4 @@ rootProject.name = "canton-mobile-sdk"
 include(":canton-ledger-api")
 include(":canton-sdk")
 include(":canton-wallet-sdk")
+include(":canton-wallet-android")
