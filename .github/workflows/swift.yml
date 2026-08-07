@@ -1,0 +1,31 @@
+name: swift
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: swift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  check-generated:
+    name: generated stubs are fresh
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+      - name: Regenerate and diff
+        run: make check-generated

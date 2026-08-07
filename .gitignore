@@ -1,0 +1,19 @@
+.DS_Store
+
+# Swift
+.build/
+.swiftpm/
+
+# Gradle / Kotlin
+.gradle/
+build/
+.kotlin/
+local.properties
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# Integration harness downloads
+integration/.cache/

@@ -1,0 +1,9 @@
+version: v2
+modules:
+  - path: proto/ledger-api
+  - path: proto/ledger-api-value
+deps:
+  - buf.build/googleapis/googleapis
+breaking:
+  use:
+    - WIRE_JSON
