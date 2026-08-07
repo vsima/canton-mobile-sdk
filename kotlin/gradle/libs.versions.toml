@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.10"
-coroutines = "1.10.2"
+coroutines = "1.11.0"
 grpc = "1.83.1"
 grpcKotlin = "1.5.0"
 protobuf = "4.35.1"

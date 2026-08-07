@@ -37,5 +37,5 @@ kotlin {
 
 dependencies {
     implementation("io.github.vsima.canton:canton-sdk:0.1.0-SNAPSHOT")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 }
