@@ -10240,3 +10240,333 @@ ValidatedTopologyTransaction(
 2026-08-07 08:08:20,087 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
 2026-08-07 08:08:20,087 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
 2026-08-07 08:08:20,087 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:08:23,491 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:9e02bbf8c1c5902d148a9f4148f597e9 - Block (epochNumber=6, blockNumber=68) has been ordered
+2026-08-07 08:08:28,511 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7c8ac4c77dc28378efa5def40f91e73f - Block (epochNumber=6, blockNumber=69) has been ordered
+2026-08-07 08:08:28,512 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7c8ac4c77dc28378efa5def40f91e73f - Completed epoch 6, but no new epoch topology is available yet
+2026-08-07 08:08:28,512 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7c8ac4c77dc28378efa5def40f91e73f - Segment module 60 completed epoch 6
+2026-08-07 08:08:28,513 [canton-env-ec-36] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7c8ac4c77dc28378efa5def40f91e73f - Processing 1 new epoch topology messages
+2026-08-07 08:08:28,514 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7c8ac4c77dc28378efa5def40f91e73f - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(70, 71, 72, 73, 74, 75, 76, 77, 78, 79)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:08:28,515 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7c8ac4c77dc28378efa5def40f91e73f - New epoch 7 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:08:30,109 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:08:30,110 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:08:30,110 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:08:33,530 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:23a0bc31eb255ca70048a546bb671abb - Block (epochNumber=7, blockNumber=70) has been ordered
+2026-08-07 08:08:38,550 [canton-env-ec-36] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:fe034036b293909e7ce2b1cb5aad2987 - Block (epochNumber=7, blockNumber=71) has been ordered
+2026-08-07 08:08:40,128 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:08:40,128 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:08:40,128 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:08:43,572 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:fdbaff4975cecc2c0732f8ca2c4611ad - Block (epochNumber=7, blockNumber=72) has been ordered
+2026-08-07 08:08:48,594 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:69628e95622a9c5a66fa1bb1a69b3227 - Block (epochNumber=7, blockNumber=73) has been ordered
+2026-08-07 08:08:50,149 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:08:50,149 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:08:50,149 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:08:53,611 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:630cae3373877d5b8b0b2a81966ac3b1 - Block (epochNumber=7, blockNumber=74) has been ordered
+2026-08-07 08:08:58,632 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:a0ea194f4426288dc0b4d75d1458b0c2 - Block (epochNumber=7, blockNumber=75) has been ordered
+2026-08-07 08:09:00,166 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:09:00,166 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:09:00,166 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:09:03,652 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:2294a7ed56a99243b8f6c229c920469d - Block (epochNumber=7, blockNumber=76) has been ordered
+2026-08-07 08:09:08,673 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:198dd4b5c1fa797c570aa85c34ca3cc0 - Block (epochNumber=7, blockNumber=77) has been ordered
+2026-08-07 08:09:10,186 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:09:10,186 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:09:10,186 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:09:13,689 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:9d9ae6c8e70388b7a2500671802b2bd3 - Block (epochNumber=7, blockNumber=78) has been ordered
+2026-08-07 08:09:18,712 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:700cd837be7ef81978a0959b14bf9bc8 - Block (epochNumber=7, blockNumber=79) has been ordered
+2026-08-07 08:09:18,712 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:700cd837be7ef81978a0959b14bf9bc8 - Completed epoch 7, but no new epoch topology is available yet
+2026-08-07 08:09:18,713 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:700cd837be7ef81978a0959b14bf9bc8 - Segment module 70 completed epoch 7
+2026-08-07 08:09:18,714 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:700cd837be7ef81978a0959b14bf9bc8 - Processing 1 new epoch topology messages
+2026-08-07 08:09:18,715 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:700cd837be7ef81978a0959b14bf9bc8 - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(80, 81, 82, 83, 84, 85, 86, 87, 88, 89)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:09:18,716 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:700cd837be7ef81978a0959b14bf9bc8 - New epoch 8 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:09:20,209 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:09:20,209 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:09:20,209 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:09:23,731 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:39fe9b19ab410e329a3b6c066b9acafc - Block (epochNumber=8, blockNumber=80) has been ordered
+2026-08-07 08:09:28,752 [canton-env-ec-36] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:fab4cc132a18df6dc9c9100b0a6e0b4e - Block (epochNumber=8, blockNumber=81) has been ordered
+2026-08-07 08:09:30,226 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:09:30,228 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:09:30,228 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:09:33,770 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:a94418549b6462e5f93468ae5c0e2496 - Block (epochNumber=8, blockNumber=82) has been ordered
+2026-08-07 08:09:38,793 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:5b51a72679eaba9efa7646e9c1d605c5 - Block (epochNumber=8, blockNumber=83) has been ordered
+2026-08-07 08:09:40,245 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:09:40,245 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:09:40,245 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:09:43,810 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4da4e627582bce610bef52d25f6ef72e - Block (epochNumber=8, blockNumber=84) has been ordered
+2026-08-07 08:09:48,832 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:34c785213f938a5077fe30a0ae55cf08 - Block (epochNumber=8, blockNumber=85) has been ordered
+2026-08-07 08:09:50,266 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:09:50,267 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:09:50,267 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:09:53,852 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:18660382fe670a3f63d980f96406d613 - Block (epochNumber=8, blockNumber=86) has been ordered
+2026-08-07 08:09:58,869 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:b17189571b37bb0ac4596f533f6ee390 - Block (epochNumber=8, blockNumber=87) has been ordered
+2026-08-07 08:10:00,284 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:10:00,285 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:10:00,285 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:10:03,890 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:bcaa80179f6213eb763d6ba15a967a52 - Block (epochNumber=8, blockNumber=88) has been ordered
+2026-08-07 08:10:08,912 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:815e3b18e7e620324f8ace6652133e9a - Block (epochNumber=8, blockNumber=89) has been ordered
+2026-08-07 08:10:08,914 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:815e3b18e7e620324f8ace6652133e9a - Completed epoch 8, but no new epoch topology is available yet
+2026-08-07 08:10:08,914 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:815e3b18e7e620324f8ace6652133e9a - Segment module 80 completed epoch 8
+2026-08-07 08:10:08,915 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:815e3b18e7e620324f8ace6652133e9a - Processing 1 new epoch topology messages
+2026-08-07 08:10:08,918 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:815e3b18e7e620324f8ace6652133e9a - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(90, 91, 92, 93, 94, 95, 96, 97, 98, 99)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:10:08,920 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:815e3b18e7e620324f8ace6652133e9a - New epoch 9 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:10:10,305 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:10:10,305 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:10:10,306 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:10:13,940 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:a6c1bd0b11eecec9713284876b1a22e6 - Block (epochNumber=9, blockNumber=90) has been ordered
+2026-08-07 08:10:18,959 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:d639a61228612e0441c3d7e1cad8d88c - Block (epochNumber=9, blockNumber=91) has been ordered
+2026-08-07 08:10:20,326 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:10:20,327 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:10:20,327 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:10:23,981 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:9f35749bff2e688a49eec30890b4f219 - Block (epochNumber=9, blockNumber=92) has been ordered
+2026-08-07 08:10:29,002 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:c171f1269dc6548742634770a9118123 - Block (epochNumber=9, blockNumber=93) has been ordered
+2026-08-07 08:10:30,348 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:10:30,348 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:10:30,348 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:10:34,018 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:a2c19a2e676423114ae7fdfbe1bb5c1b - Block (epochNumber=9, blockNumber=94) has been ordered
+2026-08-07 08:10:39,037 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:2a46fb43a4903b808377ba0322717e4e - Block (epochNumber=9, blockNumber=95) has been ordered
+2026-08-07 08:10:40,367 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:10:40,367 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:10:40,367 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:10:44,058 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:2931b894c80889995a5d92d9c70b1219 - Block (epochNumber=9, blockNumber=96) has been ordered
+2026-08-07 08:10:49,081 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7463d4e2594d16539d584825dd0ab560 - Block (epochNumber=9, blockNumber=97) has been ordered
+2026-08-07 08:10:50,387 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:10:50,388 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:10:50,388 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:10:54,100 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:75ee8901fff30c6aa3f1ae044417bd01 - Block (epochNumber=9, blockNumber=98) has been ordered
+2026-08-07 08:10:59,119 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f5eb193dc80ce2afbaa5052b75c3ac0e - Block (epochNumber=9, blockNumber=99) has been ordered
+2026-08-07 08:10:59,121 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f5eb193dc80ce2afbaa5052b75c3ac0e - Completed epoch 9, but no new epoch topology is available yet
+2026-08-07 08:10:59,121 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f5eb193dc80ce2afbaa5052b75c3ac0e - Segment module 90 completed epoch 9
+2026-08-07 08:10:59,122 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f5eb193dc80ce2afbaa5052b75c3ac0e - Processing 1 new epoch topology messages
+2026-08-07 08:10:59,124 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f5eb193dc80ce2afbaa5052b75c3ac0e - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(100, 101, 102, 103, 104, 105, 106, 107, 108, 109)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:10:59,125 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f5eb193dc80ce2afbaa5052b75c3ac0e - New epoch 10 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:11:00,405 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:11:00,405 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:11:00,405 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:11:04,152 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:433dafd0032997695a28b9f2864c64ca - Block (epochNumber=10, blockNumber=100) has been ordered
+2026-08-07 08:11:09,170 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:df1f9531d2d6ea704d13007cd8ddfcc9 - Block (epochNumber=10, blockNumber=101) has been ordered
+2026-08-07 08:11:10,426 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:11:10,426 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:11:10,426 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:11:14,189 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:990dcda7776166b48fa0017a62602f77 - Block (epochNumber=10, blockNumber=102) has been ordered
+2026-08-07 08:11:19,209 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4ccc775c00a3b95542ec926acd7d1d5b - Block (epochNumber=10, blockNumber=103) has been ordered
+2026-08-07 08:11:20,443 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:11:20,444 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:11:20,444 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:11:24,228 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4e456f5b35b40839b7b047808f392017 - Block (epochNumber=10, blockNumber=104) has been ordered
+2026-08-07 08:11:29,248 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f4a9a4356dc8bfd7d7ce1809e332866b - Block (epochNumber=10, blockNumber=105) has been ordered
+2026-08-07 08:11:30,463 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:11:30,464 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:11:30,464 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:11:34,270 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f1cee67b85e7cb02cad2f8e9cec5ffda - Block (epochNumber=10, blockNumber=106) has been ordered
+2026-08-07 08:11:39,292 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:02f775aa9f0bf8458205aa82f4919726 - Block (epochNumber=10, blockNumber=107) has been ordered
+2026-08-07 08:11:40,483 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:11:40,484 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:11:40,484 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:11:44,308 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:6619e529925f5a1c1b6c6c39f30cb394 - Block (epochNumber=10, blockNumber=108) has been ordered
+2026-08-07 08:11:49,331 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4416152de2156301e9fff98c17e9b549 - Block (epochNumber=10, blockNumber=109) has been ordered
+2026-08-07 08:11:49,332 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4416152de2156301e9fff98c17e9b549 - Completed epoch 10, but no new epoch topology is available yet
+2026-08-07 08:11:49,332 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4416152de2156301e9fff98c17e9b549 - Segment module 100 completed epoch 10
+2026-08-07 08:11:49,333 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4416152de2156301e9fff98c17e9b549 - Processing 1 new epoch topology messages
+2026-08-07 08:11:49,336 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4416152de2156301e9fff98c17e9b549 - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(110, 111, 112, 113, 114, 115, 116, 117, 118, 119)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:11:49,336 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4416152de2156301e9fff98c17e9b549 - New epoch 11 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:11:50,505 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:11:50,505 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:11:50,505 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:11:54,356 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:7f116aab740e0a3b7ef58a3f800dccae - Block (epochNumber=11, blockNumber=110) has been ordered
+2026-08-07 08:11:59,377 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f3b9767a6a1d3c16f44879a751b00bb1 - Block (epochNumber=11, blockNumber=111) has been ordered
+2026-08-07 08:12:00,523 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:12:00,524 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:12:00,524 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:12:04,399 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1ac042e790533d9fcc03828496cbfca9 - Block (epochNumber=11, blockNumber=112) has been ordered
+2026-08-07 08:12:09,421 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1c5d3dd01b551b56d48b4d98f3e9156a - Block (epochNumber=11, blockNumber=113) has been ordered
+2026-08-07 08:12:10,545 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:12:10,546 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:12:10,546 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:12:14,435 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:dc69159ce617c48ce4f15a776adc1b64 - Block (epochNumber=11, blockNumber=114) has been ordered
+2026-08-07 08:12:19,460 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:279c3abe5a56dc2cc4ec6cb60cda0ae5 - Block (epochNumber=11, blockNumber=115) has been ordered
+2026-08-07 08:12:20,562 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:12:20,563 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:12:20,563 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:12:24,477 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:d8ca94111f7de6a555f3b9feb5f19bf3 - Block (epochNumber=11, blockNumber=116) has been ordered
+2026-08-07 08:12:29,498 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:f47fc9a97809099489e6a635dbb88c65 - Block (epochNumber=11, blockNumber=117) has been ordered
+2026-08-07 08:12:30,582 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:12:30,582 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:12:30,582 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:12:34,518 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ed2e781f65fa631d27e8cb0ed0c41af7 - Block (epochNumber=11, blockNumber=118) has been ordered
+2026-08-07 08:12:39,537 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:e50ee40cd55868c424a14984ffa6b42c - Block (epochNumber=11, blockNumber=119) has been ordered
+2026-08-07 08:12:39,538 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:e50ee40cd55868c424a14984ffa6b42c - Completed epoch 11, but no new epoch topology is available yet
+2026-08-07 08:12:39,538 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:e50ee40cd55868c424a14984ffa6b42c - Segment module 110 completed epoch 11
+2026-08-07 08:12:39,539 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:e50ee40cd55868c424a14984ffa6b42c - Processing 1 new epoch topology messages
+2026-08-07 08:12:39,541 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:e50ee40cd55868c424a14984ffa6b42c - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(120, 121, 122, 123, 124, 125, 126, 127, 128, 129)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:12:39,541 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:e50ee40cd55868c424a14984ffa6b42c - New epoch 12 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:12:40,602 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:12:40,602 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:12:40,603 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:12:44,555 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:28456598045602ac778c1c78877727af - Block (epochNumber=12, blockNumber=120) has been ordered
+2026-08-07 08:12:49,576 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:d54eff7baaeb94a8d50edf30b32103ed - Block (epochNumber=12, blockNumber=121) has been ordered
+2026-08-07 08:12:50,623 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:12:50,623 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:12:50,623 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:12:54,595 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4e730966fb2c48da67c7078d3e91b1a0 - Block (epochNumber=12, blockNumber=122) has been ordered
+2026-08-07 08:12:59,615 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:b79d9f6cceba896e4ba0e26afc415ac3 - Block (epochNumber=12, blockNumber=123) has been ordered
+2026-08-07 08:13:00,643 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:13:00,643 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:13:00,643 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:13:04,640 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:fc47cf432f6202f765d7410079e37acb - Block (epochNumber=12, blockNumber=124) has been ordered
+2026-08-07 08:13:09,657 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:b4169d43b8434751e6c1e3e80e682f7a - Block (epochNumber=12, blockNumber=125) has been ordered
+2026-08-07 08:13:10,662 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:13:10,662 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:13:10,662 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:13:14,675 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ca8bce62bf5098610763dadf1a5ff366 - Block (epochNumber=12, blockNumber=126) has been ordered
+2026-08-07 08:13:19,694 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:5879f4cad3181c7dbc93adf8883f22b6 - Block (epochNumber=12, blockNumber=127) has been ordered
+2026-08-07 08:13:20,682 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:13:20,683 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:13:20,683 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:13:24,715 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:51a41a8742faf20ffecaabc842251ac0 - Block (epochNumber=12, blockNumber=128) has been ordered
+2026-08-07 08:13:29,736 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ae3efc8fc020c2dc0ccd9ceb62ea1366 - Block (epochNumber=12, blockNumber=129) has been ordered
+2026-08-07 08:13:29,737 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ae3efc8fc020c2dc0ccd9ceb62ea1366 - Completed epoch 12, but no new epoch topology is available yet
+2026-08-07 08:13:29,737 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ae3efc8fc020c2dc0ccd9ceb62ea1366 - Segment module 120 completed epoch 12
+2026-08-07 08:13:29,738 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ae3efc8fc020c2dc0ccd9ceb62ea1366 - Processing 1 new epoch topology messages
+2026-08-07 08:13:29,739 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ae3efc8fc020c2dc0ccd9ceb62ea1366 - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(130, 131, 132, 133, 134, 135, 136, 137, 138, 139)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:13:29,740 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:ae3efc8fc020c2dc0ccd9ceb62ea1366 - New epoch 13 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:13:30,701 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:13:30,702 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:13:30,702 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:13:34,756 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:b908c05063b8cbf9779ee1b72571b2d1 - Block (epochNumber=13, blockNumber=130) has been ordered
+2026-08-07 08:13:39,774 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:6b941da2aa082bbe847de74a0d67c169 - Block (epochNumber=13, blockNumber=131) has been ordered
+2026-08-07 08:13:40,721 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:13:40,722 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:13:40,722 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:13:44,794 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1cfd391cd64efc9e4ee7af65d2a768ca - Block (epochNumber=13, blockNumber=132) has been ordered
+2026-08-07 08:13:49,816 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:9184ef4067c7167ca3f3196b4a983dd0 - Block (epochNumber=13, blockNumber=133) has been ordered
+2026-08-07 08:13:50,740 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:13:50,740 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:13:50,740 [canton-env-ec-138] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:13:54,836 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:21bc18e2064c3007dcd9f90f508d0347 - Block (epochNumber=13, blockNumber=134) has been ordered
+2026-08-07 08:13:59,855 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:cabc3caf33d7719d7f057e3649c4b05d - Block (epochNumber=13, blockNumber=135) has been ordered
+2026-08-07 08:14:00,760 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:14:00,761 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:14:00,761 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:14:04,873 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:8fcd45dda343a0554a8f5cc8adbab498 - Block (epochNumber=13, blockNumber=136) has been ordered
+2026-08-07 08:14:09,893 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:a23a150efc7ef7511876c833a141c06f - Block (epochNumber=13, blockNumber=137) has been ordered
+2026-08-07 08:14:10,781 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:14:10,781 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:14:10,781 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:14:14,916 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:bbd77b1b5047db9234d611932c18cbdc - Block (epochNumber=13, blockNumber=138) has been ordered
+2026-08-07 08:14:19,935 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1875587adb4fcc8312d968fc41f4f9d6 - Block (epochNumber=13, blockNumber=139) has been ordered
+2026-08-07 08:14:19,936 [canton-env-ec-43] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1875587adb4fcc8312d968fc41f4f9d6 - Completed epoch 13, but no new epoch topology is available yet
+2026-08-07 08:14:19,936 [canton-env-ec-41] INFO  c.d.c.s.s.b.b.c.m.c.i.SegmentClosingBehaviour:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1875587adb4fcc8312d968fc41f4f9d6 - Segment module 130 completed epoch 13
+2026-08-07 08:14:19,937 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1875587adb4fcc8312d968fc41f4f9d6 - Processing 1 new epoch topology messages
+2026-08-07 08:14:19,939 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssSegmentModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1875587adb4fcc8312d968fc41f4f9d6 - Received `Start` message, segment Segment(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec,List(140, 141, 142, 143, 144, 145, 146, 147, 148, 149)) is complete = false, view change in progress = false view number = 0
+2026-08-07 08:14:19,939 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:1875587adb4fcc8312d968fc41f4f9d6 - New epoch 14 has started with leaders = List(SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec)and blacklisted nodes = List(); ordering topology = OrderingTopology(
+  activationTime = 2026-08-07T12:04:07.684757Z,
+  size = 1,
+  weakQuorum = 1,
+  strongQuorum = 1,
+  nodesTopologyInfo = "SEQ::sequencer1::12207ed8604385b0d7cd46c3f91f31e290478dec92ee5e4e9b0f3aae2c25f38f30ec" -> NodeTopologyInfo(keyIds = "12205a9a2a60d1afe23c2bf547285ac207471a5033cb9d57b410eaaf5c2f6533099b"),
+  sequencingParameters = SequencingParameters(
+    pbftViewChangeTimeout = 10s,
+    segmentLength = 10,
+    blacklistConfig = BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist = Linear(maximumEpochBlacklisted = Some(250)), howManyCanWeBlacklist = NumFaultsTolerated)
+  ),
+  maxBytesToDecompress = 10485760,
+  areTherePendingCantonTopologyChanges = Some(false)
+)
+2026-08-07 08:14:20,800 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:14:20,800 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:14:20,801 [canton-env-ec-35] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:14:24,953 [canton-env-ec-42] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:fa01277e95a9ccdf5f867c0efab6fa6e - Block (epochNumber=14, blockNumber=140) has been ordered
+2026-08-07 08:14:29,975 [canton-env-ec-37] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:4ad49c8d60d3a5617aad717df7d3f5e8 - Block (epochNumber=14, blockNumber=141) has been ordered
+2026-08-07 08:14:30,821 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Scheduling backpressure check in 10 seconds
+2026-08-07 08:14:30,821 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Checking if sequencer core is still slow or if we can process new epoch topology messages (backPressureStartInstant = None, from block subscription: isSequencerCoreSlow = false, bufferSize = 0)
+2026-08-07 08:14:30,821 [canton-env-ec-34] INFO  c.d.c.s.s.b.b.c.m.o.OutputModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:defd63b55dd61c8d14fe949497495eb1 - Processing 0 new epoch topology messages
+2026-08-07 08:14:34,995 [canton-env-ec-38] INFO  c.d.c.s.s.b.b.c.m.c.i.IssConsensusModule:sequencer=sequencer1/psid=local::122064fb3e28::35-0 tid:a10eb592c727915e4d0eccb2b4be4243 - Block (epochNumber=14, blockNumber=142) has been ordered

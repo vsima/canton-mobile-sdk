@@ -267,7 +267,7 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 
 - [x] Command submission with deduplication and automatic retry (`submitAndWait`, `submitAndWaitForTransaction`)
 - [x] Update streams (`AsyncSequence`/`Flow`) with reconnect and offset resumption
-- [ ] Daml value ↔ native type codecs (shared golden vectors in `testdata/`)
+- [x] Daml value builders + typed readers, held to shared golden vectors in `testdata/values/`
 - [ ] Network.framework transport (NIOTS) on Apple platforms
 - [x] Integration harness in CI (both SDKs against a live Canton node)
 - [x] Typed errors decoding Canton's `google.rpc` details (code, correlation id, retry hints)

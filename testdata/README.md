@@ -12,6 +12,13 @@ testdata/
 └── events/        # raw transaction events → expected decoded models
 ```
 
-Nothing here yet — vectors land together with the first codec implementations.
+## values/
+
+`values/vectors.txt` — golden Daml `Value` encodings (base64-serialized
+protos), regenerated with `tools/generate-value-vectors.sh`. Both SDKs'
+golden-vector tests decode every vector with the typed readers and re-encode
+it with the builders; a vector either SDK doesn't handle fails that SDK's
+test, so coverage can't drift apart.
+
 When adding a vector, wire it into `swift/Tests` and `kotlin/canton-sdk/src/test`
 in the same PR.
