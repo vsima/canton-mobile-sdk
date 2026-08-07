@@ -384,8 +384,13 @@ natively, on the canonical gRPC Ledger API, with device-held keys.
       offer lands in the receiver's inbox → accept signed by the P-256
       driver → holdings transferred. `integration/run-localnet.sh` boots
       the environment; the loop lives in `LocalNetTokenStandardIntegrationTest`
-- [ ] Token standard hardening: DevNet registry run; taps, preapprovals,
-      traffic purchase (tracking CIP-0112 / Token Standard V2)
+- [x] Transfer preapprovals (live-verified on LocalNet): an external party
+      requests its own preapproval — externally signed — the validator
+      automation accepts and pays, and transfers to it settle in one step
+      (registry routes "direct", nothing lands in the inbox); scan lookup
+      via `transferPreapprovalByParty`
+- [ ] Token standard hardening: DevNet registry run; taps, preapproval
+      cancel/renew, traffic purchase (tracking CIP-0112 / Token Standard V2)
 - [x] Read layer, first slice (live-verified on LocalNet): parsed holdings
       history from ACS-delta update streams, ANS name resolution and DSO
       party via the Scan API

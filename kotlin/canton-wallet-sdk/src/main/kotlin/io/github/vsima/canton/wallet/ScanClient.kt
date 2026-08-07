@@ -63,6 +63,38 @@ public class ScanClient(
         return (response["entry"] as? JsonObject)?.let(::ansEntry)
     }
 
+    /** An active TransferPreapproval: senders can transfer to [receiver] directly. */
+    public data class TransferPreapprovalInfo(
+        val contractId: String,
+        val receiver: String?,
+        val provider: String?,
+        val expiresAt: java.time.Instant?,
+    )
+
+    /**
+     * The active preapproval for [partyId], or null if none — the signal
+     * that transfers to this party settle in one step ("direct") instead of
+     * the two-step offer flow.
+     */
+    public suspend fun transferPreapprovalByParty(partyId: String): TransferPreapprovalInfo? {
+        val url = "$baseUrl/v0/transfer-preapprovals/by-party/".toHttpUrl()
+            .newBuilder().addPathSegment(partyId).build()
+        val response = get(url.toString()) ?: return null
+        val contract = (response["transfer_preapproval"] as? JsonObject)
+            ?.let { it["contract"] as? JsonObject }
+            ?: return null
+        val payload = contract["payload"] as? JsonObject
+        return TransferPreapprovalInfo(
+            contractId = contract.stringField("contract_id")
+                ?: throw ScanException("preapproval contract missing contract_id"),
+            receiver = payload?.stringField("receiver"),
+            provider = payload?.stringField("provider"),
+            expiresAt = payload?.stringField("expiresAt")?.let {
+                runCatching { java.time.Instant.parse(it) }.getOrNull()
+            },
+        )
+    }
+
     /** Lists ANS entries, optionally filtered by a name prefix. */
     public suspend fun listAnsEntries(pageSize: Int = 100, namePrefix: String? = null): List<AnsEntry> {
         val url = "$baseUrl/v0/ans-entries".toHttpUrl().newBuilder()

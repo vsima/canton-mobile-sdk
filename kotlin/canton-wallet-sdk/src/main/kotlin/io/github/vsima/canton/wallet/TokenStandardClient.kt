@@ -184,6 +184,50 @@ public class TokenStandardClient(
         )
     }
 
+    /**
+     * Requests a transfer preapproval for [party] (externally signed): once
+     * [provider] — typically the party's validator operator — accepts and
+     * pays, transfers to this party settle directly with no inbox
+     * round-trip. Track acceptance via
+     * [ScanClient.transferPreapprovalByParty].
+     */
+    public suspend fun requestTransferPreapproval(
+        driver: SigningDriver,
+        party: AllocatedExternalParty,
+        provider: String,
+        dso: String,
+        synchronizerId: String,
+        userId: String? = null,
+    ) {
+        val create = CommandsOuterClass.Command.newBuilder()
+            .setCreate(
+                CommandsOuterClass.CreateCommand.newBuilder()
+                    .setTemplateId(SpliceWallet.transferPreapprovalProposalTemplateId)
+                    .setCreateArguments(
+                        DamlValues.recordOf(
+                            "receiver" to DamlValues.party(party.partyId),
+                            "provider" to DamlValues.party(provider),
+                            "expectedDso" to DamlValues.optional(DamlValues.party(dso)),
+                        )
+                    )
+            )
+            .build()
+
+        val prepared = submission.prepare(
+            commands = listOf(create),
+            actAs = party.partyId,
+            synchronizerId = synchronizerId,
+            userId = userId,
+        )
+        submission.signAndExecute(
+            prepared = prepared,
+            driver = driver,
+            partyId = party.partyId,
+            keyFingerprint = party.publicKeyFingerprint,
+            userId = userId,
+        )
+    }
+
     /** Accept/reject (receiver) or withdraw (sender) a pending instruction. */
     public suspend fun exerciseTransferInstruction(
         driver: SigningDriver,
