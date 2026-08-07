@@ -339,7 +339,7 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 
 | SDK version | Canton release | Ledger API |
 |---|---|---|
-| 0.1.x – 0.3.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
+| 0.1.x – 0.4.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
 
 ## Roadmap
 
