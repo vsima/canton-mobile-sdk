@@ -14,7 +14,13 @@ import GRPCNIOTransportHTTP2
 /// let version = try await client.ledgerApiVersion()
 /// ```
 public struct CantonClient: Sendable {
+    #if canImport(Network)
+    /// Network.framework-backed transport: better cellular/Wi-Fi handoff and
+    /// VPN behavior on Apple platforms.
+    public typealias Transport = HTTP2ClientTransport.TransportServices
+    #else
     public typealias Transport = HTTP2ClientTransport.Posix
+    #endif
 
     public let configuration: CantonClientConfiguration
 
@@ -54,11 +60,19 @@ public struct CantonClient: Sendable {
         if let tokenProvider = configuration.accessTokenProvider {
             interceptors.append(BearerTokenInterceptor(tokenProvider: tokenProvider))
         }
+        #if canImport(Network)
+        let transport: Transport = try .http2NIOTS(
+            target: .dns(host: configuration.host, port: configuration.port),
+            transportSecurity: configuration.useTLS ? .tls : .plaintext
+        )
+        #else
+        let transport: Transport = try .http2NIOPosix(
+            target: .dns(host: configuration.host, port: configuration.port),
+            transportSecurity: configuration.useTLS ? .tls : .plaintext
+        )
+        #endif
         return try await withGRPCClient(
-            transport: try .http2NIOPosix(
-                target: .dns(host: configuration.host, port: configuration.port),
-                transportSecurity: configuration.useTLS ? .tls : .plaintext
-            ),
+            transport: transport,
             interceptors: interceptors
         ) { grpc in
             try await body(Services(grpc: grpc))
@@ -107,6 +121,55 @@ public struct CantonClient: Sendable {
                 }
             }
         }
+    }
+
+    /// The active contract set visible to `parties` at `activeAtOffset`
+    /// (all templates). Retryable failures restart the snapshot from
+    /// scratch, so the result is never partial.
+    ///
+    /// - Throws: ``CantonError`` if the call ultimately fails.
+    public func activeContracts(
+        parties: [String],
+        activeAtOffset: Int64,
+        verbose: Bool = true
+    ) async throws -> [ActiveContract] {
+        try await withRetries(configuration.retryPolicy) {
+            try await mapCantonErrors {
+                try await withServices { services in
+                    var request = Com_Daml_Ledger_Api_V2_GetActiveContractsRequest()
+                    request.activeAtOffset = activeAtOffset
+                    request.eventFormat = wildcardEventFormat(parties: parties, verbose: verbose)
+                    return try await services.state.getActiveContracts(request) { response in
+                        var contracts: [ActiveContract] = []
+                        for try await message in response.messages {
+                            guard case .activeContract(let entry)? = message.contractEntry else { continue }
+                            contracts.append(
+                                ActiveContract(
+                                    createdEvent: entry.createdEvent,
+                                    synchronizerId: entry.synchronizerID,
+                                    reassignmentCounter: entry.reassignmentCounter
+                                )
+                            )
+                        }
+                        return contracts
+                    }
+                }
+            }
+        }
+    }
+
+    /// The active contract set at the current ledger end — the starting
+    /// point for a full state sync. Apply the snapshot's contracts, then
+    /// consume ``updates(_:)`` from the snapshot's offset for gap-free deltas.
+    public func activeContractsSnapshot(
+        parties: [String],
+        verbose: Bool = true
+    ) async throws -> ActiveContractsSnapshot {
+        let offset = try await ledgerEnd()
+        return ActiveContractsSnapshot(
+            offset: offset,
+            contracts: try await activeContracts(parties: parties, activeAtOffset: offset, verbose: verbose)
+        )
     }
 
     /// Streams ledger updates for `subscription`, transparently reconnecting

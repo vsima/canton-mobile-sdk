@@ -82,6 +82,33 @@ private var examplesDarPath: String? {
         #expect(resumed.first?.updateID == transactions.last?.updateID)
     }
 
+    @Test(.enabled(if: liveLedgerPort != nil && examplesDarPath != nil))
+    func bootstrapsFromAcsSnapshotAndFollowsWithUpdates() async throws {
+        let client = CantonClient(
+            configuration: .init(host: host, port: liveLedgerPort!, useTLS: false)
+        )
+        let party = try await allocatePartyAndUploadDar(client: client)
+        _ = try await client.submitAndWait(iouSubmission(party))
+        _ = try await client.submitAndWait(iouSubmission(party))
+
+        let snapshot = try await client.activeContractsSnapshot(parties: [party])
+        print("acs snapshot at offset \(snapshot.offset): \(snapshot.contracts.count) contracts")
+        #expect(snapshot.contracts.count == 2)
+        #expect(snapshot.contracts.allSatisfy { !$0.createdEvent.contractID.isEmpty })
+        #expect(snapshot.contracts.allSatisfy { !$0.synchronizerId.isEmpty })
+
+        // Deltas after the snapshot offset: exactly the third create.
+        _ = try await client.submitAndWait(iouSubmission(party))
+        let after = try await client.ledgerEnd()
+        var transactions = 0
+        for try await update in client.updates(
+            .init(parties: [party], beginExclusive: snapshot.offset, endInclusive: after)
+        ) {
+            if case .transaction = update { transactions += 1 }
+        }
+        #expect(transactions == 1)
+    }
+
     /// Admin setup through the generated clients: allocate a fresh party and
     /// make sure the CantonExamples package is on the participant.
     private func allocatePartyAndUploadDar(client: CantonClient) async throws -> String {
