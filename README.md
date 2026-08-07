@@ -346,6 +346,8 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 The goal is wallet-grade parity with the official TypeScript
 [`@canton-network/wallet-sdk`](https://github.com/canton-network/wallet) —
 natively, on the canonical gRPC Ledger API, with device-held keys.
+Coming from the TS SDK? There's a
+[method-level migration map](docs/migrating-from-wallet-sdk.md).
 
 **Core layer (shipped)**
 
