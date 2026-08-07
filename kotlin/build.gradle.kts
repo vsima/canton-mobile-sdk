@@ -8,5 +8,5 @@ plugins {
 
 allprojects {
     group = "io.github.vsima.canton"
-    version = "0.5.0-SNAPSHOT"
+    version = "0.5.0"
 }
