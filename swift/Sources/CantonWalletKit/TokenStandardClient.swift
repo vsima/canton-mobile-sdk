@@ -40,6 +40,86 @@ public struct TokenStandardClient: Sendable {
         ).map { try TransferInstruction.fromView(contractId: $0.0, view: $0.1) }
     }
 
+    /// One committed update's effect on a party's holdings: created holdings
+    /// carry full views (credits); archived holdings surface as contract ids —
+    /// resolve amounts against previously-seen state (the wallet's local UTXO
+    /// set), which ACS-delta streams keep consistent by construction.
+    public struct HoldingsChange: Sendable {
+        public let updateId: String
+        public let offset: Int64
+        public let recordTime: Date
+        public let created: [Holding]
+        public let archivedContractIds: [String]
+    }
+
+    /// The party's holdings history between two offsets: every committed
+    /// update that created or archived one of its CIP-0056 holdings, oldest
+    /// first. Defaults to genesis → current ledger end (a finite read).
+    public func holdingsHistory(
+        partyId: String,
+        beginExclusive: Int64 = 0,
+        endInclusive: Int64? = nil
+    ) async throws -> [HoldingsChange] {
+        let end: Int64
+        if let endInclusive {
+            end = endInclusive
+        } else {
+            end = try await client.ledgerEnd()
+        }
+        guard end > beginExclusive else { return [] }
+
+        var transactionFormat = Com_Daml_Ledger_Api_V2_TransactionFormat()
+        transactionFormat.eventFormat = interfaceEventFormat(
+            partyId: partyId,
+            interfaceId: TokenStandard.holdingInterfaceID
+        )
+        transactionFormat.transactionShape = .acsDelta
+        var request = Com_Daml_Ledger_Api_V2_GetUpdatesRequest()
+        request.beginExclusive = beginExclusive
+        request.endInclusive = end
+        request.updateFormat.includeTransactions = transactionFormat
+
+        let frozenRequest = request
+        return try await client.withServices { services in
+            try await services.update.getUpdates(frozenRequest) { response in
+                var changes: [HoldingsChange] = []
+                for try await message in response.messages {
+                    guard case .transaction(let transaction)? = message.update else { continue }
+                    var created: [Holding] = []
+                    var archived: [String] = []
+                    for event in transaction.events {
+                        switch event.event {
+                        case .created(let event):
+                            guard let view = event.interfaceViews.first(where: { $0.hasViewValue })
+                            else { continue }
+                            created.append(
+                                try Holding.fromView(contractId: event.contractID, view: view.viewValue)
+                            )
+                        case .archived(let event):
+                            archived.append(event.contractID)
+                        default:
+                            break
+                        }
+                    }
+                    guard !created.isEmpty || !archived.isEmpty else { continue }
+                    changes.append(
+                        HoldingsChange(
+                            updateId: transaction.updateID,
+                            offset: transaction.offset,
+                            recordTime: Date(
+                                timeIntervalSince1970: Double(transaction.recordTime.seconds)
+                                    + Double(transaction.recordTime.nanos) / 1_000_000_000
+                            ),
+                            created: created,
+                            archivedContractIds: archived
+                        )
+                    )
+                }
+                return changes
+            }
+        }
+    }
+
     /// Initiates a transfer as `party` (externally signed).
     public func createTransfer(
         driver: any SigningDriver,
@@ -167,12 +247,10 @@ public struct TokenStandardClient: Sendable {
         return registry
     }
 
-    private func activeInterfaceViews(
+    private func interfaceEventFormat(
         partyId: String,
         interfaceId: Com_Daml_Ledger_Api_V2_Identifier
-    ) async throws -> [(String, Com_Daml_Ledger_Api_V2_Record)] {
-        let ledgerEnd = try await client.ledgerEnd()
-
+    ) -> Com_Daml_Ledger_Api_V2_EventFormat {
         var interfaceFilter = Com_Daml_Ledger_Api_V2_InterfaceFilter()
         interfaceFilter.interfaceID = interfaceId
         interfaceFilter.includeInterfaceView = true
@@ -181,12 +259,23 @@ public struct TokenStandardClient: Sendable {
         var filters = Com_Daml_Ledger_Api_V2_Filters()
         filters.cumulative = [cumulative]
 
-        var request = Com_Daml_Ledger_Api_V2_GetActiveContractsRequest()
-        request.activeAtOffset = ledgerEnd
-        request.eventFormat.filtersByParty = [partyId: filters]
+        var eventFormat = Com_Daml_Ledger_Api_V2_EventFormat()
+        eventFormat.filtersByParty = [partyId: filters]
         // Non-verbose values omit record field labels, which the view
         // decoders match on.
-        request.eventFormat.verbose = true
+        eventFormat.verbose = true
+        return eventFormat
+    }
+
+    private func activeInterfaceViews(
+        partyId: String,
+        interfaceId: Com_Daml_Ledger_Api_V2_Identifier
+    ) async throws -> [(String, Com_Daml_Ledger_Api_V2_Record)] {
+        let ledgerEnd = try await client.ledgerEnd()
+
+        var request = Com_Daml_Ledger_Api_V2_GetActiveContractsRequest()
+        request.activeAtOffset = ledgerEnd
+        request.eventFormat = interfaceEventFormat(partyId: partyId, interfaceId: interfaceId)
 
         let frozenRequest = request
         return try await client.withServices { services in

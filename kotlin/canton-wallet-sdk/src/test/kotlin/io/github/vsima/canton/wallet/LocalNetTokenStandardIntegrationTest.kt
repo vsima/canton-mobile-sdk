@@ -196,6 +196,30 @@ class LocalNetTokenStandardIntegrationTest {
         println("external holdings: ${received.map { "${it.amount} ${it.instrumentId.id}" }}")
         assertEquals("Amulet", received.first().instrumentId.id)
         assertTrue(received.sumOf { it.amount } >= BigDecimal("4.0"))
+
+        // 8. WP3: the parsed holdings history shows the credit.
+        val history = externalTokens.holdingsHistory(external.partyId)
+        println("history: ${history.map { c -> "${c.created.map { it.amount }}/${c.archivedContractIds.size} archived" }}")
+        assertTrue(history.isNotEmpty(), "expected holdings history for the external party")
+        val credited = history.flatMap { it.created }.sumOf { it.amount }
+        assertTrue(credited >= BigDecimal("4.0"), "history credits should cover the transfer")
+
+        // The sender's history must show inputs being archived by the transfer.
+        val senderHistory = walletTokens.holdingsHistory(walletParty)
+        assertTrue(
+            senderHistory.any { it.archivedContractIds.isNotEmpty() },
+            "sender history should contain archived input holdings",
+        )
+
+        // 9. WP3: ANS resolution against the live scan.
+        val scan = ScanClient(env("SPLICE_LOCALNET_SCAN_URL", "http://scan.localhost:4000/api/scan"), http)
+        val dso = scan.dsoPartyId()
+        val dsoEntry = scan.lookupAnsEntryByName("dso.ans")
+        println("ans: dso.ans -> ${dsoEntry?.party?.take(20)}…, dso=$${dso.take(20)}…")
+        assertEquals(dso, dsoEntry?.party)
+        assertEquals(amulet.admin, dso)
+        assertTrue(scan.lookupAnsEntryByName("definitely-not-registered.ans") == null)
+        assertTrue(scan.listAnsEntries(pageSize = 10).any { it.name == "dso.ans" })
     }
 
     // -- validator (wallet) API -------------------------------------------
