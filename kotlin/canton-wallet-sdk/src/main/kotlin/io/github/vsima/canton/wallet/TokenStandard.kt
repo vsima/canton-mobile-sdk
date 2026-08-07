@@ -60,6 +60,25 @@ public object TokenStandard {
             .build()
 }
 
+/**
+ * Amulet-specific templates from the splice-wallet DAR — not part of
+ * CIP-0056, but required for the Canton Coin flows every wallet needs.
+ */
+public object SpliceWallet {
+    /**
+     * `TransferPreapprovalProposal`: created (and signed) by the receiver;
+     * the provider (typically the receiver's validator operator) accepts and
+     * pays, producing a `TransferPreapproval` that lets senders transfer
+     * directly — no inbox round-trip.
+     */
+    public val transferPreapprovalProposalTemplateId: ValueOuterClass.Identifier =
+        ValueOuterClass.Identifier.newBuilder()
+            .setPackageId("#splice-wallet")
+            .setModuleName("Splice.Wallet.TransferPreapproval")
+            .setEntityName("TransferPreapprovalProposal")
+            .build()
+}
+
 /** `Splice.Api.Token.HoldingV1.InstrumentId` — admin party + admin-unique id. */
 public data class InstrumentId(val admin: String, val id: String)
 
