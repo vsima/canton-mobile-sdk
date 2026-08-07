@@ -1,6 +1,14 @@
 # Canton Mobile SDK
 
-**Native Swift and Kotlin SDKs for the [Canton Network](https://www.canton.network/) Ledger API.**
+**The native wallet stack for the [Canton Network](https://www.canton.network/) — Swift and Kotlin.**
+
+The Swift/Kotlin peer of the official TypeScript
+[`@canton-network/wallet-sdk`](https://www.npmjs.com/package/@canton-network/wallet-sdk):
+everything a native app needs to talk to a Canton participant node, plus the
+wallet-grade layer — external party onboarding and externally-signed
+transactions with keys that never leave the device. Verified against a live
+participant: external parties onboard **and transact** with EC P-256 keys,
+the scheme Apple's Secure Enclave and Android StrongBox sign.
 
 [![swift](https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml)
 [![kotlin](https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml/badge.svg)](https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml)
@@ -15,17 +23,18 @@ over gRPC — command submission, transaction streams, active contracts, and
 JWT-authenticated connections — with idiomatic, strongly-typed APIs on each
 platform.
 
-> ⚠️ **Early days.** The generated Ledger API bindings are complete, but the
-> ergonomic layer currently covers connection management, auth, and version
-> negotiation. See the [roadmap](#roadmap) for what's next. Expect breaking
-> changes before 1.0.
+> ⚠️ **Early days.** The generated Ledger API bindings are complete and the
+> ergonomic layer covers connections, auth, command submission with dedup,
+> and gap-free state sync. The wallet layer (external signing, party
+> onboarding) is new; the CIP-0056 token standard client and Scan reads are
+> in progress. See the [roadmap](#roadmap). Expect breaking changes before 1.0.
 
 ## Packages
 
 | Platform | Package | Modules |
 |---|---|---|
-| iOS / macOS (Swift) | Swift Package Manager, this repo URL | `CantonKit` (ergonomic layer), `CantonLedgerAPI` (generated bindings) |
-| Android / JVM (Kotlin) | [Maven Central](https://central.sonatype.com/namespace/io.github.vsima.canton) | `io.github.vsima.canton:canton-sdk`, `io.github.vsima.canton:canton-ledger-api` |
+| iOS / macOS (Swift) | Swift Package Manager, this repo URL | `CantonWalletKit` (wallet layer), `CantonKit` (ergonomic layer), `CantonLedgerAPI` (generated bindings) |
+| Android / JVM (Kotlin) | [Maven Central](https://central.sonatype.com/namespace/io.github.vsima.canton) | `io.github.vsima.canton:canton-wallet-sdk`, `:canton-sdk`, `:canton-ledger-api` |
 
 Both SDKs are generated from the **same vendored protos** (pinned in
 [`proto/UPSTREAM_VERSION`](proto/UPSTREAM_VERSION)) and released in lockstep:
@@ -115,6 +124,52 @@ val version = client.ledgerApiVersion()
 
 The full generated Ledger API surface (`com.daml.ledger.api.v2.*`) ships in
 `canton-ledger-api` and works with any `ManagedChannel` you build.
+
+### Self-custody: external parties and external signing
+
+Onboard a party whose key lives on the device — in the Secure Enclave on
+Apple platforms — and transact as it. The participant prepares transactions
+and the driver signs their hashes; the node never holds the key and cannot
+act for the party unilaterally:
+
+```swift
+import CantonWalletKit
+
+let driver = try SecureEnclaveSigningDriver()   // P-256, enclave-resident
+// (or SoftwareSigningDriver.generate(.ed25519) — both verified live)
+
+let parties = ExternalPartyClient(client: client)
+let party = try await parties.allocate(
+    driver: driver,
+    synchronizerId: synchronizer,
+    partyHint: "alice"
+)
+
+let submission = InteractiveSubmissionClient(client: client)
+let prepared = try await submission.prepare(
+    commands: [createCommand], actAs: party.partyId, synchronizerId: synchronizer
+)
+try await submission.signAndExecute(
+    prepared: prepared, driver: driver,
+    partyId: party.partyId, keyFingerprint: party.publicKeyFingerprint
+)
+```
+
+```kotlin
+import io.github.vsima.canton.wallet.*
+
+val driver = SoftwareSigningDriver.generate(SoftwareSigningDriver.Algorithm.EC_P256)
+
+val parties = ExternalPartyClient(channel)
+val party = parties.allocate(driver, synchronizerId, partyHint = "alice")
+
+val submission = InteractiveSubmissionClient(channel)
+val prepared = submission.prepare(listOf(createCommand), party.partyId, synchronizerId)
+submission.signAndExecute(prepared, driver, party.partyId, party.publicKeyFingerprint)
+```
+
+Both flows run against a live Canton participant in CI
+(`ExternalPartyIntegrationTest[s]`), with Ed25519 and EC P-256 keys.
 
 ### Submitting commands
 
@@ -219,10 +274,12 @@ canton-mobile-sdk/
 ├── buf.yaml / buf.gen.yaml  # proto workspace + Swift codegen pipeline
 ├── swift/
 │   ├── Sources/CantonLedgerAPI/   # generated — never edited by hand
-│   └── Sources/CantonKit/         # ergonomic layer (auth, connections, workflows)
+│   ├── Sources/CantonKit/         # ergonomic layer (auth, connections, workflows)
+│   └── Sources/CantonWalletKit/   # wallet layer (signing drivers, external parties)
 ├── kotlin/
 │   ├── canton-ledger-api/         # generated bindings module (protoc at build time)
-│   └── canton-sdk/                # ergonomic layer
+│   ├── canton-sdk/                # ergonomic layer
+│   └── canton-wallet-sdk/         # wallet layer
 ├── examples/
 │   ├── android/                   # sample app; CI builds debug + R8 release
 │   └── ios/                       # sample app; xcodegen project, CI simulator build
@@ -286,6 +343,12 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 
 ## Roadmap
 
+The goal is wallet-grade parity with the official TypeScript
+[`@canton-network/wallet-sdk`](https://github.com/canton-network/wallet) —
+natively, on the canonical gRPC Ledger API, with device-held keys.
+
+**Core layer (shipped)**
+
 - [x] Command submission with deduplication and automatic retry (`submitAndWait`, `submitAndWaitForTransaction`)
 - [x] Update streams (`AsyncSequence`/`Flow`) with reconnect and offset resumption
 - [x] Daml value builders + typed readers, held to shared golden vectors in `testdata/values/`
@@ -294,6 +357,27 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 - [x] Integration harness in CI (both SDKs against a live Canton node)
 - [x] Typed errors decoding Canton's `google.rpc` details (code, correlation id, retry hints)
 - [x] Maven Central + first tagged release (`v0.1.0`)
+
+**Wallet layer**
+
+- [x] `SigningDriver` abstraction; software Ed25519/P-256 drivers; Secure
+      Enclave driver on Apple platforms (P-256, biometric-gated)
+- [x] External party onboarding (`GenerateExternalPartyTopology` →
+      `AllocateExternalParty`), live-verified with Ed25519 **and** EC P-256 keys
+- [x] Externally-signed transactions via the Interactive Submission Service
+      (prepare → sign → execute), live-verified end-to-end with P-256
+- [ ] Client-side re-computation/verification of the prepared-transaction hash
+      (don't trust the node's hash blindly) and completion tracking
+- [ ] StrongBox-backed Android driver (needs an Android library module);
+      Secure Enclave driver verified on physical hardware
+- [ ] CIP-0056 token standard client: holdings, two-step transfer
+      instructions (the wallet inbox), taps, preapprovals — plus the
+      Registry/Scan HTTP layer (tracking CIP-0112 / Token Standard V2)
+- [ ] Scan read layer: balances, parsed tx history (golden-vector matched
+      against the TS SDK), ANS lookup
+- [ ] Custody signing drivers (Fireblocks et al.) and a persistence protocol
+- [ ] CIP-0103 dApp connectivity (deferred; revisit when the mobile
+      transport story firms up)
 
 Deliberately out of scope: a JSON Ledger API fallback transport. The classic
 HTTP/2-hostility that motivates JSON fallbacks is a browser problem; native
