@@ -51,6 +51,22 @@ public enum TokenStandard {
     }
 }
 
+/// Amulet-specific templates from the splice-wallet DAR — not part of
+/// CIP-0056, but required for the Canton Coin flows every wallet needs.
+public enum SpliceWallet {
+    /// `TransferPreapprovalProposal`: created (and signed) by the receiver;
+    /// the provider (typically the receiver's validator operator) accepts and
+    /// pays, producing a `TransferPreapproval` that lets senders transfer
+    /// directly — no inbox round-trip.
+    public static let transferPreapprovalProposalTemplateID: Com_Daml_Ledger_Api_V2_Identifier = {
+        var id = Com_Daml_Ledger_Api_V2_Identifier()
+        id.packageID = "#splice-wallet"
+        id.moduleName = "Splice.Wallet.TransferPreapproval"
+        id.entityName = "TransferPreapprovalProposal"
+        return id
+    }()
+}
+
 /// `Splice.Api.Token.HoldingV1.InstrumentId` — admin party + admin-unique id.
 public struct InstrumentId: Sendable, Equatable {
     public let admin: String

@@ -225,6 +225,127 @@ class LocalNetTokenStandardIntegrationTest {
         assertTrue(scan.listAnsEntries(pageSize = 10).any { it.name == "dso.ans" })
     }
 
+    /**
+     * The preapproval loop: an external party requests its own preapproval
+     * (externally signed); the provider's validator automation accepts and
+     * pays; from then on transfers to it settle in one step — the registry
+     * routes "direct" and nothing lands in the inbox.
+     */
+    @Test
+    fun `preapproved external party receives direct transfers with no inbox step`() {
+        assumeTrue(enabled, "SPLICE_LOCALNET not set; skipping LocalNet test")
+        runBlocking {
+            val plain = OkHttpChannelBuilder.forAddress(ledgerHost, ledgerPort).usePlaintext().build()
+            try {
+                val adminChannel = authed(plain, adminUser)
+                val walletChannel = authed(plain, walletUser)
+                val registry = TransferRegistryClient(registryUrl, http)
+                val scan = ScanClient(
+                    env("SPLICE_LOCALNET_SCAN_URL", "http://scan.localhost:4000/api/scan"),
+                    http,
+                )
+
+                val walletParty = onboardWalletUser()
+                tap("333.0")
+                val walletTokens = TokenStandardClient(walletChannel, registry)
+                val amulet = retryUntil("wallet holdings visible") {
+                    walletTokens.listHoldings(walletParty).ifEmpty { null }
+                }.first().instrumentId
+
+                // External party requests its own preapproval, externally signed.
+                // On LocalNet the wallet party IS the validator operator, so it
+                // is the provider that accepts and pays.
+                val driver = SoftwareSigningDriver.generate(SoftwareSigningDriver.Algorithm.EC_P256)
+                val parties = ExternalPartyClient(adminChannel)
+                val synchronizer = parties.connectedSynchronizers().first()
+                val external = parties.allocate(driver, synchronizer, "preapproved", userId = adminUser)
+                println("preapproval external party: ${external.partyId}")
+
+                val externalTokens = TokenStandardClient(adminChannel, registry)
+                externalTokens.requestTransferPreapproval(
+                    driver = driver,
+                    party = external,
+                    provider = walletParty,
+                    dso = scan.dsoPartyId(),
+                    synchronizerId = synchronizer,
+                    userId = adminUser,
+                )
+
+                val preapproval = retryUntil("validator automation accepts the preapproval", attempts = 36) {
+                    scan.transferPreapprovalByParty(external.partyId)
+                }
+                println(
+                    "preapproval: ${preapproval.contractId.take(20)}… " +
+                        "provider=${preapproval.provider?.take(24)}…"
+                )
+
+                // Same factory flow as the offer test — but the registry now
+                // routes it directly.
+                val transfer = Transfer(
+                    sender = walletParty,
+                    receiver = external.partyId,
+                    amount = BigDecimal("3.0"),
+                    instrumentId = amulet,
+                    requestedAt = java.time.Instant.now(),
+                    executeBefore = java.time.Instant.now().plusSeconds(24 * 3600),
+                    inputHoldingCids = walletTokens.listHoldings(walletParty)
+                        .filter { it.lock == null }.map { it.contractId },
+                    meta = emptyMap(),
+                )
+                val factory = registry.transferFactory(
+                    ChoiceContextJson.transferFactoryChoiceArguments(amulet.admin, transfer)
+                )
+                println("factory kind=${factory.transferKind}")
+                assertEquals("direct", factory.transferKind)
+
+                val exercise = CommandsOuterClass.Command.newBuilder()
+                    .setExercise(
+                        CommandsOuterClass.ExerciseCommand.newBuilder()
+                            .setTemplateId(TokenStandard.transferFactoryInterfaceId)
+                            .setContractId(factory.factoryId)
+                            .setChoice("TransferFactory_Transfer")
+                            .setChoiceArgument(
+                                io.github.vsima.canton.DamlValues.record(
+                                    "expectedAdmin" to io.github.vsima.canton.DamlValues.party(amulet.admin),
+                                    "transfer" to transfer.toValue(),
+                                    "extraArgs" to ChoiceContextJson.extraArgsValue(
+                                        factory.choiceContext.choiceContextData
+                                    ),
+                                )
+                            )
+                    )
+                    .build()
+                CommandServiceGrpcKt.CommandServiceCoroutineStub(walletChannel).submitAndWait(
+                    SubmitAndWaitRequest.newBuilder()
+                        .setCommands(
+                            CommandsOuterClass.Commands.newBuilder()
+                                .setCommandId(java.util.UUID.randomUUID().toString())
+                                .setUserId(walletUser)
+                                .addActAs(walletParty)
+                                .addCommands(exercise)
+                                .addAllDisclosedContracts(
+                                    factory.choiceContext.disclosedContracts.map { it.toProto() }
+                                )
+                        )
+                        .build()
+                )
+
+                // One step: holdings arrive with no inbox entry to accept.
+                val received = retryUntil("preapproved holdings visible") {
+                    externalTokens.listHoldings(external.partyId).ifEmpty { null }
+                }
+                println("preapproved holdings: ${received.map { "${it.amount} ${it.instrumentId.id}" }}")
+                assertTrue(received.sumOf { it.amount } >= BigDecimal("2.0"))
+                assertTrue(
+                    externalTokens.pendingTransferInstructions(external.partyId).isEmpty(),
+                    "direct transfer must not create an inbox entry",
+                )
+            } finally {
+                plain.shutdownNow()
+            }
+        }
+    }
+
     // -- validator (wallet) API -------------------------------------------
 
     private fun onboardWalletUser(): String {
