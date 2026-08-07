@@ -381,8 +381,11 @@ Coming from the TS SDK? There's a
       TEE-backed keystore, and reports the achieved security level honestly.
       Hardware-verified on a OnePlus Open (Android 16): TEE-resident P-256
       key signs with Canton's encodings, reloads by alias, deletes cleanly
-- [ ] StrongBox branch verification (needs a device that ships the
-      StrongBox HAL — Pixel 3+, Samsung Galaxy S)
+- [x] StrongBox branch verified on a Samsung Galaxy Z Flip5:
+      `requireStrongBox = true` lands the key in the dedicated secure
+      element (`SecurityLevel.STRONGBOX`, no silent TEE fallback) and signs
+      with Canton's encodings — device-held keys are now hardware-verified
+      at every tier: Secure Enclave, StrongBox, and TEE
 - [x] CIP-0056 token standard client, first slice: holdings and the
       pending-instruction inbox (interface-filtered ACS reads), two-step
       transfers (create / accept / reject / withdraw) built from registry
