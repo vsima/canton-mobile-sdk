@@ -24,7 +24,7 @@ platform.
 | Platform | Package | Modules |
 |---|---|---|
 | iOS / macOS (Swift) | Swift Package Manager, this repo URL | `CantonKit` (ergonomic layer), `CantonLedgerAPI` (generated bindings) |
-| Android / JVM (Kotlin) | Maven Central *(coming soon)* | `io.github.vsima.canton:canton-sdk`, `io.github.vsima.canton:canton-ledger-api` |
+| Android / JVM (Kotlin) | [Maven Central](https://central.sonatype.com/namespace/io.github.vsima.canton) | `io.github.vsima.canton:canton-sdk`, `io.github.vsima.canton:canton-ledger-api` |
 
 Both SDKs are generated from the **same vendored protos** (pinned in
 [`proto/UPSTREAM_VERSION`](proto/UPSTREAM_VERSION)) and released in lockstep:
@@ -65,9 +65,6 @@ dependencies {
     implementation("io.github.vsima.canton:canton-sdk:0.1.0")
 }
 ```
-
-*(Not yet published to Maven Central — until the first release, build locally
-with `cd kotlin && ./gradlew publishToMavenLocal`.)*
 
 ## Quickstart
 
@@ -183,7 +180,7 @@ our PRs instead of in consumers' release builds.
 
 | SDK version | Canton release | Ledger API |
 |---|---|---|
-| 0.1.x (unreleased) | 3.5.11 | `com.daml.ledger.api.v2` |
+| 0.1.x | 3.5.11 | `com.daml.ledger.api.v2` |
 
 ## Roadmap
 
@@ -193,7 +190,7 @@ our PRs instead of in consumers' release builds.
 - [ ] Network.framework transport (NIOTS) on Apple platforms
 - [ ] Integration harness in CI (both SDKs against a live Canton node)
 - [ ] JSON Ledger API fallback transport for proxy-hostile networks
-- [ ] Maven Central + first tagged release
+- [x] Maven Central + first tagged release (`v0.1.0`)
 
 ## Contributing
 
