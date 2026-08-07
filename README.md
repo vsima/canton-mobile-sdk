@@ -374,10 +374,13 @@ natively, on the canonical gRPC Ledger API, with device-held keys.
       pending-instruction inbox (interface-filtered ACS reads), two-step
       transfers (create / accept / reject / withdraw) built from registry
       choice contexts, disclosed contracts, and external signing
-- [ ] Token standard hardening: exercise against a live registry
-      (Splice LocalNet, then DevNet) — encodings are spec- and
-      fixture-tested today; taps, preapprovals, traffic purchase to follow
-      (tracking CIP-0112 / Token Standard V2)
+- [x] Token standard verified against a live Amulet registry (Splice
+      LocalNet): tap → real holdings decoded → registry transfer factory →
+      offer lands in the receiver's inbox → accept signed by the P-256
+      driver → holdings transferred. `integration/run-localnet.sh` boots
+      the environment; the loop lives in `LocalNetTokenStandardIntegrationTest`
+- [ ] Token standard hardening: DevNet registry run; taps, preapprovals,
+      traffic purchase (tracking CIP-0112 / Token Standard V2)
 - [ ] Scan read layer: balances, parsed tx history (golden-vector matched
       against the TS SDK), ANS lookup
 - [ ] Custody signing drivers (Fireblocks et al.) and a persistence protocol

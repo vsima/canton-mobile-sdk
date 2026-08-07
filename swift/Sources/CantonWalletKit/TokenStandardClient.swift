@@ -184,7 +184,9 @@ public struct TokenStandardClient: Sendable {
         var request = Com_Daml_Ledger_Api_V2_GetActiveContractsRequest()
         request.activeAtOffset = ledgerEnd
         request.eventFormat.filtersByParty = [partyId: filters]
-        request.eventFormat.verbose = false
+        // Non-verbose values omit record field labels, which the view
+        // decoders match on.
+        request.eventFormat.verbose = true
 
         let frozenRequest = request
         return try await client.withServices { services in

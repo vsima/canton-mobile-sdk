@@ -184,7 +184,9 @@ public class TokenStandardClient(
             .setEventFormat(
                 TransactionFilterOuterClass.EventFormat.newBuilder()
                     .putFiltersByParty(partyId, filters)
-                    .setVerbose(false)
+                    // Non-verbose values omit record field labels, which the
+                    // view decoders match on.
+                    .setVerbose(true)
             )
             .build()
 
