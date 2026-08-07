@@ -1,0 +1,17 @@
+# Golden Daml Value vectors. Regenerate with tools/generate-value-vectors.sh
+# Every SDK's golden-vector test must handle every line; unknown names fail the test.
+unit CgA=
+bool_true EAE=
+int64 GFQ=
+date IPSZAQ==
+timestamp KQBAHhgkCgYA
+numeric MgwzLjE0MTU5MjY1MzU=
+party Og1hbGljZTo6MTIyYWJj
+text Qg1oZWxsbywgY2FudG9u
+contract_id SgowMGRlYWRiZWVm
+optional_none UgA=
+optional_some_text UgsKCUIHcHJlc2VudA==
+list_int64 WgwKAhgCCgIYBAoCGAY=
+record_amount ciUSEAoFdmFsdWUSBzIFMTAwLjASEQoIY3VycmVuY3kSBUIDVVNE
+variant_left_int64 egoSBExlZnQaAhgC
+enum_red ggEFEgNSZWQ=
