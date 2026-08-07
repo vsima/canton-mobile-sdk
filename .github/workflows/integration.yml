@@ -43,6 +43,9 @@ jobs:
           tail -50 canton.log
           exit 1
 
+      - name: Export CantonExamples dar path
+        run: echo "CANTON_EXAMPLES_DAR=$GITHUB_WORKSPACE/integration/.cache/canton-open-source-$(cat proto/UPSTREAM_VERSION)/dars/CantonExamples.dar" >> "$GITHUB_ENV"
+
       - name: Swift live test
         env:
           CANTON_LEDGER_PORT: "5011"
