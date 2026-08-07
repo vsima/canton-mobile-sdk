@@ -1,60 +1,203 @@
 package io.github.vsima.canton.wallet
 
+import com.daml.ledger.api.v2.CommandsOuterClass
+import com.daml.ledger.api.v2.StateServiceGrpcKt
+import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsRequest
+import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsResponse
+import com.daml.ledger.api.v2.StateServiceOuterClass.GetLedgerEndRequest
+import com.daml.ledger.api.v2.TransactionFilterOuterClass
+import com.daml.ledger.api.v2.ValueOuterClass
+import io.github.vsima.canton.DamlValues
+import io.grpc.Channel
 import java.math.BigDecimal
+import java.time.Duration
+import java.time.Instant
+import kotlinx.coroutines.flow.toList
 
 /**
- * CIP-0056 token standard client — WP2 skeleton.
+ * CIP-0056 token standard client: holdings, two-step transfers, and the
+ * pending-instruction inbox — the read/write surface a wallet renders.
  *
- * The surface mirrors `TokenStandardController` in Digital Asset's
- * TypeScript wallet SDK so migration docs can map 1:1. Beyond the Ledger
- * API, these operations need an HTTP client for the transfer-factory
- * Registry and Scan APIs (choice contexts, instrument metadata) — that
- * layer lands with this work package.
+ * Reads go straight to the ledger (ACS filtered by the standard's
+ * interfaces, so any compliant asset shows up with no per-asset
+ * integration). Writes are externally signed: registry context via
+ * [TransferRegistryClient], then prepare → sign → execute through
+ * [InteractiveSubmissionClient].
  *
  * Tracking: CIP-0112 (Token Standard V2 — batch settlement, account-based
- * holdings) will move this surface; build against V1, absorb V2.
+ * holdings) will extend this surface; V1 remains the interop baseline.
  */
-public class TokenStandardClient {
+public class TokenStandardClient(
+    channel: Channel,
+    private val registry: TransferRegistryClient? = null,
+) {
+    private val state = StateServiceGrpcKt.StateServiceCoroutineStub(channel)
+    private val submission = InteractiveSubmissionClient(channel)
 
-    public data class Holding(
-        val contractId: String,
-        val instrumentId: String,
-        val amount: BigDecimal,
-        val locked: Boolean,
-    )
-
-    public data class TransferInstruction(
-        val contractId: String,
-        val sender: String,
-        val receiver: String,
-        val instrumentId: String,
-        val amount: BigDecimal,
-    )
-
-    public enum class TransferInstructionChoice { ACCEPT, REJECT, WITHDRAW }
-
-    /** Active holding UTXOs for the party, from the ACS via the holding interface. */
+    /** Active holding UTXOs visible to [partyId], any CIP-0056 instrument. */
     public suspend fun listHoldings(partyId: String): List<Holding> =
-        TODO("WP2: query ACS by holding interface id")
+        activeInterfaceViews(partyId, TokenStandard.holdingInterfaceId)
+            .map { (contractId, view) -> holdingFromView(contractId, view) }
 
-    /** Two-step transfer: creates a TransferInstruction the receiver must accept. */
-    public suspend fun createTransfer(
-        sender: String,
-        receiver: String,
-        instrumentId: String,
-        amount: BigDecimal,
-    ): TransferInstruction = TODO("WP2: registry choice context + exercise via InteractiveSubmissionClient")
-
-    /** Pending two-step transfers awaiting this party's action — the wallet inbox. */
+    /**
+     * Pending two-step transfers visible to [partyId] — the wallet inbox.
+     * The receiver acts on `TransferPendingReceiverAcceptance` entries; the
+     * sender may withdraw anything still pending.
+     */
     public suspend fun pendingTransferInstructions(partyId: String): List<TransferInstruction> =
-        TODO("WP2: ACS query on TransferInstruction interface views")
+        activeInterfaceViews(partyId, TokenStandard.transferInstructionInterfaceId)
+            .map { (contractId, view) -> transferInstructionFromView(contractId, view) }
 
+    /**
+     * Initiates a transfer as [party] (externally signed). Returns the
+     * update id is not yet surfaced — track completion via the instruction
+     * appearing in the receiver's inbox or the sender's ACS delta.
+     */
+    public suspend fun createTransfer(
+        driver: SigningDriver,
+        party: AllocatedExternalParty,
+        receiver: String,
+        instrumentId: InstrumentId,
+        amount: BigDecimal,
+        inputHoldingCids: List<String>,
+        synchronizerId: String,
+        userId: String? = null,
+        meta: Map<String, String> = emptyMap(),
+        requestedAt: Instant = Instant.now(),
+        executeBefore: Instant = Instant.now().plus(Duration.ofHours(24)),
+    ) {
+        val registry = requireRegistry()
+        val transfer = Transfer(
+            sender = party.partyId,
+            receiver = receiver,
+            amount = amount,
+            instrumentId = instrumentId,
+            requestedAt = requestedAt,
+            executeBefore = executeBefore,
+            inputHoldingCids = inputHoldingCids,
+            meta = meta,
+        )
+
+        val factory = registry.transferFactory(
+            ChoiceContextJson.transferFactoryChoiceArguments(instrumentId.admin, transfer)
+        )
+
+        val exercise = CommandsOuterClass.Command.newBuilder()
+            .setExercise(
+                CommandsOuterClass.ExerciseCommand.newBuilder()
+                    .setTemplateId(TokenStandard.transferFactoryInterfaceId)
+                    .setContractId(factory.factoryId)
+                    .setChoice("TransferFactory_Transfer")
+                    .setChoiceArgument(
+                        DamlValues.record(
+                            "expectedAdmin" to DamlValues.party(instrumentId.admin),
+                            "transfer" to transfer.toValue(),
+                            "extraArgs" to ChoiceContextJson.extraArgsValue(
+                                factory.choiceContext.choiceContextData
+                            ),
+                        )
+                    )
+            )
+            .build()
+
+        signAndSubmit(
+            driver, party, exercise, synchronizerId, userId,
+            factory.choiceContext.disclosedContracts,
+        )
+    }
+
+    /** Accept/reject (receiver) or withdraw (sender) a pending instruction. */
     public suspend fun exerciseTransferInstruction(
-        instruction: TransferInstruction,
+        driver: SigningDriver,
+        party: AllocatedExternalParty,
+        transferInstructionId: String,
         choice: TransferInstructionChoice,
-    ): Unit = TODO("WP2: registry choice context + exercise")
+        synchronizerId: String,
+        userId: String? = null,
+    ) {
+        val registry = requireRegistry()
+        val context = registry.transferInstructionChoiceContext(transferInstructionId, choice)
 
-    /** DevNet faucet ("tap") — mint test instrument to the receiver. */
-    public suspend fun tap(receiver: String, amount: BigDecimal): Unit =
-        TODO("WP2: registry tap factory")
+        val exercise = CommandsOuterClass.Command.newBuilder()
+            .setExercise(
+                CommandsOuterClass.ExerciseCommand.newBuilder()
+                    .setTemplateId(TokenStandard.transferInstructionInterfaceId)
+                    .setContractId(transferInstructionId)
+                    .setChoice(choice.choiceName)
+                    .setChoiceArgument(
+                        DamlValues.record(
+                            "extraArgs" to ChoiceContextJson.extraArgsValue(context.choiceContextData)
+                        )
+                    )
+            )
+            .build()
+
+        signAndSubmit(driver, party, exercise, synchronizerId, userId, context.disclosedContracts)
+    }
+
+    private suspend fun signAndSubmit(
+        driver: SigningDriver,
+        party: AllocatedExternalParty,
+        command: CommandsOuterClass.Command,
+        synchronizerId: String,
+        userId: String?,
+        disclosed: List<TransferRegistryClient.RegistryDisclosedContract>,
+    ) {
+        val prepared = submission.prepare(
+            commands = listOf(command),
+            actAs = party.partyId,
+            synchronizerId = synchronizerId,
+            userId = userId,
+            disclosedContracts = disclosed.map { it.toProto() },
+        )
+        submission.signAndExecute(
+            prepared = prepared,
+            driver = driver,
+            partyId = party.partyId,
+            keyFingerprint = party.publicKeyFingerprint,
+            userId = userId,
+        )
+    }
+
+    private fun requireRegistry(): TransferRegistryClient =
+        registry ?: throw IllegalStateException(
+            "this operation needs a TransferRegistryClient; pass one to TokenStandardClient"
+        )
+
+    private suspend fun activeInterfaceViews(
+        partyId: String,
+        interfaceId: ValueOuterClass.Identifier,
+    ): List<Pair<String, ValueOuterClass.Record>> {
+        val ledgerEnd = state.getLedgerEnd(GetLedgerEndRequest.getDefaultInstance()).offset
+        val filters = TransactionFilterOuterClass.Filters.newBuilder()
+            .addCumulative(
+                TransactionFilterOuterClass.CumulativeFilter.newBuilder()
+                    .setInterfaceFilter(
+                        TransactionFilterOuterClass.InterfaceFilter.newBuilder()
+                            .setInterfaceId(interfaceId)
+                            .setIncludeInterfaceView(true)
+                    )
+            )
+            .build()
+        val request = GetActiveContractsRequest.newBuilder()
+            .setActiveAtOffset(ledgerEnd)
+            .setEventFormat(
+                TransactionFilterOuterClass.EventFormat.newBuilder()
+                    .putFiltersByParty(partyId, filters)
+                    .setVerbose(false)
+            )
+            .build()
+
+        return state.getActiveContracts(request).toList().mapNotNull { response ->
+            if (response.contractEntryCase !=
+                GetActiveContractsResponse.ContractEntryCase.ACTIVE_CONTRACT
+            ) {
+                return@mapNotNull null
+            }
+            val created = response.activeContract.createdEvent
+            val view = created.interfaceViewsList.firstOrNull { it.hasViewValue() }
+                ?: return@mapNotNull null
+            created.contractId to view.viewValue
+        }
+    }
 }

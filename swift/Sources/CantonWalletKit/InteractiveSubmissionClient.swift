@@ -32,7 +32,8 @@ public struct InteractiveSubmissionClient: Sendable {
         actAs: String,
         synchronizerId: String,
         userId: String? = nil,
-        commandId: String = UUID().uuidString
+        commandId: String = UUID().uuidString,
+        disclosedContracts: [Com_Daml_Ledger_Api_V2_DisclosedContract] = []
     ) async throws -> Com_Daml_Ledger_Api_V2_Interactive_PrepareSubmissionResponse {
         var request = Com_Daml_Ledger_Api_V2_Interactive_PrepareSubmissionRequest()
         request.commands = commands
@@ -42,6 +43,7 @@ public struct InteractiveSubmissionClient: Sendable {
         if let userId {
             request.userID = userId
         }
+        request.disclosedContracts = disclosedContracts
         request.verboseHashing = false
         let frozenRequest = request
         return try await client.withServices { services in
