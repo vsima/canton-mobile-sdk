@@ -76,7 +76,7 @@ class LocalNetTokenStandardIntegrationTest {
             else Dns.SYSTEM.lookup(hostname)
     }
 
-    private val http = OkHttpClient.Builder()
+    internal val http = OkHttpClient.Builder()
         .dns(loopbackLocalhostDns)
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
@@ -348,7 +348,7 @@ class LocalNetTokenStandardIntegrationTest {
 
     // -- validator (wallet) API -------------------------------------------
 
-    private fun onboardWalletUser(): String {
+    internal fun onboardWalletUser(): String {
         val status = validatorGet("v0/wallet/user-status")
         if (status?.get("party_id")?.jsonPrimitive?.content?.isNotEmpty() == true &&
             status["user_onboarded"]?.jsonPrimitive?.content == "true"
@@ -361,7 +361,7 @@ class LocalNetTokenStandardIntegrationTest {
         return registered.getValue("party_id").jsonPrimitive.content
     }
 
-    private fun tap(amount: String) {
+    internal fun tap(amount: String) {
         retryUntilBlocking("tap $amount (waits for an open mining round)") {
             validatorPost("v0/wallet/tap", """{"amount": "$amount"}""")
         }
@@ -403,7 +403,7 @@ class LocalNetTokenStandardIntegrationTest {
         return "$header.$payload.${b64(mac.doFinal("$header.$payload".toByteArray()))}"
     }
 
-    private fun authed(channel: Channel, sub: String): Channel {
+    internal fun authed(channel: Channel, sub: String): Channel {
         val token = jwt(sub)
         val interceptor = object : ClientInterceptor {
             override fun <ReqT, RespT> interceptCall(
