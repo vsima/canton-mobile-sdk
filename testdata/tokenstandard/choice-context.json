@@ -1,0 +1,24 @@
+{
+  "values": {
+    "amulet-rules": { "tag": "AV_ContractId", "value": "00aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899" },
+    "open-round": { "tag": "AV_ContractId", "value": "00ffeeddccbbaa99887766554433221100ffeeddccbbaa998877665544332211ff" },
+    "note": { "tag": "AV_Text", "value": "token-standard choice context" },
+    "count": { "tag": "AV_Int", "value": "42" },
+    "fee": { "tag": "AV_Decimal", "value": "1.5" },
+    "featured": { "tag": "AV_Bool", "value": true },
+    "expiry-date": { "tag": "AV_Date", "value": "2026-08-07" },
+    "as-of": { "tag": "AV_Time", "value": "2026-08-07T12:00:00Z" },
+    "timeout": { "tag": "AV_RelTime", "value": { "microseconds": "3600000000" } },
+    "operator": { "tag": "AV_Party", "value": "operator::1220aabbcc" },
+    "extra-cids": {
+      "tag": "AV_List",
+      "value": [
+        { "tag": "AV_ContractId", "value": "0011223344556677889900112233445566778899001122334455667788990011aa" }
+      ]
+    },
+    "nested": {
+      "tag": "AV_Map",
+      "value": { "inner": { "tag": "AV_Text", "value": "nested-value" } }
+    }
+  }
+}
