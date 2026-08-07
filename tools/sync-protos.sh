@@ -33,5 +33,15 @@ for proto_root in "${PROTO_ROOTS[@]}"; do
 done
 
 echo "$VERSION" > "$ROOT/proto/UPSTREAM_VERSION"
-echo "Synced Ledger API protos from canton ${VERSION}."
+
+# google.rpc protos (referenced by the Ledger API, e.g. Completion.status, and
+# by Canton's rich error details), vendored from googleapis at a pinned ref and
+# compiled into both SDKs. Bump proto/googleapis/GOOGLEAPIS_REF to update.
+GOOGLEAPIS_REF="$(cat "$ROOT/proto/googleapis/GOOGLEAPIS_REF")"
+for f in status error_details; do
+  curl -fsSL "https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_REF}/google/rpc/${f}.proto" \
+    -o "$ROOT/proto/googleapis/google/rpc/${f}.proto"
+done
+
+echo "Synced Ledger API protos from canton ${VERSION} (googleapis @ ${GOOGLEAPIS_REF:0:12})."
 echo "Next: make generate && git diff"
