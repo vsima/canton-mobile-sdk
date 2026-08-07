@@ -9,6 +9,9 @@ name: release
 on:
   push:
     tags: ['v*']
+  # Manual runs publish WITHOUT auto-release: a -SNAPSHOT version goes to the
+  # snapshot channel; a release version is staged for review in the portal UI.
+  workflow_dispatch:
 
 jobs:
   maven-central:
@@ -24,7 +27,7 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - name: Publish to Maven Central
-        run: ./gradlew publishAndReleaseToMavenCentral
+        run: ./gradlew ${{ github.event_name == 'push' && 'publishAndReleaseToMavenCentral' || 'publishToMavenCentral' }}
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
