@@ -368,8 +368,13 @@ natively, on the canonical gRPC Ledger API, with device-held keys.
       (prepare → sign → execute), live-verified end-to-end with P-256
 - [ ] Client-side re-computation/verification of the prepared-transaction hash
       (don't trust the node's hash blindly) and completion tracking
-- [ ] StrongBox-backed Android driver (needs an Android library module);
-      Secure Enclave driver verified on physical hardware
+- [x] Secure Enclave driver verified on physical hardware (iPhone XR):
+      enclave-resident key signs with Canton's exact encodings and its
+      handle round-trips through `dataRepresentation`. Also passes
+      tool-hosted on Apple Silicon Macs (`SecureEnclaveIntegrationTests`),
+      so ordinary CI exercises the enclave; the sample app carries an
+      on-device self-check (`EnclaveSelfCheck`, drive via `devicectl`)
+- [ ] StrongBox-backed Android driver (needs an Android library module)
 - [x] CIP-0056 token standard client, first slice: holdings and the
       pending-instruction inbox (interface-filtered ACS reads), two-step
       transfers (create / accept / reject / withdraw) built from registry
