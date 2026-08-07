@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build-test:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Build
@@ -21,7 +21,7 @@ jobs:
 
   check-generated:
     name: generated stubs are fresh
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - uses: bufbuild/buf-action@v1
