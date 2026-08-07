@@ -381,8 +381,12 @@ natively, on the canonical gRPC Ledger API, with device-held keys.
       the environment; the loop lives in `LocalNetTokenStandardIntegrationTest`
 - [ ] Token standard hardening: DevNet registry run; taps, preapprovals,
       traffic purchase (tracking CIP-0112 / Token Standard V2)
-- [ ] Scan read layer: balances, parsed tx history (golden-vector matched
-      against the TS SDK), ANS lookup
+- [x] Read layer, first slice (live-verified on LocalNet): parsed holdings
+      history from ACS-delta update streams, ANS name resolution and DSO
+      party via the Scan API
+- [ ] Read layer hardening: scan holdings summaries (needs server-side ACS
+      snapshots), richer transfer-level history semantics matched to the TS
+      SDK via golden vectors
 - [ ] Custody signing drivers (Fireblocks et al.) and a persistence protocol
 - [ ] CIP-0103 dApp connectivity (deferred; revisit when the mobile
       transport story firms up)
