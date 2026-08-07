@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Victor Sima
+// SPDX-License-Identifier: Apache-2.0
+
 import CantonLedgerAPI
 
 /// One element of the ledger update stream. Every update carries the

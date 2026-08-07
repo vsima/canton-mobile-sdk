@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Victor Sima
+// SPDX-License-Identifier: Apache-2.0
+
 package io.github.vsima.canton.wallet
 
 import com.daml.ledger.api.v2.CommandsOuterClass
