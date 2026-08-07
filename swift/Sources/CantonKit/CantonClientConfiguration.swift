@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Victor Sima
+// SPDX-License-Identifier: Apache-2.0
+
 /// Configuration for connecting to a Canton participant's Ledger API.
 public struct CantonClientConfiguration: Sendable {
     /// Hostname of the participant node exposing the gRPC Ledger API.

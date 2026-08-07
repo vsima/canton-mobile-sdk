@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Victor Sima
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
 /// A scan call failed (non-2xx status other than 404, or malformed payload).
