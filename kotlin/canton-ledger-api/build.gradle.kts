@@ -62,6 +62,8 @@ protobuf {
 }
 
 mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
     coordinates(group.toString(), "canton-ledger-api", version.toString())
     pom {
         name = "Canton Ledger API bindings"
