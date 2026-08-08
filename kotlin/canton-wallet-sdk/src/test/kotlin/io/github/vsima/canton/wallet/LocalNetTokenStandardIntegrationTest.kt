@@ -394,7 +394,7 @@ class LocalNetTokenStandardIntegrationTest {
     // -- plumbing ----------------------------------------------------------
 
     /** Unsafe HS256 JWT matching LocalNet's `unsafe-jwt-hmac-256` auth service. */
-    private fun jwt(sub: String): String {
+    internal fun jwt(sub: String): String {
         fun b64(bytes: ByteArray) = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
         val header = b64("""{"alg":"HS256","typ":"JWT"}""".toByteArray())
         val payload = b64("""{"sub":"$sub","aud":"$audience"}""".toByteArray())
