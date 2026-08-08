@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import CantonKit
+import CantonLedgerAPI
 import CryptoKit
 import Foundation
 import Testing
@@ -74,6 +75,116 @@ struct LocalNetIntegrationTests {
         let history = try await tokens.holdingsHistory(partyId: party.partyId)
         #expect(holdings.isEmpty)
         #expect(history.isEmpty)
+    }
+
+    /// Swift twin of the Kotlin `LocalNetPreparedTransactionHashIntegrationTest`:
+    /// every `prepare` on Splice LocalNet must re-hash locally to exactly the
+    /// `prepared_transaction_hash` the node asks the party to sign. Covers a
+    /// create node (TransferPreapprovalProposal) and its Archive (exercise
+    /// node + input contract in the metadata); both are then executed with
+    /// `signAndExecute`, whose verification is on by default — so the run
+    /// also proves the verify-then-sign path end to end.
+    @Test(.enabled(if: enabled, "SPLICE_LOCALNET not set"))
+    func preparedTransactionHashMatchesTheNodesOnLivePrepares() async throws {
+        let adminUser = Self.env("SPLICE_LOCALNET_ADMIN_USER", "ledger-api-user")
+        let client = Self.adminClient()
+        let driver = SoftwareSigningDriver.generate(.ecP256)
+        let parties = ExternalPartyClient(client: client)
+        let synchronizer = try await parties.connectedSynchronizers().first!
+        let party = try await parties.allocate(
+            driver: driver,
+            synchronizerId: synchronizer,
+            partyHint: "swifthashcheck",
+            userId: adminUser
+        )
+
+        let submission = InteractiveSubmissionClient(client: client)
+
+        // 1. Create node: the receiver proposes its own preapproval.
+        // provider == receiver keeps the test self-contained; nothing
+        // validates it at create time and we archive it ourselves.
+        var create = Com_Daml_Ledger_Api_V2_CreateCommand()
+        create.templateID = SpliceWallet.transferPreapprovalProposalTemplateID
+        create.createArguments = try Com_Daml_Ledger_Api_V2_Value.record([
+            "receiver": .party(party.partyId),
+            "provider": .party(party.partyId),
+            "expectedDso": .optional(.party(party.partyId)),
+        ]).asRecord()
+        var createCommand = Com_Daml_Ledger_Api_V2_Command()
+        createCommand.create = create
+
+        let preparedCreate = try await submission.prepare(
+            commands: [createCommand],
+            actAs: party.partyId,
+            synchronizerId: synchronizer,
+            userId: adminUser
+        )
+        try Self.expectHashMatches("create_preapproval_proposal", preparedCreate)
+
+        // Executing runs the same verification again (on by default).
+        try await submission.signAndExecute(
+            prepared: preparedCreate,
+            driver: driver,
+            partyId: party.partyId,
+            keyFingerprint: party.publicKeyFingerprint,
+            userId: adminUser
+        )
+
+        // Execution is async; poll until the proposal reaches the ACS.
+        var proposalId: String?
+        for _ in 0..<60 where proposalId == nil {
+            let snapshot = try await client.activeContractsSnapshot(parties: [party.partyId])
+            proposalId = snapshot.contracts.first?.createdEvent.contractID
+            if proposalId == nil {
+                try await Task.sleep(for: .seconds(1))
+            }
+        }
+        let contractId = try #require(proposalId, "proposal never reached the ACS")
+
+        // 2. Exercise node + input contract: archive the proposal.
+        var archive = Com_Daml_Ledger_Api_V2_ExerciseCommand()
+        archive.templateID = SpliceWallet.transferPreapprovalProposalTemplateID
+        archive.contractID = contractId
+        archive.choice = "Archive"
+        archive.choiceArgument = .record([:])
+        var archiveCommand = Com_Daml_Ledger_Api_V2_Command()
+        archiveCommand.exercise = archive
+
+        let preparedArchive = try await submission.prepare(
+            commands: [archiveCommand],
+            actAs: party.partyId,
+            synchronizerId: synchronizer,
+            userId: adminUser
+        )
+        try Self.expectHashMatches("archive_preapproval_proposal", preparedArchive)
+
+        try await submission.signAndExecute(
+            prepared: preparedArchive,
+            driver: driver,
+            partyId: party.partyId,
+            keyFingerprint: party.publicKeyFingerprint,
+            userId: adminUser
+        )
+    }
+
+    private static func expectHashMatches(
+        _ name: String,
+        _ prepared: Com_Daml_Ledger_Api_V2_Interactive_PrepareSubmissionResponse
+    ) throws {
+        #expect(
+            prepared.hashingSchemeVersion == .v2,
+            "LocalNet prepared '\(name)' with an unexpected hashing scheme"
+        )
+        let computed = try PreparedTransactionHash.compute(prepared.preparedTransaction)
+        print(
+            "golden-vector: \(name) " +
+                "\((try prepared.preparedTransaction.serializedData()).base64EncodedString()) " +
+                prepared.preparedTransactionHash.base64EncodedString()
+        )
+        #expect(
+            computed == prepared.preparedTransactionHash,
+            "locally recomputed hash differs from the node's for '\(name)'"
+        )
     }
 
     @Test(.enabled(if: enabled, "SPLICE_LOCALNET not set"))
