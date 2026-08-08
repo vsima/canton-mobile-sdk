@@ -49,6 +49,7 @@ Package mapping:
 | `exerciseTransferInstructionChoice` (Accept/Reject/Withdraw) | `exerciseTransferInstruction(..., choice: .accept/.reject/.withdraw)` |
 | `createTransferPreapprovalCommand` / `ValidatorController.externalPartyPreApprovalSetup` | `requestTransferPreapproval(driver:party:provider:dso:synchronizerId:)` — receiver-signed, so a self-custody party requests its own |
 | `getTransferPreApprovalByParty` | `ScanClient.transferPreapprovalByParty(_:)` |
+| *(no equivalent — removal is validator-operated)* | `cancelTransferPreapproval(...)` — the receiver archives its own preapproval, self-signed |
 | `getInstrumentById` / `listInstruments` | Roadmap (registry metadata API) |
 | `createTap` | Roadmap |
 | `buyMemberTraffic` / `getMemberTrafficStatus` | Roadmap (traffic work) |
