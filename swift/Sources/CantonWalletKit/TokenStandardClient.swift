@@ -217,6 +217,35 @@ public struct TokenStandardClient: Sendable {
         )
     }
 
+    /// Cancels the party's active preapproval — the receiver archives it
+    /// unilaterally (`TransferPreapproval_Cancel`), signed on-device. No
+    /// registry context needed: the receiver is a signatory, so the contract
+    /// is in its ACS.
+    public func cancelTransferPreapproval(
+        driver: any SigningDriver,
+        party: AllocatedExternalParty,
+        preapprovalCid: String,
+        synchronizerId: String,
+        userId: String? = nil
+    ) async throws {
+        var exercise = Com_Daml_Ledger_Api_V2_ExerciseCommand()
+        exercise.templateID = SpliceAmulet.transferPreapprovalTemplateID
+        exercise.contractID = preapprovalCid
+        exercise.choice = "TransferPreapproval_Cancel"
+        exercise.choiceArgument = .record([
+            "p": .party(party.partyId)
+        ])
+
+        try await signAndSubmit(
+            driver: driver,
+            party: party,
+            exercise: exercise,
+            synchronizerId: synchronizerId,
+            userId: userId,
+            disclosed: []
+        )
+    }
+
     /// Accept/reject (receiver) or withdraw (sender) a pending instruction.
     public func exerciseTransferInstruction(
         driver: any SigningDriver,

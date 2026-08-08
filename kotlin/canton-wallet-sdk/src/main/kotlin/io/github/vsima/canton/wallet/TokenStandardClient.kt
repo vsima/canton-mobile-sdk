@@ -228,6 +228,34 @@ public class TokenStandardClient(
         )
     }
 
+    /**
+     * Cancels the party's active preapproval — the receiver archives it
+     * unilaterally (`TransferPreapproval_Cancel`), signed on-device. No
+     * registry context needed: the receiver is a signatory, so the contract
+     * is in its ACS.
+     */
+    public suspend fun cancelTransferPreapproval(
+        driver: SigningDriver,
+        party: AllocatedExternalParty,
+        preapprovalCid: String,
+        synchronizerId: String,
+        userId: String? = null,
+    ) {
+        val exercise = CommandsOuterClass.Command.newBuilder()
+            .setExercise(
+                CommandsOuterClass.ExerciseCommand.newBuilder()
+                    .setTemplateId(SpliceAmulet.transferPreapprovalTemplateId)
+                    .setContractId(preapprovalCid)
+                    .setChoice("TransferPreapproval_Cancel")
+                    .setChoiceArgument(
+                        DamlValues.record("p" to DamlValues.party(party.partyId))
+                    )
+            )
+            .build()
+
+        signAndSubmit(driver, party, exercise, synchronizerId, userId, emptyList())
+    }
+
     /** Accept/reject (receiver) or withdraw (sender) a pending instruction. */
     public suspend fun exerciseTransferInstruction(
         driver: SigningDriver,
