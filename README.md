@@ -400,8 +400,13 @@ Coming from the TS SDK? There's a
       automation accepts and pays, and transfers to it settle in one step
       (registry routes "direct", nothing lands in the inbox); scan lookup
       via `transferPreapprovalByParty`
-- [ ] Token standard hardening: DevNet registry run; taps, preapproval
-      cancel/renew, traffic purchase (tracking CIP-0112 / Token Standard V2)
+- [x] Preapproval cancel (live-verified on LocalNet and a physical TEE
+      device): the receiver archives its own `TransferPreapproval`
+      unilaterally via `cancelTransferPreapproval` — externally signed, no
+      registry context needed
+- [ ] Token standard hardening: DevNet registry run; taps as SDK API,
+      traffic purchase, provider-side preapproval renew (tracking CIP-0112 /
+      Token Standard V2)
 - [x] Read layer, first slice (live-verified on LocalNet): parsed holdings
       history from ACS-delta update streams, ANS name resolution and DSO
       party via the Scan API
