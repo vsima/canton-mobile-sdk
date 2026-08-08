@@ -67,6 +67,21 @@ public enum SpliceWallet {
     }()
 }
 
+/// Amulet-specific templates from the splice-amulet DAR.
+public enum SpliceAmulet {
+    /// `TransferPreapproval`: signed by receiver, provider, and DSO. The
+    /// receiver may archive it unilaterally via `TransferPreapproval_Cancel`
+    /// (choice controller is the acting party, required to be receiver or
+    /// provider).
+    public static let transferPreapprovalTemplateID: Com_Daml_Ledger_Api_V2_Identifier = {
+        var id = Com_Daml_Ledger_Api_V2_Identifier()
+        id.packageID = "#splice-amulet"
+        id.moduleName = "Splice.AmuletRules"
+        id.entityName = "TransferPreapproval"
+        return id
+    }()
+}
+
 /// `Splice.Api.Token.HoldingV1.InstrumentId` — admin party + admin-unique id.
 public struct InstrumentId: Sendable, Equatable {
     public let admin: String

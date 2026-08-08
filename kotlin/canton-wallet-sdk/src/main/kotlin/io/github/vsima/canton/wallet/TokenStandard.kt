@@ -79,6 +79,22 @@ public object SpliceWallet {
             .build()
 }
 
+/** Amulet-specific templates from the splice-amulet DAR. */
+public object SpliceAmulet {
+    /**
+     * `TransferPreapproval`: signed by receiver, provider, and DSO. The
+     * receiver may archive it unilaterally via `TransferPreapproval_Cancel`
+     * (choice controller is the acting party, required to be receiver or
+     * provider).
+     */
+    public val transferPreapprovalTemplateId: ValueOuterClass.Identifier =
+        ValueOuterClass.Identifier.newBuilder()
+            .setPackageId("#splice-amulet")
+            .setModuleName("Splice.AmuletRules")
+            .setEntityName("TransferPreapproval")
+            .build()
+}
+
 /** `Splice.Api.Token.HoldingV1.InstrumentId` — admin party + admin-unique id. */
 public data class InstrumentId(val admin: String, val id: String)
 
