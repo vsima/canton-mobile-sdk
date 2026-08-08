@@ -17,10 +17,8 @@ extension CantonClient.Services {
 /// The prepare → sign → execute flow for externally-signed transactions
 /// (Interactive Submission Service).
 ///
-/// WP1 scaffold. Working: prepare, sign-and-execute round trip. TODO before
-/// 1.0:
-/// - client-side re-computation and verification of the prepared transaction
-///   hash (never trust the node's hash blindly)
+/// WP1 scaffold. Working: prepare, hash verification, sign-and-execute
+/// round trip. TODO before 1.0:
 /// - completion tracking (wait for the command's completion event)
 /// - command deduplication config parity with `CommandSubmission`
 public struct InteractiveSubmissionClient: Sendable {
@@ -57,14 +55,27 @@ public struct InteractiveSubmissionClient: Sendable {
     /// Signs the prepared transaction hash with `driver` and executes.
     /// The signature's `signedBy` fingerprint must identify the party's
     /// registered key — pass the fingerprint returned at party onboarding.
+    ///
+    /// Unless `verifyHash` is disabled, the hash is first recomputed locally
+    /// from the raw `PreparedTransaction` proto and compared against the
+    /// node-supplied `prepared_transaction_hash`
+    /// (`PreparedTransactionHash.verify`); a
+    /// `PreparedTransactionHashMismatchError` aborts the submission before
+    /// anything is signed. Only disable this against a participant you
+    /// fully trust.
     public func signAndExecute(
         prepared: Com_Daml_Ledger_Api_V2_Interactive_PrepareSubmissionResponse,
         driver: any SigningDriver,
         partyId: String,
         keyFingerprint: String,
         userId: String? = nil,
-        submissionId: String = UUID().uuidString
+        submissionId: String = UUID().uuidString,
+        verifyHash: Bool = true
     ) async throws {
+        if verifyHash {
+            try PreparedTransactionHash.verify(prepared)
+        }
+
         var signature = try await driver.sign(prepared.preparedTransactionHash)
         signature.signedBy = keyFingerprint
 
