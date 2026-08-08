@@ -9,6 +9,14 @@ import Foundation
 public struct AllocatedExternalParty: Sendable {
     public let partyId: String
     public let publicKeyFingerprint: String
+
+    /// Reconstructs a persisted identity — the party is already allocated on
+    /// the ledger; pair with the driver revived from its stored key handle
+    /// (see `WalletStore`).
+    public init(partyId: String, publicKeyFingerprint: String) {
+        self.partyId = partyId
+        self.publicKeyFingerprint = publicKeyFingerprint
+    }
 }
 
 extension CantonClient.Services {
