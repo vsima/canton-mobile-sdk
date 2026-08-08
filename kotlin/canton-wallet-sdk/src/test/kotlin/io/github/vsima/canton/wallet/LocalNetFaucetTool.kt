@@ -30,6 +30,11 @@ class LocalNetFaucetTool {
         val receiver = System.getenv("FAUCET_PARTY")
         assumeTrue(receiver != null, "FAUCET_PARTY not set; this is a dev tool, not a test")
         val amount = System.getenv("FAUCET_AMOUNT") ?: "50.0"
+        val count = (System.getenv("FAUCET_COUNT") ?: "1").toInt()
+        val memos = listOf(
+            "Invoice #4021", "Coffee ☕", "Rent split", "Consulting fee",
+            "Birthday 🎁", "Refund", "Groceries",
+        )
         val host = System.getenv("SPLICE_LOCALNET_LEDGER_HOST") ?: "127.0.0.1"
         val port = (System.getenv("SPLICE_LOCALNET_LEDGER_PORT") ?: "2901").toInt()
 
@@ -38,7 +43,7 @@ class LocalNetFaucetTool {
             val plain = OkHttpChannelBuilder.forAddress(host, port).usePlaintext().build()
             try {
                 val walletParty = support.onboardWalletUser()
-                support.tap(amount)
+                support.tap("2000.0")
 
                 val walletChannel = support.authed(plain, "app-user")
                 val registry = TransferRegistryClient("http://scan.localhost:4000", support.http)
@@ -46,15 +51,18 @@ class LocalNetFaucetTool {
                 val holdings = tokens.listHoldings(walletParty).filter { it.lock == null }
                 val amulet = holdings.first().instrumentId
 
+                repeat(count) { index ->
+                val step = BigDecimal(amount).add(BigDecimal(index * 7))
                 val transfer = Transfer(
                     sender = walletParty,
                     receiver = receiver!!,
-                    amount = BigDecimal(amount),
+                    amount = step,
                     instrumentId = amulet,
                     requestedAt = java.time.Instant.now(),
                     executeBefore = java.time.Instant.now().plusSeconds(24 * 3600),
-                    inputHoldingCids = holdings.map { it.contractId },
-                    meta = emptyMap(),
+                    inputHoldingCids = tokens.listHoldings(walletParty)
+                        .filter { it.lock == null }.map { it.contractId },
+                    meta = mapOf("splice.lfdecentralizedtrust.org/reason" to memos[index % memos.size]),
                 )
                 val factory = registry.transferFactory(
                     ChoiceContextJson.transferFactoryChoiceArguments(amulet.admin, transfer)
@@ -89,7 +97,8 @@ class LocalNetFaucetTool {
                         )
                         .build()
                 )
-                println("FAUCET: sent $amount CC to $receiver (kind=${factory.transferKind})")
+                println("FAUCET: sent $step CC to $receiver (kind=${factory.transferKind}, memo=${memos[index % memos.size]})")
+                }
             } finally {
                 plain.shutdownNow()
             }
