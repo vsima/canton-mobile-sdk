@@ -17,11 +17,11 @@ import java.util.UUID
  * The prepare → sign → execute flow for externally-signed transactions
  * (Interactive Submission Service).
  *
- * WP1 scaffold. Working: prepare, sign-and-execute round trip. TODO before
- * 1.0:
- *  - client-side re-computation and verification of `prepared_transaction_hash`
- *    (never trust the node's hash blindly — recompute per the hashing scheme
- *    in interactive_submission_common_data.proto)
+ * Before signing, [signAndExecute] recomputes `prepared_transaction_hash`
+ * locally from the raw `PreparedTransaction` proto ([PreparedTransactionHash])
+ * and refuses to sign on mismatch — the node's hash is never trusted blindly.
+ *
+ * TODO before 1.0:
  *  - completion tracking (wait for the command's completion event)
  *  - command deduplication config parity with [io.github.vsima.canton.CommandSubmission]
  */
@@ -54,6 +54,14 @@ public class InteractiveSubmissionClient(channel: Channel) {
      * Signs the prepared transaction hash with [driver] and executes.
      * The signature's `signed_by` fingerprint must identify the party's
      * registered key — pass the fingerprint returned at party onboarding.
+     *
+     * Unless [verifyHash] is disabled, the hash is first recomputed locally
+     * from the raw `PreparedTransaction` proto and compared against the
+     * node-supplied `prepared_transaction_hash`
+     * ([PreparedTransactionHash.verify]); a
+     * [PreparedTransactionHashMismatchException] aborts the submission
+     * before anything is signed. Only disable this against a participant
+     * you fully trust.
      */
     public suspend fun signAndExecute(
         prepared: PrepareSubmissionResponse,
@@ -62,7 +70,10 @@ public class InteractiveSubmissionClient(channel: Channel) {
         keyFingerprint: String,
         userId: String? = null,
         submissionId: String = UUID.randomUUID().toString(),
+        verifyHash: Boolean = true,
     ) {
+        if (verifyHash) PreparedTransactionHash.verify(prepared)
+
         val signature = driver.sign(prepared.preparedTransactionHash.toByteArray())
             .toBuilder()
             .setSignedBy(keyFingerprint)

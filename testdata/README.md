@@ -22,3 +22,14 @@ test, so coverage can't drift apart.
 
 When adding a vector, wire it into `swift/Tests` and `kotlin/canton-sdk/src/test`
 in the same PR.
+
+## preparedtx/
+
+`preparedtx/vectors.txt` — real `PreparedTransaction` protos (base64) with
+the `prepared_transaction_hash` a live Canton participant returned for them
+(Splice LocalNet, hashing scheme V2). Each SDK's prepared-transaction hasher
+must recompute every hash byte-for-byte (Kotlin:
+`canton-wallet-sdk`'s `PreparedTransactionHashGoldenTest`). To regenerate,
+run `LocalNetPreparedTransactionHashIntegrationTest` against LocalNet and
+copy its `golden-vector:` output lines. The byte-level algorithm spec lives
+in `docs/prepared-tx-hash.md`.
