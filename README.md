@@ -368,8 +368,11 @@ Coming from the TS SDK? There's a
       `AllocateExternalParty`), live-verified with Ed25519 **and** EC P-256 keys
 - [x] Externally-signed transactions via the Interactive Submission Service
       (prepare → sign → execute), live-verified end-to-end with P-256
-- [ ] Client-side re-computation/verification of the prepared-transaction hash
-      (don't trust the node's hash blindly) and completion tracking
+- [x] Client-side re-computation/verification of the prepared-transaction hash
+      (don't trust the node's hash blindly), live-verified in both SDKs
+      (#16/#17), and completion tracking: `signAndExecuteAndWait` awaits the
+      ledger's completion event and surfaces the update id/offset — or the
+      typed rejection — instead of returning at execute-accepted
 - [x] Secure Enclave driver verified on physical hardware (iPhone XR):
       enclave-resident key signs with Canton's exact encodings and its
       handle round-trips through `dataRepresentation`. Also passes

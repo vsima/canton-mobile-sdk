@@ -53,46 +53,79 @@ public data class CantonError(
                 else -> return null
             }
 
-            var errorCode: String? = null
-            var correlationId: String? = null
-            var retryDelay: Duration? = null
-
-            trailers?.get(STATUS_DETAILS_KEY)?.let { bytes ->
-                val rpcStatus = runCatching { RpcStatus.parseFrom(bytes) }.getOrNull() ?: return@let
-                for (detail in rpcStatus.detailsList) {
-                    when {
-                        detail.typeUrl.endsWith("/google.rpc.ErrorInfo") ->
-                            runCatching { ErrorInfo.parseFrom(detail.value) }.getOrNull()?.let {
-                                errorCode = it.reason
-                            }
-                        detail.typeUrl.endsWith("/google.rpc.RetryInfo") ->
-                            runCatching { RetryInfo.parseFrom(detail.value) }.getOrNull()?.let {
-                                retryDelay = it.retryDelay.seconds.seconds + it.retryDelay.nanos.nanoseconds
-                            }
-                        detail.typeUrl.endsWith("/google.rpc.RequestInfo") ->
-                            runCatching { RequestInfo.parseFrom(detail.value) }.getOrNull()?.let {
-                                correlationId = it.requestId
-                            }
-                    }
-                }
-            }
+            val details = trailers?.get(STATUS_DETAILS_KEY)
+                ?.let { bytes -> runCatching { RpcStatus.parseFrom(bytes) }.getOrNull() }
+                ?.let(::decodeDetails)
+                ?: DecodedDetails()
 
             return CantonError(
                 grpcCode = status.code,
-                errorCode = errorCode,
-                correlationId = correlationId,
-                retryable = retryDelay != null || status.code == Status.Code.UNAVAILABLE,
-                retryDelay = retryDelay,
+                errorCode = details.errorCode,
+                correlationId = details.correlationId,
+                retryable = details.retryDelay != null || status.code == Status.Code.UNAVAILABLE,
+                retryDelay = details.retryDelay,
                 description = status.description ?: throwable.message ?: status.code.name,
             )
+        }
+
+        /**
+         * Decodes a [CantonError] from a `google.rpc.Status` proto — the
+         * form carried by command `Completion` events when the ledger
+         * rejects a command asynchronously (contention, time bounds). Uses
+         * the same `google.rpc` detail decoding as gRPC failures.
+         */
+        public fun from(status: RpcStatus): CantonError {
+            val grpcCode = Status.fromCodeValue(status.code).code
+            val details = decodeDetails(status)
+            return CantonError(
+                grpcCode = grpcCode,
+                errorCode = details.errorCode,
+                correlationId = details.correlationId,
+                retryable = details.retryDelay != null || grpcCode == Status.Code.UNAVAILABLE,
+                retryDelay = details.retryDelay,
+                description = status.message.ifEmpty { grpcCode.name },
+            )
+        }
+
+        private data class DecodedDetails(
+            val errorCode: String? = null,
+            val correlationId: String? = null,
+            val retryDelay: Duration? = null,
+        )
+
+        private fun decodeDetails(rpcStatus: RpcStatus): DecodedDetails {
+            var errorCode: String? = null
+            var correlationId: String? = null
+            var retryDelay: Duration? = null
+            for (detail in rpcStatus.detailsList) {
+                when {
+                    detail.typeUrl.endsWith("/google.rpc.ErrorInfo") ->
+                        runCatching { ErrorInfo.parseFrom(detail.value) }.getOrNull()?.let {
+                            errorCode = it.reason
+                        }
+                    detail.typeUrl.endsWith("/google.rpc.RetryInfo") ->
+                        runCatching { RetryInfo.parseFrom(detail.value) }.getOrNull()?.let {
+                            retryDelay = it.retryDelay.seconds.seconds + it.retryDelay.nanos.nanoseconds
+                        }
+                    detail.typeUrl.endsWith("/google.rpc.RequestInfo") ->
+                        runCatching { RequestInfo.parseFrom(detail.value) }.getOrNull()?.let {
+                            correlationId = it.requestId
+                        }
+                }
+            }
+            return DecodedDetails(errorCode, correlationId, retryDelay)
         }
     }
 }
 
-/** A gRPC failure decoded into a [CantonError]. */
+/**
+ * A ledger failure decoded into a [CantonError] — either a gRPC failure
+ * ([cause] set) or an asynchronous command rejection reported via a
+ * completion event (no cause).
+ */
 public class CantonException(
     public val error: CantonError,
-    cause: Throwable,
+    cause: Throwable? = null,
 ) : RuntimeException(buildString {
     append(error.grpcCode)
     error.errorCode?.let { append('/').append(it) }

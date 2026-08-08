@@ -187,6 +187,127 @@ struct LocalNetIntegrationTests {
         )
     }
 
+    /// Swift twin of the Kotlin `LocalNetCompletionTrackingIntegrationTest`:
+    /// `signAndExecuteAndWait` must surface the ledger's completion for a
+    /// live interactive submission — a real update id on success, and the
+    /// typed rejection when the ledger refuses the command. Because the
+    /// awaited variant returns only once the command is committed, the
+    /// created contract must already be in the ACS — read once, no polling.
+    /// The rejection leg manufactures contention: two archives of the same
+    /// contract are prepared while it is still active, then executed one
+    /// after the other — the second can only fail asynchronously, in its
+    /// completion event.
+    @Test(.enabled(if: enabled, "SPLICE_LOCALNET not set"))
+    func signAndExecuteAndWaitReturnsTheLiveUpdateIdAndRaisesTypedRejections() async throws {
+        let adminUser = Self.env("SPLICE_LOCALNET_ADMIN_USER", "ledger-api-user")
+        let client = Self.adminClient()
+        let driver = SoftwareSigningDriver.generate(.ecP256)
+        let parties = ExternalPartyClient(client: client)
+        let synchronizer = try await parties.connectedSynchronizers().first!
+        let party = try await parties.allocate(
+            driver: driver,
+            synchronizerId: synchronizer,
+            partyHint: "swiftcompletion",
+            userId: adminUser
+        )
+        print("external party: \(party.partyId)")
+
+        let submission = InteractiveSubmissionClient(client: client)
+
+        // Create a TransferPreapprovalProposal (provider == receiver keeps
+        // it self-contained), awaited: the returned completion proves
+        // commitment.
+        var create = Com_Daml_Ledger_Api_V2_CreateCommand()
+        create.templateID = SpliceWallet.transferPreapprovalProposalTemplateID
+        create.createArguments = try Com_Daml_Ledger_Api_V2_Value.record([
+            "receiver": .party(party.partyId),
+            "provider": .party(party.partyId),
+            "expectedDso": .optional(.party(party.partyId)),
+        ]).asRecord()
+        var createCommand = Com_Daml_Ledger_Api_V2_Command()
+        createCommand.create = create
+
+        let created = try await submission.signAndExecuteAndWait(
+            prepared: submission.prepare(
+                commands: [createCommand],
+                actAs: party.partyId,
+                synchronizerId: synchronizer,
+                userId: adminUser
+            ),
+            driver: driver,
+            partyId: party.partyId,
+            keyFingerprint: party.publicKeyFingerprint,
+            userId: adminUser
+        )
+        print("create completion: updateId=\(created.updateId) offset=\(created.offset)")
+        #expect(!created.updateId.isEmpty, "completion must carry a real update id")
+        #expect(created.offset > 0, "completion must carry a real offset")
+
+        // Committed means visible: one ACS read, no polling.
+        let snapshot = try await client.activeContractsSnapshot(parties: [party.partyId])
+        let proposalId = try #require(
+            snapshot.contracts.first?.createdEvent.contractID,
+            "awaited create must already be in the ACS"
+        )
+        print("proposal contract: \(proposalId)")
+
+        // Prepare TWO archives of the live proposal, then execute both: the
+        // second passes interpretation but can only be refused at commit
+        // time — asynchronously, in its completion event.
+        func preparedArchive() async throws
+            -> Com_Daml_Ledger_Api_V2_Interactive_PrepareSubmissionResponse
+        {
+            var archive = Com_Daml_Ledger_Api_V2_ExerciseCommand()
+            archive.templateID = SpliceWallet.transferPreapprovalProposalTemplateID
+            archive.contractID = proposalId
+            archive.choice = "Archive"
+            archive.choiceArgument = .record([:])
+            var archiveCommand = Com_Daml_Ledger_Api_V2_Command()
+            archiveCommand.exercise = archive
+            return try await submission.prepare(
+                commands: [archiveCommand],
+                actAs: party.partyId,
+                synchronizerId: synchronizer,
+                userId: adminUser
+            )
+        }
+        let firstArchive = try await preparedArchive()
+        let secondArchive = try await preparedArchive()
+
+        let archived = try await submission.signAndExecuteAndWait(
+            prepared: firstArchive,
+            driver: driver,
+            partyId: party.partyId,
+            keyFingerprint: party.publicKeyFingerprint,
+            userId: adminUser
+        )
+        print("archive completion: updateId=\(archived.updateId) offset=\(archived.offset)")
+        #expect(!archived.updateId.isEmpty)
+        #expect(archived.offset > created.offset)
+        #expect(archived.updateId != created.updateId)
+
+        do {
+            _ = try await submission.signAndExecuteAndWait(
+                prepared: secondArchive,
+                driver: driver,
+                partyId: party.partyId,
+                keyFingerprint: party.publicKeyFingerprint,
+                userId: adminUser
+            )
+            Issue.record("second archive of the same contract must be rejected")
+        } catch let rejection as CantonError {
+            print(
+                "typed rejection: grpcCode=\(rejection.grpcCode) " +
+                    "errorCode=\(rejection.errorCode ?? "nil") " +
+                    "message=\(rejection.message.prefix(120))"
+            )
+            #expect(
+                rejection.errorCode != nil,
+                "completion rejection must decode Canton's typed error code"
+            )
+        }
+    }
+
     @Test(.enabled(if: enabled, "SPLICE_LOCALNET not set"))
     func ansResolutionAgainstLiveScan() async throws {
         let scan = ScanClient(

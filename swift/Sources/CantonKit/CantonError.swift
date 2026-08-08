@@ -1,8 +1,10 @@
 // Copyright (c) 2026 Victor Sima
 // SPDX-License-Identifier: Apache-2.0
 
+import CantonLedgerAPI
 import GRPCCore
 import GRPCProtobuf
+import SwiftProtobuf
 
 /// A decoded Canton Ledger API error.
 ///
@@ -69,6 +71,47 @@ public struct CantonError: Error, Sendable, Hashable {
         self.isRetryable = retryDelay != nil || rpcError.code == .unavailable
         self.retryDelay = retryDelay
         self.message = rpcError.message
+    }
+
+    /// Decodes a `CantonError` from a `google.rpc.Status` proto — the form
+    /// carried by command `Completion` events when the ledger rejects a
+    /// command asynchronously (contention, time bounds). Uses the same
+    /// `google.rpc` detail decoding as gRPC failures.
+    public init(completionStatus status: Google_Rpc_Status) {
+        var errorCode: String? = nil
+        var correlationId: String? = nil
+        var retryDelay: Duration? = nil
+
+        for detail in status.details {
+            if detail.isA(Google_Rpc_ErrorInfo.self),
+                let info = try? Google_Rpc_ErrorInfo(unpackingAny: detail)
+            {
+                errorCode = info.reason
+            }
+            if detail.isA(Google_Rpc_RetryInfo.self),
+                let info = try? Google_Rpc_RetryInfo(unpackingAny: detail)
+            {
+                retryDelay = Duration(
+                    secondsComponent: info.retryDelay.seconds,
+                    attosecondsComponent: Int64(info.retryDelay.nanos) * 1_000_000_000
+                )
+            }
+            if detail.isA(Google_Rpc_RequestInfo.self),
+                let info = try? Google_Rpc_RequestInfo(unpackingAny: detail)
+            {
+                correlationId = info.requestID
+            }
+        }
+
+        let grpcCode =
+            Status.Code(rawValue: Int(status.code)).flatMap(RPCError.Code.init) ?? .unknown
+
+        self.grpcCode = grpcCode
+        self.errorCode = errorCode
+        self.correlationId = correlationId
+        self.isRetryable = retryDelay != nil || grpcCode == .unavailable
+        self.retryDelay = retryDelay
+        self.message = status.message.isEmpty ? "\(grpcCode)" : status.message
     }
 }
 

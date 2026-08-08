@@ -111,6 +111,43 @@ class CantonErrorTest {
         assertNull(CantonError.from(IllegalStateException("boom")))
     }
 
+    /** Completion events carry the rejection as a raw `google.rpc.Status`. */
+    @Test
+    fun `decodes canton rich error details from a completion status proto`() {
+        val error = CantonError.from(
+            RpcStatus.newBuilder()
+                .setCode(Status.Code.ABORTED.value())
+                .setMessage("CONTENTION_ON_CONTRACT: contract is locked")
+                .addDetails(
+                    pack(
+                        "google.rpc.ErrorInfo",
+                        ErrorInfo.newBuilder().setReason("CONTENTION_ON_CONTRACT").setDomain("participant").build(),
+                    )
+                )
+                .addDetails(
+                    pack(
+                        "google.rpc.RetryInfo",
+                        RetryInfo.newBuilder()
+                            .setRetryDelay(ProtoDuration.newBuilder().setNanos(250_000_000))
+                            .build(),
+                    )
+                )
+                .addDetails(
+                    pack(
+                        "google.rpc.RequestInfo",
+                        RequestInfo.newBuilder().setRequestId("corr-123").build(),
+                    )
+                )
+                .build()
+        )
+        assertEquals(Status.Code.ABORTED, error.grpcCode)
+        assertEquals("CONTENTION_ON_CONTRACT", error.errorCode)
+        assertEquals("corr-123", error.correlationId)
+        assertTrue(error.retryable)
+        assertEquals(250.milliseconds, error.retryDelay)
+        assertEquals("CONTENTION_ON_CONTRACT: contract is locked", error.description)
+    }
+
     private companion object {
         fun pack(type: String, message: MessageLite): ProtoAny =
             ProtoAny.newBuilder()
