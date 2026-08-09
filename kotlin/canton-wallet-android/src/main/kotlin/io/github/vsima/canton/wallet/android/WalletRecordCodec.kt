@@ -3,6 +3,8 @@
 
 package io.github.vsima.canton.wallet.android
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import io.github.vsima.canton.wallet.WalletRecord
 import java.time.Instant
 import kotlinx.serialization.json.Json
@@ -30,6 +32,7 @@ import kotlinx.serialization.json.long
  * rather than Base64: `java.util.Base64` needs API 26 and `android.util.Base64`
  * can't run in JVM unit tests, and these blobs are short.
  */
+@RequiresApi(Build.VERSION_CODES.O)
 internal object WalletRecordCodec {
 
     private const val FORMAT = 1
@@ -40,7 +43,10 @@ internal object WalletRecordCodec {
             put(
                 "records",
                 buildJsonArray {
-                    records.forEach { record ->
+                    // A plain loop, not Iterable.forEach: on a Java
+                    // collection type that resolves to the platform's
+                    // default method, which needs API 24.
+                    for (record in records) {
                         add(
                             buildJsonObject {
                                 put("partyId", JsonPrimitive(record.partyId))
