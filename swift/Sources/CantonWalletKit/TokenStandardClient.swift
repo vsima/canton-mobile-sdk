@@ -44,20 +44,40 @@ public struct TokenStandardClient: Sendable {
     }
 
     /// One committed update's effect on a party's holdings: created holdings
-    /// carry full views (credits); archived holdings surface as contract ids —
-    /// resolve amounts against previously-seen state (the wallet's local UTXO
-    /// set), which ACS-delta streams keep consistent by construction.
+    /// carry full views (credits); archived holdings surface as contract ids,
+    /// and — when their creation was seen earlier in the stream — as resolved
+    /// ``archived`` holdings with amounts and owners. ``summary`` is the
+    /// transfer-level reading (direction, counterparty, signed net amount,
+    /// memo) when one is derivable.
     public struct HoldingsChange: Sendable {
         public let updateId: String
         public let offset: Int64
         public let recordTime: Date
         public let created: [Holding]
         public let archivedContractIds: [String]
+
+        /// The archived holdings resolved against creations seen since ledger
+        /// begin. An entry of ``archivedContractIds`` is missing here only
+        /// when its creation predates the participant's retained history.
+        public let archived: [Holding]
+
+        /// Transfer-level reading of this update, or nil when none is
+        /// derivable (e.g. the update touches several instruments at once).
+        public let summary: TransferSummary?
     }
 
     /// The party's holdings history between two offsets: every committed
     /// update that created or archived one of its CIP-0056 holdings, oldest
-    /// first. Defaults to genesis → current ledger end (a finite read).
+    /// first, with transfer-level ``HoldingsChange/summary`` rows. Defaults
+    /// to genesis → current ledger end (a finite read).
+    ///
+    /// Implementation note: archive events carry no payload, so the stream is
+    /// always walked from ledger begin — creations seen along the way resolve
+    /// later archives (holding amounts/owners, transfer views of accepted
+    /// instructions) even when `beginExclusive` > 0; only updates past
+    /// `beginExclusive` are returned. On a pruned participant the walk starts
+    /// at the retained history's begin, and archives of pre-retention
+    /// holdings surface as bare contract ids.
     public func holdingsHistory(
         partyId: String,
         beginExclusive: Int64 = 0,
@@ -74,37 +94,73 @@ public struct TokenStandardClient: Sendable {
         var transactionFormat = Com_Daml_Ledger_Api_V2_TransactionFormat()
         transactionFormat.eventFormat = interfaceEventFormat(
             partyId: partyId,
-            interfaceId: TokenStandard.holdingInterfaceID
+            interfaceIds: [
+                TokenStandard.holdingInterfaceID,
+                TokenStandard.transferInstructionInterfaceID,
+            ]
         )
         transactionFormat.transactionShape = .acsDelta
         var request = Com_Daml_Ledger_Api_V2_GetUpdatesRequest()
-        request.beginExclusive = beginExclusive
+        request.beginExclusive = 0
         request.endInclusive = end
         request.updateFormat.includeTransactions = transactionFormat
 
         let frozenRequest = request
         return try await client.withServices { services in
             try await services.update.getUpdates(frozenRequest) { response in
+                var holdingsByCid: [String: Holding] = [:]
+                var instructionsByCid: [String: TransferInstruction] = [:]
                 var changes: [HoldingsChange] = []
                 for try await message in response.messages {
                     guard case .transaction(let transaction)? = message.update else { continue }
                     var created: [Holding] = []
-                    var archived: [String] = []
+                    var archived: [Holding] = []
+                    var archivedCids: [String] = []
+                    var instructions: [TransferInstruction] = []
                     for event in transaction.events {
                         switch event.event {
                         case .created(let event):
-                            guard let view = event.interfaceViews.first(where: { $0.hasViewValue })
-                            else { continue }
-                            created.append(
-                                try Holding.fromView(contractId: event.contractID, view: view.viewValue)
-                            )
+                            for view in event.interfaceViews where view.hasViewValue {
+                                if view.interfaceID.sameEntity(TokenStandard.holdingInterfaceID) {
+                                    let holding = try Holding.fromView(
+                                        contractId: event.contractID, view: view.viewValue
+                                    )
+                                    holdingsByCid[event.contractID] = holding
+                                    created.append(holding)
+                                } else if view.interfaceID.sameEntity(
+                                    TokenStandard.transferInstructionInterfaceID
+                                ) {
+                                    let instruction = try TransferInstruction.fromView(
+                                        contractId: event.contractID, view: view.viewValue
+                                    )
+                                    instructionsByCid[event.contractID] = instruction
+                                    instructions.append(instruction)
+                                }
+                            }
                         case .archived(let event):
-                            archived.append(event.contractID)
+                            if let holding = holdingsByCid.removeValue(forKey: event.contractID) {
+                                archived.append(holding)
+                                archivedCids.append(event.contractID)
+                            } else if let instruction = instructionsByCid.removeValue(
+                                forKey: event.contractID
+                            ) {
+                                instructions.append(instruction)
+                            } else if !event.implementedInterfaces.isEmpty,
+                                !event.implementedInterfaces.contains(where: {
+                                    $0.sameEntity(TokenStandard.holdingInterfaceID)
+                                })
+                            {
+                                // Unresolvable archive that the ledger says was
+                                // solely a transfer instruction: not a holding.
+                            } else {
+                                archivedCids.append(event.contractID)
+                            }
                         default:
                             break
                         }
                     }
-                    guard !created.isEmpty || !archived.isEmpty else { continue }
+                    guard transaction.offset > beginExclusive else { continue }
+                    guard !created.isEmpty || !archivedCids.isEmpty else { continue }
                     changes.append(
                         HoldingsChange(
                             updateId: transaction.updateID,
@@ -114,7 +170,14 @@ public struct TokenStandardClient: Sendable {
                                     + Double(transaction.recordTime.nanos) / 1_000_000_000
                             ),
                             created: created,
-                            archivedContractIds: archived
+                            archivedContractIds: archivedCids,
+                            archived: archived,
+                            summary: try summarizeTransfer(
+                                partyId: partyId,
+                                created: created,
+                                archived: archived,
+                                instructions: instructions
+                            )
                         )
                     )
                 }
@@ -320,15 +383,17 @@ public struct TokenStandardClient: Sendable {
 
     private func interfaceEventFormat(
         partyId: String,
-        interfaceId: Com_Daml_Ledger_Api_V2_Identifier
+        interfaceIds: [Com_Daml_Ledger_Api_V2_Identifier]
     ) -> Com_Daml_Ledger_Api_V2_EventFormat {
-        var interfaceFilter = Com_Daml_Ledger_Api_V2_InterfaceFilter()
-        interfaceFilter.interfaceID = interfaceId
-        interfaceFilter.includeInterfaceView = true
-        var cumulative = Com_Daml_Ledger_Api_V2_CumulativeFilter()
-        cumulative.interfaceFilter = interfaceFilter
         var filters = Com_Daml_Ledger_Api_V2_Filters()
-        filters.cumulative = [cumulative]
+        filters.cumulative = interfaceIds.map { interfaceId in
+            var interfaceFilter = Com_Daml_Ledger_Api_V2_InterfaceFilter()
+            interfaceFilter.interfaceID = interfaceId
+            interfaceFilter.includeInterfaceView = true
+            var cumulative = Com_Daml_Ledger_Api_V2_CumulativeFilter()
+            cumulative.interfaceFilter = interfaceFilter
+            return cumulative
+        }
 
         var eventFormat = Com_Daml_Ledger_Api_V2_EventFormat()
         eventFormat.filtersByParty = [partyId: filters]
@@ -346,7 +411,7 @@ public struct TokenStandardClient: Sendable {
 
         var request = Com_Daml_Ledger_Api_V2_GetActiveContractsRequest()
         request.activeAtOffset = ledgerEnd
-        request.eventFormat = interfaceEventFormat(partyId: partyId, interfaceId: interfaceId)
+        request.eventFormat = interfaceEventFormat(partyId: partyId, interfaceIds: [interfaceId])
 
         let frozenRequest = request
         return try await client.withServices { services in
@@ -363,5 +428,14 @@ public struct TokenStandardClient: Sendable {
                 return views
             }
         }
+    }
+}
+
+extension Com_Daml_Ledger_Api_V2_Identifier {
+    /// Requests carry `#package-name` references while responses carry
+    /// resolved package ids, so interface identity is matched on
+    /// module + entity.
+    func sameEntity(_ other: Com_Daml_Ledger_Api_V2_Identifier) -> Bool {
+        moduleName == other.moduleName && entityName == other.entityName
     }
 }
