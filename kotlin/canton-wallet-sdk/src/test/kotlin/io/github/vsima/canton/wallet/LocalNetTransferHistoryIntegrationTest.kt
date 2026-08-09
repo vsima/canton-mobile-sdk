@@ -160,9 +160,13 @@ class LocalNetTransferHistoryIntegrationTest {
                 }
                 val senderNet = senderRows.sumOf { it.summary!!.amount }
                 println("sender net across memo rows: $senderNet")
+                // Fee-inclusive: the debit covers at least the transfer amount
+                // (strictly more wherever the registry charges sender fees;
+                // LocalNet's Amulet config charges none).
                 assertTrue(
-                    senderNet < amount.negate(),
-                    "sender debit must be fee-inclusive: expected < ${amount.negate()}, was $senderNet",
+                    senderNet <= amount.negate(),
+                    "sender debit must cover the transfer fee-inclusively: " +
+                        "expected <= ${amount.negate()}, was $senderNet",
                 )
 
                 // 5b. Receiver side: the mirrored RECEIVED credit.
