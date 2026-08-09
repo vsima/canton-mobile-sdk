@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 /**
  * Recomputes the hash of real PreparedTransactions captured from a live
@@ -64,6 +65,32 @@ class PreparedTransactionHashGoldenTest {
         assertFailsWith<PreparedTransactionHashMismatchException> {
             PreparedTransactionHash.verify(response(tampered, expected))
         }
+    }
+
+    @Test
+    fun `a duplicated node id fails hashing instead of resolving silently`() {
+        val (_, prepared, _) = vectors().first()
+        val transaction = prepared.transaction
+        val duplicated = prepared.toBuilder()
+            .setTransaction(transaction.toBuilder().addNodes(transaction.getNodes(0)))
+            .build()
+        val failure = assertFailsWith<PreparedTransactionHashException> {
+            PreparedTransactionHash.compute(duplicated)
+        }
+        assertTrue("duplicate node id" in failure.message.orEmpty(), failure.message.orEmpty())
+    }
+
+    @Test
+    fun `a duplicated node seed id fails hashing instead of resolving silently`() {
+        val (_, prepared, _) = vectors().first()
+        val transaction = prepared.transaction
+        val duplicated = prepared.toBuilder()
+            .setTransaction(transaction.toBuilder().addNodeSeeds(transaction.getNodeSeeds(0)))
+            .build()
+        val failure = assertFailsWith<PreparedTransactionHashException> {
+            PreparedTransactionHash.compute(duplicated)
+        }
+        assertTrue("duplicate node seed" in failure.message.orEmpty(), failure.message.orEmpty())
     }
 
     @Test

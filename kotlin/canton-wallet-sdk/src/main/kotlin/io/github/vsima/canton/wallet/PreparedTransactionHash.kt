@@ -106,9 +106,27 @@ public object PreparedTransactionHash {
     // -- transaction -------------------------------------------------------
 
     private fun hashTransaction(transaction: DamlTransaction): ByteArray {
-        val nodesById = transaction.nodesList.associateBy { it.nodeId }
-        val seedsByNodeId =
-            transaction.nodeSeedsList.associate { it.nodeId.toString() to it.seed }
+        // Duplicate ids must fail loudly: letting map construction pick a
+        // winner would silently hash a different node forest than intended,
+        // and which duplicate wins varies between implementations.
+        val nodesById = buildMap {
+            for (node in transaction.nodesList) {
+                if (put(node.nodeId, node) != null) {
+                    throw PreparedTransactionHashException(
+                        "duplicate node id '${node.nodeId}' in prepared transaction"
+                    )
+                }
+            }
+        }
+        val seedsByNodeId = buildMap {
+            for (nodeSeed in transaction.nodeSeedsList) {
+                if (put(nodeSeed.nodeId.toString(), nodeSeed.seed) != null) {
+                    throw PreparedTransactionHashException(
+                        "duplicate node seed for node id '${nodeSeed.nodeId}' in prepared transaction"
+                    )
+                }
+            }
+        }
         return sha256 {
             int32(HASH_PURPOSE)
             string(transaction.version)
