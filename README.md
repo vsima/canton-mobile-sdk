@@ -361,7 +361,7 @@ Capability-level comparison with Digital Asset's TypeScript
 | Completion tracking | ✅ | ✅ | ✅ | `signAndExecuteAndWait` awaits the ledger's completion event and returns the update id/offset — or the typed rejection |
 | CIP-0056 holdings, inbox & two-step transfers | ✅ | ✅ | ✅ | Live-verified against a live Amulet registry (Splice LocalNet) |
 | Transfer preapprovals (request / lookup / cancel) | ✅ | ✅ | ✅ | Receiver-side cancel is native-only (in JS, removal is validator-operated); all three live-verified here |
-| Holdings history | ✅ | ✅ | ✅ | First slice live-verified; transfer-level semantics matched to JS are next on the roadmap |
+| Holdings history | ✅ | ✅ | ✅ | Transfer-level rows — direction, counterparty, signed fee-inclusive net amount, memo — live-verified on LocalNet |
 | ANS / DSO reads | ✅ | ✅ | ✅ | `ScanClient`: ANS name resolution, DSO party |
 | DevNet taps | ✅ | 🔜 | 🔜 | The integration harness taps today; SDK-level API planned |
 | Traffic purchase | ✅ | 🔜 | 🔜 | Traffic purchase and status/fee reads planned |
@@ -448,6 +448,14 @@ proven and where.
 - [x] Read layer, first slice (live-verified on LocalNet): parsed holdings
       history from ACS-delta update streams, ANS name resolution and DSO
       party via the Scan API
+- [x] Transfer-level history semantics (live-verified on LocalNet, both
+      SDKs): `holdingsHistory` rows now carry a `TransferSummary` —
+      direction (sent / received / self / internal / unknown), counterparty,
+      the signed fee-inclusive net amount, and the memo riding on the
+      standard `reason` metadata key — derived from TransferInstruction
+      interface views plus a genesis-built cid map that resolves archived
+      holdings, so a wallet renders "sent 5 CC to alice — Invoice #4021"
+      instead of raw UTXO deltas
 - [x] Custody hook and persistence: `DelegatingSigningDriver` adapts any
       external signer (Fireblocks, BitGo, HSMs) to the driver interface via
       two async callbacks; `WalletStore` persists party ↔ key-handle
@@ -455,10 +463,6 @@ proven and where.
 
 ### Next
 
-- **Transfer-level history semantics.** Holdings history today parses
-  ACS deltas; next is transfer-level semantics matched to the TS SDK's,
-  held to shared golden vectors — so a wallet can render "sent 10 CC to
-  alice" instead of raw UTXO deltas.
 - **SDK-level DevNet taps.** The integration harness already taps test
   funds; promote that to a public API and run the full token-standard
   loop against a DevNet registry.

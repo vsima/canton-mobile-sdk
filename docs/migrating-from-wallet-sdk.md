@@ -43,7 +43,7 @@ Package mapping:
 | TS SDK (`TokenStandardController`) | Native (`TokenStandardClient`) |
 |---|---|
 | `listHoldingUtxos` | `listHoldings(partyId:)` |
-| `listHoldingTransactions` | `holdingsHistory(partyId:beginExclusive:endInclusive:)` |
+| `listHoldingTransactions` | `holdingsHistory(partyId:beginExclusive:endInclusive:)` — per-update rows with created/archived holdings plus a transfer-level `summary` (direction, counterparty, signed fee-inclusive net amount, memo) |
 | `createTransfer` (+ registry context fetching) | `createTransfer(...)` — registry context, disclosed contracts, and external signing composed internally |
 | `fetchPendingTransferInstructionView` | `pendingTransferInstructions(partyId:)` — the wallet inbox |
 | `exerciseTransferInstructionChoice` (Accept/Reject/Withdraw) | `exerciseTransferInstruction(..., choice: .accept/.reject/.withdraw)` |
