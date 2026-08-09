@@ -16,6 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -35,8 +36,8 @@ public class ValidatorException(
 
 /**
  * Client for a validator's user-facing wallet API (`.../api/validator`) —
- * the onboarding and faucet operations a wallet app drives against its own
- * validator, authenticated as the end user.
+ * the onboarding, faucet, and traffic-purchase operations a wallet app
+ * drives against its own validator, authenticated as the end user.
  *
  * Every call sends a bearer token from [accessTokenProvider]; the validator
  * derives the ledger user from the token's subject claim. On LocalNet that
@@ -118,6 +119,137 @@ public class ValidatorClient(
         return post("$baseUrl/v0/wallet/tap", body)
             .stringField("contract_id")
             ?: throw ValidatorException(null, "tap response missing contract_id")
+    }
+
+    /** A created buy-traffic request, identified for status polling. */
+    public data class BuyTrafficRequest(
+        /** The tracking id the request was created under — poll [buyTrafficStatus] with it. */
+        val trackingId: String,
+        /** Contract id of the on-ledger `BuyTrafficRequest` the wallet automation executes. */
+        val requestContractId: String,
+    )
+
+    /** Where a buy-traffic request stands ([buyTrafficStatus]). */
+    public sealed interface BuyTrafficStatus {
+        /** Created and waiting for the validator's wallet automation to execute it. */
+        public data object Created : BuyTrafficStatus
+
+        /** The traffic has been purchased. */
+        public data class Completed(
+            /** Update id of the ledger transaction that purchased the traffic. */
+            val transactionId: String,
+        ) : BuyTrafficStatus
+
+        /**
+         * Failed permanently; no CC was spent. Retry with a *fresh* tracking
+         * id — the failed one stays burned.
+         */
+        public data class Failed(
+            val reason: FailureReason,
+            /** Human-readable rejection detail, when the automation provided one. */
+            val rejectionReason: String?,
+        ) : BuyTrafficStatus {
+            public enum class FailureReason {
+                /** The wallet automation did not process the request before its expiry. */
+                EXPIRED,
+
+                /** The automation rejected it — e.g. insufficient funds or below the minimum top-up. */
+                REJECTED,
+            }
+        }
+    }
+
+    /**
+     * Requests a synchronizer extra-traffic purchase
+     * (`/v0/wallet/buy-traffic-requests`), paid in Amulet from the
+     * authenticated user's wallet.
+     *
+     * **Whose traffic:** the sequencer member that gets the bytes is the
+     * *participant node hosting [receivingValidatorPartyId]* — for a wallet
+     * user that is the validator's own participant, bought on the user's
+     * behalf (participant-level traffic is shared by every party the
+     * validator hosts). Watch it land via [ScanClient.memberTrafficStatus]
+     * for that participant ([ScanClient.partyParticipantId] resolves it).
+     *
+     * This call only *creates* the request; the validator's wallet
+     * automation executes `AmuletRules_BuyMemberTraffic` asynchronously.
+     * Poll [buyTrafficStatus] with [BuyTrafficRequest.trackingId] until it
+     * reports [BuyTrafficStatus.Completed] or [BuyTrafficStatus.Failed].
+     *
+     * The purchase burns Amulet worth `bytes × extraTrafficPrice` (USD/MB,
+     * converted at the open round's amulet price) and must buy at least
+     * `minTopupAmount` bytes — both published in
+     * [ScanClient.amuletRulesConfig]'s
+     * [SynchronizerFeeConfig][io.github.vsima.canton.wallet.SynchronizerFeeConfig].
+     *
+     * @param trafficAmountBytes bytes of extra traffic to buy, at least the
+     *   network's `minTopupAmount` (the automation rejects smaller requests).
+     * @param receivingValidatorPartyId traffic goes to the participant
+     *   hosting this party — pass the user's wallet party to top up its own
+     *   validator.
+     * @param synchronizerId the synchronizer to buy traffic on
+     *   ([AmuletRulesConfig.activeSynchronizerId]).
+     * @param trackingId exactly-once key: reuse the same id when retrying a
+     *   submission that may already have gone through (a duplicate answers
+     *   409/429, see [ValidatorException.statusCode]); use a fresh id for a
+     *   genuinely new purchase.
+     * @param expiresAt when the unexecuted request lapses (compared against
+     *   ledger time; default 10 minutes out).
+     */
+    public suspend fun buyTraffic(
+        trafficAmountBytes: Long,
+        receivingValidatorPartyId: String,
+        synchronizerId: String,
+        trackingId: String = java.util.UUID.randomUUID().toString(),
+        expiresAt: java.time.Instant = java.time.Instant.now().plusSeconds(600),
+    ): BuyTrafficRequest {
+        require(trafficAmountBytes > 0) { "trafficAmountBytes must be positive, got $trafficAmountBytes" }
+        val body = buildJsonObject {
+            put("receiving_validator_party_id", receivingValidatorPartyId)
+            put("domain_id", synchronizerId)
+            put("traffic_amount", trafficAmountBytes)
+            put("tracking_id", trackingId)
+            put("expires_at", java.time.temporal.ChronoUnit.MICROS.between(java.time.Instant.EPOCH, expiresAt))
+        }
+        val contractId = post("$baseUrl/v0/wallet/buy-traffic-requests", body)
+            .stringField("request_contract_id")
+            ?: throw ValidatorException(null, "buy-traffic response missing request_contract_id")
+        return BuyTrafficRequest(trackingId = trackingId, requestContractId = contractId)
+    }
+
+    /**
+     * Where the buy-traffic request created under [trackingId] stands
+     * (`/v0/wallet/buy-traffic-requests/{tracking_id}/status`), or null if
+     * the validator knows no such request — not yet processed, or already
+     * beyond the wallet's transaction-log horizon.
+     */
+    public suspend fun buyTrafficStatus(trackingId: String): BuyTrafficStatus? {
+        val url = "$baseUrl/v0/wallet/buy-traffic-requests/".toHttpUrl().newBuilder()
+            .addPathSegment(trackingId)
+            .addPathSegment("status")
+            .build()
+        val response = try {
+            post(url.toString(), buildJsonObject {})
+        } catch (e: ValidatorException) {
+            if (e.statusCode == 404) return null
+            throw e
+        }
+        return when (val status = response.stringField("status")) {
+            "created" -> BuyTrafficStatus.Created
+            "completed" -> BuyTrafficStatus.Completed(
+                transactionId = response.stringField("transaction_id")
+                    ?: throw ValidatorException(null, "completed buy-traffic status missing transaction_id"),
+            )
+            "failed" -> BuyTrafficStatus.Failed(
+                reason = when (val reason = response.stringField("failure_reason")) {
+                    "expired" -> BuyTrafficStatus.Failed.FailureReason.EXPIRED
+                    "rejected" -> BuyTrafficStatus.Failed.FailureReason.REJECTED
+                    else -> throw ValidatorException(null, "unknown buy-traffic failure reason: $reason")
+                },
+                rejectionReason = response.stringField("rejection_reason"),
+            )
+            else -> throw ValidatorException(null, "unknown buy-traffic status: $status")
+        }
     }
 
     private fun JsonObject.stringField(key: String): String? =

@@ -13,8 +13,8 @@ public struct ValidatorError: Error, CustomStringConvertible {
 }
 
 /// Client for a validator's user-facing wallet API (`.../api/validator`) —
-/// the onboarding and faucet operations a wallet app drives against its own
-/// validator, authenticated as the end user.
+/// the onboarding, faucet, and traffic-purchase operations a wallet app
+/// drives against its own validator, authenticated as the end user.
 ///
 /// Every call sends a bearer token from `accessTokenProvider`; the validator
 /// derives the ledger user from the token's subject claim. On LocalNet that
@@ -115,6 +115,158 @@ public struct ValidatorClient: Sendable {
             throw ValidatorError(statusCode: nil, description: "tap response missing contract_id")
         }
         return contractId
+    }
+
+    /// A created buy-traffic request, identified for status polling.
+    public struct BuyTrafficRequest: Sendable, Equatable {
+        /// The tracking id the request was created under — poll
+        /// ``ValidatorClient/buyTrafficStatus(trackingId:)`` with it.
+        public let trackingId: String
+        /// Contract id of the on-ledger `BuyTrafficRequest` the wallet
+        /// automation executes.
+        public let requestContractId: String
+    }
+
+    /// Where a buy-traffic request stands (``buyTrafficStatus(trackingId:)``).
+    public enum BuyTrafficStatus: Sendable, Equatable {
+        /// Why a buy-traffic request failed permanently.
+        public enum FailureReason: Sendable, Equatable {
+            /// The wallet automation did not process the request before its expiry.
+            case expired
+            /// The automation rejected it — e.g. insufficient funds or below
+            /// the minimum top-up.
+            case rejected
+        }
+
+        /// Created and waiting for the validator's wallet automation to execute it.
+        case created
+        /// The traffic has been purchased; the payload is the update id of
+        /// the ledger transaction that purchased it.
+        case completed(transactionId: String)
+        /// Failed permanently; no CC was spent. Retry with a *fresh*
+        /// tracking id — the failed one stays burned. `rejectionReason` is
+        /// the automation's human-readable detail, when provided.
+        case failed(reason: FailureReason, rejectionReason: String?)
+    }
+
+    /// Requests a synchronizer extra-traffic purchase
+    /// (`/v0/wallet/buy-traffic-requests`), paid in Amulet from the
+    /// authenticated user's wallet.
+    ///
+    /// **Whose traffic:** the sequencer member that gets the bytes is the
+    /// *participant node hosting `receivingValidatorPartyId`* — for a wallet
+    /// user that is the validator's own participant, bought on the user's
+    /// behalf (participant-level traffic is shared by every party the
+    /// validator hosts). Watch it land via
+    /// ``ScanClient/memberTrafficStatus(synchronizerId:memberId:)`` for that
+    /// participant (``ScanClient/partyParticipantId(synchronizerId:partyId:)``
+    /// resolves it).
+    ///
+    /// This call only *creates* the request; the validator's wallet
+    /// automation executes `AmuletRules_BuyMemberTraffic` asynchronously.
+    /// Poll ``buyTrafficStatus(trackingId:)`` with the returned tracking id
+    /// until it reports ``BuyTrafficStatus/completed(transactionId:)`` or
+    /// ``BuyTrafficStatus/failed(reason:rejectionReason:)``.
+    ///
+    /// The purchase burns Amulet worth `bytes × extraTrafficPrice` (USD/MB,
+    /// converted at the open round's amulet price) and must buy at least
+    /// `minTopupAmount` bytes — both published in
+    /// ``ScanClient/amuletRulesConfig(asOf:)``'s ``SynchronizerFeeConfig``.
+    ///
+    /// - Parameters:
+    ///   - trafficAmountBytes: bytes of extra traffic to buy, at least the
+    ///     network's `minTopupAmount` (the automation rejects smaller
+    ///     requests).
+    ///   - receivingValidatorPartyId: traffic goes to the participant
+    ///     hosting this party — pass the user's wallet party to top up its
+    ///     own validator.
+    ///   - synchronizerId: the synchronizer to buy traffic on
+    ///     (``AmuletRulesConfig/activeSynchronizerId``).
+    ///   - trackingId: exactly-once key: reuse the same id when retrying a
+    ///     submission that may already have gone through (a duplicate
+    ///     answers 409/429, see ``ValidatorError/statusCode``); use a fresh
+    ///     id for a genuinely new purchase.
+    ///   - expiresAt: when the unexecuted request lapses (compared against
+    ///     ledger time; default 10 minutes out).
+    public func buyTraffic(
+        trafficAmountBytes: Int64,
+        receivingValidatorPartyId: String,
+        synchronizerId: String,
+        trackingId: String = UUID().uuidString,
+        expiresAt: Date = Date().addingTimeInterval(600)
+    ) async throws -> BuyTrafficRequest {
+        guard trafficAmountBytes > 0 else {
+            throw ValidatorError(
+                statusCode: nil,
+                description: "trafficAmountBytes must be positive, got \(trafficAmountBytes)"
+            )
+        }
+        let body: [String: Any] = [
+            "receiving_validator_party_id": receivingValidatorPartyId,
+            "domain_id": synchronizerId,
+            "traffic_amount": NSNumber(value: trafficAmountBytes),
+            "tracking_id": trackingId,
+            "expires_at": NSNumber(value: Int64(expiresAt.timeIntervalSince1970 * 1_000_000)),
+        ]
+        let response = try await request(
+            path: "v0/wallet/buy-traffic-requests", method: "POST", body: body
+        )
+        guard let contractId = response["request_contract_id"] as? String else {
+            throw ValidatorError(
+                statusCode: nil,
+                description: "buy-traffic response missing request_contract_id"
+            )
+        }
+        return BuyTrafficRequest(trackingId: trackingId, requestContractId: contractId)
+    }
+
+    /// Where the buy-traffic request created under `trackingId` stands
+    /// (`/v0/wallet/buy-traffic-requests/{tracking_id}/status`), or nil if
+    /// the validator knows no such request — not yet processed, or already
+    /// beyond the wallet's transaction-log horizon.
+    public func buyTrafficStatus(trackingId: String) async throws -> BuyTrafficStatus? {
+        let response: [String: Any]
+        do {
+            response = try await request(
+                path: "v0/wallet/buy-traffic-requests/\(trackingId)/status",
+                method: "POST",
+                body: [:]
+            )
+        } catch let error as ValidatorError where error.statusCode == 404 {
+            return nil
+        }
+        switch response["status"] as? String {
+        case "created":
+            return .created
+        case "completed":
+            guard let transactionId = response["transaction_id"] as? String else {
+                throw ValidatorError(
+                    statusCode: nil,
+                    description: "completed buy-traffic status missing transaction_id"
+                )
+            }
+            return .completed(transactionId: transactionId)
+        case "failed":
+            let reason: BuyTrafficStatus.FailureReason
+            switch response["failure_reason"] as? String {
+            case "expired": reason = .expired
+            case "rejected": reason = .rejected
+            case let other:
+                throw ValidatorError(
+                    statusCode: nil,
+                    description: "unknown buy-traffic failure reason: \(other ?? "nil")"
+                )
+            }
+            return .failed(
+                reason: reason,
+                rejectionReason: response["rejection_reason"] as? String
+            )
+        case let other:
+            throw ValidatorError(
+                statusCode: nil,
+                description: "unknown buy-traffic status: \(other ?? "nil")"
+            )
+        }
     }
 
     private func request(
