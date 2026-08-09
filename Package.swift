@@ -54,7 +54,13 @@ let package = Package(
         ),
         .testTarget(
             name: "CantonKitTests",
-            dependencies: ["CantonKit"],
+            dependencies: [
+                "CantonKit",
+                "CantonLedgerAPI",
+                .product(name: "GRPCCore", package: "grpc-swift-2"),
+                .product(name: "GRPCProtobuf", package: "grpc-swift-protobuf"),
+                .product(name: "GRPCNIOTransportHTTP2", package: "grpc-swift-nio-transport"),
+            ],
             path: "swift/Tests/CantonKitTests"
         ),
         .testTarget(
