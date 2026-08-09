@@ -500,6 +500,42 @@ proven and where.
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
   below); still pending is running the full token-standard loop against a
   DevNet registry, which needs DevNet validator credentials.
+- **Async access-token provider with expiry-aware caching.** Kotlin's
+  `accessTokenProvider` is a synchronous `() -> String`, while Swift's is
+  `async` and `ValidatorClient` already takes `suspend () -> String`. The
+  synchronous shape forces any host doing a real OIDC refresh to block
+  inside the call-credentials callback, and today both platforms invoke
+  the provider on every RPC. Unify on the async shape and cache the token
+  until shortly before expiry — expiry supplied by the provider, or read
+  from the JWT's `exp` claim. A breaking change to a public API, so it
+  lands before 1.0.
+- **Durable Kotlin `WalletStore`.** `WalletStore` ships in-memory on both
+  platforms and Keychain-backed on Apple; Kotlin has no durable
+  implementation, so Android apps roll their own persistence. The
+  replacement is a Keystore-encrypted store — DataStore or a file, AES-GCM
+  under an Android Keystore master key. Explicitly *not*
+  `EncryptedSharedPreferences`: Jetpack Security's crypto library is
+  deprecated as of `security-crypto` 1.1.0-alpha07, with a history of
+  keyset-corruption crashes and main-thread violations. Note what's at
+  stake — the record holds a party ↔ key-handle binding, and hardware
+  handles are keystore aliases, so the private key never leaves
+  StrongBox/TEE either way. This is privacy and integrity hardening plus
+  platform parity, not key secrecy.
+- **Pluggable TLS trust (certificate pinning).** Mobile clients roam
+  across networks where TLS interception is a real possibility, so let the
+  host pin the trust anchors it expects. The mechanism differs per
+  platform, and neither is the obvious one: the Kotlin Ledger API channel
+  is `grpc-okhttp` — gRPC's own transport, not an `OkHttpClient`, so
+  OkHttp's `CertificatePinner` does not apply and pinning goes through
+  `TlsChannelCredentials` with a custom trust manager; the REST clients
+  (Scan, validator, registry) do use real OkHttp, where `CertificatePinner`
+  applies directly. On Apple the NIOTS transport accepts
+  `TLSConfig.TrustRootsSource`, which covers certificate and CA pinning,
+  but exposes no verify-block hook — strict SPKI leaf pinning would need
+  the NIOSSL path or an upstream change. This ships as a hook with no
+  default pins: wallets connect to operator-run validators the SDK doesn't
+  control, and a bundled pin would brick the app on someone else's
+  certificate rotation.
 
 ### Exploring
 
