@@ -114,14 +114,26 @@ public enum PreparedTransactionHash {
     private static func hashTransaction(
         _ transaction: Com_Daml_Ledger_Api_V2_Interactive_DamlTransaction
     ) throws -> Data {
-        let nodesById = Dictionary(
-            transaction.nodes.map { ($0.nodeID, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        let seedsByNodeId = Dictionary(
-            transaction.nodeSeeds.map { (String($0.nodeID), $0.seed) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        // Duplicate ids must fail loudly: letting map construction pick a
+        // winner would silently hash a different node forest than intended,
+        // and which duplicate wins varies between implementations.
+        var nodesById: [String: Com_Daml_Ledger_Api_V2_Interactive_DamlTransaction.Node] = [:]
+        for node in transaction.nodes {
+            guard nodesById.updateValue(node, forKey: node.nodeID) == nil else {
+                throw PreparedTransactionHashError(
+                    "duplicate node id '\(node.nodeID)' in prepared transaction"
+                )
+            }
+        }
+        var seedsByNodeId: [String: Data] = [:]
+        for nodeSeed in transaction.nodeSeeds {
+            guard seedsByNodeId.updateValue(nodeSeed.seed, forKey: String(nodeSeed.nodeID)) == nil
+            else {
+                throw PreparedTransactionHashError(
+                    "duplicate node seed for node id '\(nodeSeed.nodeID)' in prepared transaction"
+                )
+            }
+        }
         return try sha256 { encoder in
             encoder.int32(hashPurpose)
             encoder.string(transaction.version)

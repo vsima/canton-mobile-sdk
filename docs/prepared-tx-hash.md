@@ -312,6 +312,15 @@ inputContract(ic) = int64(ic.created_at)
 13. The final comparison target is `PrepareSubmissionResponse.prepared_transaction_hash`,
     raw 32 bytes. Check `hashing_scheme_version == HASHING_SCHEME_VERSION_V2 (2)` before
     verifying; refuse to verify other schemes rather than passing them through.
+14. **Reject duplicate node ids and node-seed node ids** when building the
+    `nodesById` / `seedsByNodeId` lookup maps ("duplicate node id 'X' in prepared
+    transaction"), rather than letting map construction resolve the collision
+    silently. Natural map constructors disagree on which duplicate wins (e.g. Kotlin's
+    `associateBy` keeps the last entry, a Swift `Dictionary(uniquingKeysWith:)` is
+    typically written to keep the first), so two implementations could hash two
+    different payloads for the same malformed proto — exactly the last-wins vs
+    first-wins divergence this check prevents. An honest participant never emits
+    duplicates; failing verification is the only safe response.
 
 ## Kotlin implementation in this repo
 

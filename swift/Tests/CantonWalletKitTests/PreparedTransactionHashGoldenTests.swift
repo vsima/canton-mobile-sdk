@@ -74,6 +74,26 @@ import Testing
         }
     }
 
+    @Test func aDuplicatedNodeIdFailsHashingInsteadOfResolvingSilently() throws {
+        let (_, prepared, _) = try #require(try vectors().first)
+        var duplicated = prepared
+        duplicated.transaction.nodes.append(prepared.transaction.nodes[0])
+        let failure = #expect(throws: PreparedTransactionHashError.self) {
+            try PreparedTransactionHash.compute(duplicated)
+        }
+        #expect(failure?.description.contains("duplicate node id") == true)
+    }
+
+    @Test func aDuplicatedNodeSeedIdFailsHashingInsteadOfResolvingSilently() throws {
+        let (_, prepared, _) = try #require(try vectors().first)
+        var duplicated = prepared
+        duplicated.transaction.nodeSeeds.append(prepared.transaction.nodeSeeds[0])
+        let failure = #expect(throws: PreparedTransactionHashError.self) {
+            try PreparedTransactionHash.compute(duplicated)
+        }
+        #expect(failure?.description.contains("duplicate node seed") == true)
+    }
+
     @Test func anUnsupportedHashingSchemeIsRejectedRatherThanTrusted() throws {
         let (_, prepared, expected) = try #require(try vectors().first)
         var v3 = response(prepared, expected)
