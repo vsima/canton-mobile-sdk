@@ -4,6 +4,7 @@
 package io.github.vsima.canton.wallet
 
 import java.io.IOException
+import java.math.BigDecimal
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -11,13 +12,19 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 
 /** A scan call failed (non-2xx status other than 404, or malformed payload). */
@@ -27,8 +34,8 @@ public class ScanException(message: String) : RuntimeException(message)
  * Read layer over a Super Validator's Scan API (`.../api/scan`).
  *
  * Covers the reads a wallet needs from the network's public index: the DSO
- * party and ANS name resolution (name-based sending). Not yet covered —
- * holdings summaries (require server-side ACS snapshots), amulet rules and
+ * party, ANS name resolution (name-based sending), and aggregated holdings
+ * from scan's server-side ACS snapshots. Not yet covered — amulet rules and
  * mining rounds (arrive with traffic-purchase support).
  *
  * Note the base URL differs from [TransferRegistryClient]'s: registry
@@ -106,6 +113,109 @@ public class ScanClient(
             .map { ansEntry(it.jsonObject) }
     }
 
+    /** Aggregate Amulet totals for one owner party in a scan ACS snapshot. */
+    public data class HoldingsSummary(
+        val partyId: String,
+        /** Sum of unlocked amulet initial amounts (holding fees not deducted). */
+        val totalUnlockedCoin: BigDecimal,
+        /** Sum of locked amulet initial amounts (holding fees not deducted). */
+        val totalLockedCoin: BigDecimal,
+        /** [totalUnlockedCoin] + [totalLockedCoin]. */
+        val totalCoinHoldings: BigDecimal,
+    )
+
+    /** Aggregated holdings answered from one server-side ACS snapshot. */
+    public data class HoldingsSummaryResult(
+        /** Record time of the snapshot that answered — how stale the totals are. */
+        val recordTime: java.time.Instant,
+        /** The synchronizer-migration id the snapshot belongs to. */
+        val migrationId: Long,
+        /** One entry per queried party that held amulet; parties holding nothing are absent. */
+        val summaries: List<HoldingsSummary>,
+    )
+
+    /**
+     * The network's latest synchronizer-migration id (`/v0/migrations/last`)
+     * — the id scan's ACS snapshots are addressed by. [holdingsSummary]
+     * resolves this automatically; fetch it yourself only to pin the id
+     * across many calls.
+     */
+    public suspend fun latestMigrationId(): Long =
+        get("$baseUrl/v0/migrations/last")
+            ?.longField("migration_id")
+            ?: throw ScanException("missing migration_id in scan response")
+
+    /**
+     * Server-side aggregated Amulet balances for [ownerPartyIds]
+     * (`/v1/holdings/summary`) — scan folds its ACS snapshot so apps don't
+     * fold the full ACS client-side.
+     *
+     * Snapshot semantics — not real-time: scan persists ACS snapshots on a
+     * fixed cadence (hours apart on typical deployments) and this read
+     * answers from the most recent snapshot at or before [asOf]. Fresh taps
+     * and transfers appear only once the next snapshot lands;
+     * [HoldingsSummaryResult.recordTime] says exactly which snapshot
+     * answered. Amounts are amulet initial amounts — holding fees accrued
+     * since creation are not deducted.
+     *
+     * @param ownerPartyIds the owners to aggregate; must not be empty.
+     *   Parties that held nothing at the snapshot are absent from the result.
+     * @param asOf answer from the latest snapshot at or before this instant
+     *   (default: now).
+     * @param migrationId the synchronizer-migration id whose snapshots to
+     *   read; defaults to the network's latest via [latestMigrationId].
+     * @return the snapshot-backed totals, or null if scan has no ACS
+     *   snapshot at or before [asOf] for that migration id (e.g. a
+     *   freshly-bootstrapped network that hasn't taken one yet).
+     */
+    public suspend fun holdingsSummary(
+        ownerPartyIds: List<String>,
+        asOf: java.time.Instant? = null,
+        migrationId: Long? = null,
+    ): HoldingsSummaryResult? {
+        require(ownerPartyIds.isNotEmpty()) { "ownerPartyIds must not be empty" }
+        val body = buildJsonObject {
+            put("migration_id", migrationId ?: latestMigrationId())
+            put("record_time", (asOf ?: java.time.Instant.now()).toString())
+            put("record_time_match", "at_or_before")
+            putJsonArray("owner_party_ids") { ownerPartyIds.forEach { add(it) } }
+        }
+        return post("$baseUrl/v1/holdings/summary", body)?.let(::decodeHoldingsSummaryResult)
+    }
+
+    internal companion object {
+        internal fun decodeHoldingsSummaryResult(json: JsonObject): HoldingsSummaryResult =
+            HoldingsSummaryResult(
+                recordTime = json.stringField("record_time")
+                    ?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+                    ?: throw ScanException("holdings summary missing record_time"),
+                migrationId = json.longField("migration_id")
+                    ?: throw ScanException("holdings summary missing migration_id"),
+                summaries = json["summaries"]?.jsonArray.orEmpty().map { entry ->
+                    val summary = entry.jsonObject
+                    fun amount(key: String): BigDecimal =
+                        summary.stringField(key)?.toBigDecimalOrNull()
+                            ?: throw ScanException("holdings summary missing $key")
+                    HoldingsSummary(
+                        partyId = summary.stringField("party_id")
+                            ?: throw ScanException("holdings summary missing party_id"),
+                        totalUnlockedCoin = amount("total_unlocked_coin"),
+                        totalLockedCoin = amount("total_locked_coin"),
+                        totalCoinHoldings = amount("total_coin_holdings"),
+                    )
+                },
+            )
+
+        private fun String.toBigDecimalOrNull(): BigDecimal? =
+            runCatching { BigDecimal(this) }.getOrNull()
+
+        private fun JsonObject.stringField(key: String): String? =
+            (get(key)?.takeIf { it !is JsonNull } as? JsonPrimitive)?.content
+
+        private fun JsonObject.longField(key: String): Long? =
+            stringField(key)?.toLongOrNull()
+    }
+
     private fun ansEntry(json: JsonObject): AnsEntry =
         AnsEntry(
             name = json.stringField("name") ?: throw ScanException("ANS entry missing name"),
@@ -114,13 +224,23 @@ public class ScanClient(
             description = json.stringField("description").orEmpty(),
         )
 
-    private fun JsonObject.stringField(key: String): String? =
-        (get(key)?.takeIf { it !is JsonNull } as? JsonPrimitive)?.content
-
     /** GET returning the parsed body, or null on 404. */
     private suspend fun get(url: String): JsonObject? =
+        execute(Request.Builder().url(url).get().build(), url)
+
+    /** POST returning the parsed body, or null on 404. */
+    private suspend fun post(url: String, body: JsonObject): JsonObject? =
+        execute(
+            Request.Builder()
+                .url(url)
+                .post(body.toString().toRequestBody("application/json".toMediaType()))
+                .build(),
+            url,
+        )
+
+    private suspend fun execute(request: Request, url: String): JsonObject? =
         suspendCancellableCoroutine { continuation ->
-            val call = http.newCall(Request.Builder().url(url).get().build())
+            val call = http.newCall(request)
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
                     continuation.resumeWithException(e)
