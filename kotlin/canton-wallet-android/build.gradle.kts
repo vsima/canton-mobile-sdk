@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.maven.publish)
 }
 
-description = "Android Keystore signing driver for the Canton wallet stack (StrongBox with TEE fallback)"
+description = "Android Keystore signing driver and encrypted wallet store for the Canton wallet stack"
 
 android {
     namespace = "io.github.vsima.canton.wallet.android"
@@ -28,7 +28,16 @@ kotlin {
 
 dependencies {
     api(project(":canton-wallet-sdk"))
+    // JsonElement API only, as in canton-wallet-sdk: no compiler plugin, no
+    // reflection, nothing for R8 to keep.
+    implementation(libs.kotlinx.serialization.json)
+    // Jetpack DataStore owns the file: atomic writes, one writer per file,
+    // reads off the main thread. The wallet store adds encryption on top.
+    implementation(libs.androidx.datastore)
+    // @RequiresApi only — CLASS retention, so consumers need nothing at runtime.
+    compileOnly(libs.androidx.annotation)
 
+    testImplementation(libs.kotlin.test)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
 }
