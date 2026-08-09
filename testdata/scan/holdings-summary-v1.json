@@ -1,0 +1,18 @@
+{
+    "record_time": "2026-08-09T18:00:00Z",
+    "migration_id": 0,
+    "summaries": [
+        {
+            "party_id": "app_user_localnet-localparty-1::12206e297fb60b09f7a0ae0cc6f81b672c69ca04a72fc34042f5a6364967ab87d7d0",
+            "total_unlocked_coin": "6111277.1600000000",
+            "total_locked_coin": "226.0000000000",
+            "total_coin_holdings": "6111503.1600000000"
+        },
+        {
+            "party_id": "historyreceiver::1220e9bf928f82e3f2208ddbea88165bd13e9b6da4892510f3bda11066da4b672425",
+            "total_unlocked_coin": "5.0000000000",
+            "total_locked_coin": "0.0000000000",
+            "total_coin_holdings": "5.0000000000"
+        }
+    ]
+}

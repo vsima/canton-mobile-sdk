@@ -308,6 +308,90 @@ struct LocalNetIntegrationTests {
         }
     }
 
+    /// Scan answers holdings summaries from periodic ACS snapshots (hours
+    /// apart on LocalNet), so this deliberately does NOT tap-and-expect
+    /// instant consistency. It asserts against the validator operator's
+    /// wallet party, whose holdings long predate the latest snapshot —
+    /// polling briefly in case scan is still taking its first snapshot.
+    @Test(.enabled(if: enabled, "SPLICE_LOCALNET not set"))
+    func holdingsSummariesAgainstLiveScan() async throws {
+        let scan = ScanClient(
+            baseURL: URL(string: Self.env("SPLICE_LOCALNET_SCAN_URL", "http://scan.localhost:4000/api/scan"))!
+        )
+        let walletParty = try await Self.operatorWalletParty()
+        let dso = try await scan.dsoPartyId()
+        print("wallet party: \(walletParty)")
+
+        // Poll with a deadline: tolerate a scan that hasn't taken its first
+        // snapshot yet, never instant consistency.
+        var result: ScanClient.HoldingsSummaryResult?
+        for attempt in 1...24 {
+            result = try await scan.holdingsSummary(ownerPartyIds: [walletParty, dso])
+            if result?.summaries.contains(where: { $0.partyId == walletParty }) == true {
+                break
+            }
+            print("  (attempt \(attempt): no snapshot summary for the wallet party yet)")
+            try await Task.sleep(for: .seconds(5))
+        }
+        let summaries = try #require(result, "scan never produced an ACS snapshot")
+        print(
+            "summary: record_time=\(summaries.recordTime) migration=\(summaries.migrationId) "
+                + summaries.summaries.map { "\($0.partyId.prefix(24))…=\($0.totalCoinHoldings)" }
+                .joined(separator: " ")
+        )
+
+        // The snapshot is server-side state: it must not postdate now.
+        #expect(summaries.recordTime <= Date())
+        #expect(try await scan.latestMigrationId() == summaries.migrationId)
+
+        let operatorSummary = try #require(
+            summaries.summaries.first { $0.partyId == walletParty },
+            "operator wallet party missing from the snapshot summary"
+        )
+        let total = try #require(Decimal(string: operatorSummary.totalCoinHoldings))
+        #expect(total > 0, "operator wallet must show positive holdings, got \(total)")
+        let unlocked = try #require(Decimal(string: operatorSummary.totalUnlockedCoin))
+        let locked = try #require(Decimal(string: operatorSummary.totalLockedCoin))
+        #expect(unlocked + locked == total)
+
+        // Pinning the snapshot and migration id explicitly answers identically.
+        let pinned = try #require(
+            try await scan.holdingsSummary(
+                ownerPartyIds: [walletParty],
+                asOf: summaries.recordTime,
+                migrationId: summaries.migrationId
+            ),
+            "pinned re-read must find the same snapshot"
+        )
+        #expect(pinned.recordTime == summaries.recordTime)
+        #expect(pinned.summaries == [operatorSummary])
+
+        // No snapshot can exist before genesis: the read reports that as nil.
+        let preGenesis = try await scan.holdingsSummary(
+            ownerPartyIds: [walletParty],
+            asOf: ISO8601DateFormatter().date(from: "2000-01-01T00:00:00Z")!
+        )
+        #expect(preGenesis == nil)
+    }
+
+    /// The validator operator's wallet party for the app-user, from the
+    /// validator's wallet API — the party the LocalNet faucet taps to.
+    private static func operatorWalletParty() async throws -> String {
+        let base = env("SPLICE_LOCALNET_VALIDATOR_URL", "http://wallet.localhost:2000/api/validator")
+        var request = URLRequest(url: URL(string: "\(base)/v0/wallet/user-status")!)
+        request.setValue(
+            "Bearer \(jwt(sub: env("SPLICE_LOCALNET_WALLET_USER", "app-user")))",
+            forHTTPHeaderField: "Authorization"
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let body = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard status == 200, let party = body?["party_id"] as? String, !party.isEmpty else {
+            throw ScanError(description: "validator user-status failed (HTTP \(status)): \(body ?? [:])")
+        }
+        return party
+    }
+
     @Test(.enabled(if: enabled, "SPLICE_LOCALNET not set"))
     func ansResolutionAgainstLiveScan() async throws {
         let scan = ScanClient(

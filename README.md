@@ -363,6 +363,7 @@ Capability-level comparison with Digital Asset's TypeScript
 | Transfer preapprovals (request / lookup / cancel) | ✅ | ✅ | ✅ | Receiver-side cancel is native-only (in JS, removal is validator-operated); all three live-verified here |
 | Holdings history | ✅ | ✅ | ✅ | Transfer-level rows — direction, counterparty, signed fee-inclusive net amount, memo — live-verified on LocalNet |
 | ANS / DSO reads | ✅ | ✅ | ✅ | `ScanClient`: ANS name resolution, DSO party |
+| Scan holdings summaries | — | ✅ | ✅ | `ScanClient.holdingsSummary`: server-side aggregates from Scan's ACS snapshots (per-snapshot lag, not real-time); JS folds holdings client-side |
 | DevNet taps | ✅ | 🔜 | 🔜 | The integration harness taps today; SDK-level API planned |
 | Traffic purchase | ✅ | 🔜 | 🔜 | Traffic purchase and status/fee reads planned |
 | dApp connectivity (CIP-0103) | ✅ | 🔜 | 🔜 | JS: separate `@canton-network/dapp-sdk`; exploring for native — see roadmap |
@@ -460,6 +461,12 @@ proven and where.
       external signer (Fireblocks, BitGo, HSMs) to the driver interface via
       two async callbacks; `WalletStore` persists party ↔ key-handle
       bindings, with in-memory and (Apple) Keychain implementations
+- [x] Scan holdings summaries (live-verified on LocalNet, both SDKs):
+      `ScanClient.holdingsSummary` reads server-side aggregated balances
+      from Scan's periodic ACS snapshots (`/v1/holdings/summary`,
+      `at_or_before` matching, migration id auto-resolved) — so apps don't
+      fold the full ACS client-side. Snapshot-lagged by design; the result
+      carries the answering snapshot's record time
 
 ### Next
 
@@ -468,8 +475,6 @@ proven and where.
   loop against a DevNet registry.
 - **Traffic purchase and fee preview.** Buy synchronizer traffic for a
   party and preview fees before submitting.
-- **Scan holdings summaries.** Aggregated balances from Scan's
-  server-side snapshots, so apps don't fold the full ACS client-side.
 
 ### Exploring
 

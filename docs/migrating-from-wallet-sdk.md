@@ -61,6 +61,7 @@ Package mapping:
 |---|---|
 | (scan proxy) DSO party | `ScanClient.dsoPartyId()` |
 | ANS lookups | `ScanClient.lookupAnsEntryByName(_:)`, `listAnsEntries(pageSize:namePrefix:)` |
+| *(no equivalent — JS folds holding UTXOs client-side)* | `ScanClient.holdingsSummary(ownerPartyIds:asOf:migrationId:)` — server-side aggregates from Scan's ACS snapshots; snapshot-lagged, the result carries the answering snapshot's record time |
 | `ValidatorController.getOpenMiningRounds` / `getAmuletRules` | Roadmap (traffic work) |
 | `LedgerController.activeContracts`, `ledgerEnd` | `CantonKit`'s `CantonClient` (`activeContractsSnapshot`, `ledgerEnd`, offset-resumable `updates`) |
 

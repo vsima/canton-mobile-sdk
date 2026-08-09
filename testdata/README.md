@@ -23,6 +23,14 @@ test, so coverage can't drift apart.
 When adding a vector, wire it into `swift/Tests` and `kotlin/canton-sdk/src/test`
 in the same PR.
 
+## scan/
+
+`scan/holdings-summary-v1.json` — a `/v1/holdings/summary` response captured
+verbatim from a live Splice LocalNet scan (three parties queried, one of
+them never funded and therefore absent). Both SDKs' holdings-summary
+decoding tests (`ScanHoldingsSummaryDecodingTest` /
+`ScanHoldingsSummaryTests`) decode it and must agree on every field.
+
 ## preparedtx/
 
 `preparedtx/vectors.txt` — real `PreparedTransaction` protos (base64) with

@@ -11,8 +11,8 @@ public struct ScanError: Error, CustomStringConvertible {
 /// Read layer over a Super Validator's Scan API (`.../api/scan`).
 ///
 /// Covers the reads a wallet needs from the network's public index: the DSO
-/// party and ANS name resolution (name-based sending). Not yet covered —
-/// holdings summaries (require server-side ACS snapshots), amulet rules and
+/// party, ANS name resolution (name-based sending), and aggregated holdings
+/// from scan's server-side ACS snapshots. Not yet covered — amulet rules and
 /// mining rounds (arrive with traffic-purchase support).
 ///
 /// Note the base URL differs from ``TransferRegistryClient``'s: registry
@@ -78,11 +78,7 @@ public struct ScanClient: Sendable {
             return nil
         }
         let payload = contract["payload"] as? [String: Any]
-        let expiresAt = (payload?["expiresAt"] as? String).flatMap { iso -> Date? in
-            let fractional = ISO8601DateFormatter()
-            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            return fractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-        }
+        let expiresAt = (payload?["expiresAt"] as? String).flatMap(Self.isoDate)
         return TransferPreapprovalInfo(
             contractId: contractId,
             receiver: payload?["receiver"] as? String,
@@ -104,6 +100,132 @@ public struct ScanClient: Sendable {
             return []
         }
         return try entries.compactMap { $0 as? [String: Any] }.map { try ansEntry($0) }
+    }
+
+    /// Aggregate Amulet totals for one owner party in a scan ACS snapshot.
+    public struct HoldingsSummary: Sendable, Equatable {
+        public let partyId: String
+        /// Sum of unlocked amulet initial amounts (holding fees not deducted),
+        /// as the Daml Decimal's canonical string — lossless, convert at the edge.
+        public let totalUnlockedCoin: String
+        /// Sum of locked amulet initial amounts (holding fees not deducted).
+        public let totalLockedCoin: String
+        /// `totalUnlockedCoin` + `totalLockedCoin`.
+        public let totalCoinHoldings: String
+    }
+
+    /// Aggregated holdings answered from one server-side ACS snapshot.
+    public struct HoldingsSummaryResult: Sendable, Equatable {
+        /// Record time of the snapshot that answered — how stale the totals are.
+        public let recordTime: Date
+        /// The synchronizer-migration id the snapshot belongs to.
+        public let migrationId: Int64
+        /// One entry per queried party that held amulet; parties holding nothing are absent.
+        public let summaries: [HoldingsSummary]
+    }
+
+    /// The network's latest synchronizer-migration id (`/v0/migrations/last`)
+    /// — the id scan's ACS snapshots are addressed by. ``holdingsSummary(ownerPartyIds:asOf:migrationId:)``
+    /// resolves this automatically; fetch it yourself only to pin the id
+    /// across many calls.
+    public func latestMigrationId() async throws -> Int64 {
+        guard
+            let response = try await get(path: "v0/migrations/last"),
+            let migrationId = (response["migration_id"] as? NSNumber)?.int64Value
+        else {
+            throw ScanError(description: "missing migration_id in scan response")
+        }
+        return migrationId
+    }
+
+    /// Server-side aggregated Amulet balances for `ownerPartyIds`
+    /// (`/v1/holdings/summary`) — scan folds its ACS snapshot so apps don't
+    /// fold the full ACS client-side.
+    ///
+    /// Snapshot semantics — not real-time: scan persists ACS snapshots on a
+    /// fixed cadence (hours apart on typical deployments) and this read
+    /// answers from the most recent snapshot at or before `asOf`. Fresh taps
+    /// and transfers appear only once the next snapshot lands;
+    /// ``HoldingsSummaryResult/recordTime`` says exactly which snapshot
+    /// answered. Amounts are amulet initial amounts — holding fees accrued
+    /// since creation are not deducted.
+    ///
+    /// - Parameters:
+    ///   - ownerPartyIds: the owners to aggregate; must not be empty. Parties
+    ///     that held nothing at the snapshot are absent from the result.
+    ///   - asOf: answer from the latest snapshot at or before this instant
+    ///     (default: now).
+    ///   - migrationId: the synchronizer-migration id whose snapshots to
+    ///     read; defaults to the network's latest via ``latestMigrationId()``.
+    /// - Returns: the snapshot-backed totals, or nil if scan has no ACS
+    ///   snapshot at or before `asOf` for that migration id (e.g. a
+    ///   freshly-bootstrapped network that hasn't taken one yet).
+    public func holdingsSummary(
+        ownerPartyIds: [String],
+        asOf: Date? = nil,
+        migrationId: Int64? = nil
+    ) async throws -> HoldingsSummaryResult? {
+        precondition(!ownerPartyIds.isEmpty, "ownerPartyIds must not be empty")
+        let resolvedMigrationId: Int64
+        if let migrationId {
+            resolvedMigrationId = migrationId
+        } else {
+            resolvedMigrationId = try await latestMigrationId()
+        }
+        let body: [String: Any] = [
+            "migration_id": resolvedMigrationId,
+            "record_time": ISO8601DateFormatter().string(from: asOf ?? Date()),
+            "record_time_match": "at_or_before",
+            "owner_party_ids": ownerPartyIds,
+        ]
+        guard let response = try await post(path: "v1/holdings/summary", body: body) else {
+            return nil
+        }
+        return try Self.holdingsSummaryResult(response)
+    }
+
+    static func holdingsSummaryResult(_ json: [String: Any]) throws -> HoldingsSummaryResult {
+        guard
+            let recordTime = (json["record_time"] as? String).flatMap(Self.isoDate)
+        else {
+            throw ScanError(description: "holdings summary missing record_time")
+        }
+        guard let migrationId = (json["migration_id"] as? NSNumber)?.int64Value else {
+            throw ScanError(description: "holdings summary missing migration_id")
+        }
+        let summaries = try (json["summaries"] as? [Any] ?? [])
+            .compactMap { $0 as? [String: Any] }
+            .map { summary -> HoldingsSummary in
+                func amount(_ key: String) throws -> String {
+                    guard
+                        let text = summary[key] as? String,
+                        Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")) != nil
+                    else {
+                        throw ScanError(description: "holdings summary missing \(key)")
+                    }
+                    return text
+                }
+                guard let partyId = summary["party_id"] as? String else {
+                    throw ScanError(description: "holdings summary missing party_id")
+                }
+                return HoldingsSummary(
+                    partyId: partyId,
+                    totalUnlockedCoin: try amount("total_unlocked_coin"),
+                    totalLockedCoin: try amount("total_locked_coin"),
+                    totalCoinHoldings: try amount("total_coin_holdings")
+                )
+            }
+        return HoldingsSummaryResult(
+            recordTime: recordTime,
+            migrationId: migrationId,
+            summaries: summaries
+        )
+    }
+
+    private static func isoDate(_ iso: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
     }
 
     private func ansEntry(_ json: [String: Any]) throws -> AnsEntry {
@@ -128,6 +250,22 @@ public struct ScanClient: Sendable {
             components.queryItems = query
         }
         let (data, response) = try await session.data(from: components.url!)
+        return try Self.parsedBody(data, response, path: path)
+    }
+
+    /// POST returning the parsed body, or nil on 404.
+    private func post(path: String, body: [String: Any]) async throws -> [String: Any]? {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await session.data(for: request)
+        return try Self.parsedBody(data, response, path: path)
+    }
+
+    private static func parsedBody(
+        _ data: Data, _ response: URLResponse, path: String
+    ) throws -> [String: Any]? {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 404 {
             return nil
