@@ -89,25 +89,30 @@ public class ValidatorClient(
             ?: throw ValidatorException(null, "register response missing party_id")
 
     /**
-     * Taps the faucet (`/v0/wallet/tap`): mints [amount] Amulet to the
-     * authenticated user's wallet party. **Test networks only** — DevNet
-     * and LocalNet validators expose the tap; on MainNet it fails.
+     * Taps the faucet (`/v0/wallet/tap`): mints Amulet to the authenticated
+     * user's wallet party. **Test networks only** — DevNet and LocalNet
+     * validators expose the tap; on MainNet it fails.
+     *
+     * The amount is denominated in **USD**, matching the validator wallet's
+     * tap: the minted Amulet quantity is `amountUsd / amuletPrice` at the
+     * latest open mining round's price (rounded up). On LocalNet the price
+     * is 0.005 USD/CC, so a 5 USD tap mints 1000 CC.
      *
      * Right after network bootstrap the tap fails until the first mining
      * round opens (400/404, also 429/503 under load — retry those; see
      * [ValidatorException]).
      *
-     * @param amount the Amulet amount to mint, a positive Daml Decimal
-     *   (at most 10 decimal places).
+     * @param amountUsd the USD value to mint as Amulet, a positive Daml
+     *   Decimal (at most 10 decimal places).
      * @param commandId optional command id for deduplication; the validator
      *   generates a random one when absent.
      * @return the contract id of the minted Amulet holding — watch for it
      *   in [TokenStandardClient.listHoldings].
      */
-    public suspend fun tap(amount: BigDecimal, commandId: String? = null): String {
-        require(amount.signum() > 0) { "tap amount must be positive, got $amount" }
+    public suspend fun tap(amountUsd: BigDecimal, commandId: String? = null): String {
+        require(amountUsd.signum() > 0) { "tap amount must be positive, got $amountUsd" }
         val body = buildJsonObject {
-            put("amount", amount.toPlainString())
+            put("amount", amountUsd.toPlainString())
             commandId?.let { put("command_id", it) }
         }
         return post("$baseUrl/v0/wallet/tap", body)

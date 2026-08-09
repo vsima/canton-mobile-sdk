@@ -12,10 +12,11 @@ import Testing
 /// Kotlin tap leg in `LocalNetTokenStandardIntegrationTest`. Skipped unless
 /// SPLICE_LOCALNET=1.
 ///
-/// `ValidatorClient.tap` mints the requested amount to the authenticated
+/// `ValidatorClient.tap` mints the requested USD value to the authenticated
 /// user's wallet party and returns the minted holding's contract id, which
-/// must show up in `TokenStandardClient.listHoldings` with exactly that
-/// amount.
+/// must show up in `TokenStandardClient.listHoldings` carrying exactly
+/// `amountUsd / amuletPrice` — Splice's own conversion at the open mining
+/// round's price.
 struct LocalNetTapIntegrationTests {
     private static var enabled: Bool {
         ProcessInfo.processInfo.environment["SPLICE_LOCALNET"] == "1"
@@ -78,14 +79,14 @@ struct LocalNetTapIntegrationTests {
             .compactMap { Decimal(string: $0.amount) }
             .reduce(0, +)
 
-        // Distinctive amount: nothing else on LocalNet mints this value.
+        // Distinctive USD value: nothing else on LocalNet taps this.
         // Right after a fresh boot the tap fails until a mining round opens,
         // so retry with a deadline.
-        let amount = "231.7654"
+        let amountUsd = "231.7654"
         var mintedCid: String?
         for attempt in 1...60 {
             do {
-                mintedCid = try await validator.tap(amount: amount)
+                mintedCid = try await validator.tap(amountUsd: amountUsd)
                 break
             } catch {
                 print("  (tap attempt \(attempt): \(String(describing: error).prefix(160)))")
@@ -95,7 +96,7 @@ struct LocalNetTapIntegrationTests {
         let contractId = try #require(mintedCid, "tap never succeeded")
         print("tap minted contract: \(contractId.prefix(20))…")
 
-        // The minted holding reaches the wallet party's ACS with the exact amount.
+        // The minted holding reaches the wallet party's ACS.
         var holdings: [Holding] = []
         for attempt in 1...60 {
             holdings = try await tokens.listHoldings(partyId: walletParty)
@@ -112,14 +113,53 @@ struct LocalNetTapIntegrationTests {
         print("minted holding: \(minted.amount) \(minted.instrumentId.id)")
         #expect(minted.owner == walletParty)
         #expect(minted.instrumentId.id == "Amulet")
+
+        // The tap is USD-denominated: minted CC = amountUsd / amuletPrice at
+        // an open mining round's price, rounded up at the request's scale
+        // (the validator's own conversion — HttpWalletHandler.tap).
+        let prices = try await Self.openMiningRoundAmuletPrices()
+        print("open round amulet prices: \(prices)")
+        let mintedAmount = try #require(Decimal(string: minted.amount))
+        let usd = try #require(Decimal(string: amountUsd))
         #expect(
-            Decimal(string: minted.amount) == Decimal(string: amount),
-            "tapped holding must carry the exact amount, got \(minted.amount)"
+            prices.contains { price in
+                var quotient = usd / price
+                var expected = Decimal()
+                NSDecimalRound(&expected, &quotient, 4, .up)
+                return expected == mintedAmount
+            },
+            "minted \(mintedAmount) must be \(amountUsd) USD / an open round price in \(prices)"
         )
         let afterTotal = holdings.compactMap { Decimal(string: $0.amount) }.reduce(0, +)
         #expect(
-            afterTotal >= beforeTotal + Decimal(string: amount)!,
-            "holdings must increase by the tapped amount: before=\(beforeTotal) after=\(afterTotal)"
+            afterTotal >= beforeTotal + mintedAmount,
+            "holdings must increase by the minted amount: before=\(beforeTotal) after=\(afterTotal)"
         )
+    }
+
+    /// The distinct amulet prices on the currently-open mining rounds, via scan.
+    private static func openMiningRoundAmuletPrices() async throws -> [Decimal] {
+        let base = env("SPLICE_LOCALNET_SCAN_URL", "http://scan.localhost:4000/api/scan")
+        var request = URLRequest(url: URL(string: "\(base)/v0/open-and-issuing-mining-rounds")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data(
+            #"{"cached_open_mining_round_contract_ids":[],"cached_issuing_round_contract_ids":[]}"#
+                .utf8
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let rounds = json["open_mining_rounds"] as? [String: Any]
+        else {
+            throw ValidatorError(statusCode: nil, description: "open mining rounds read failed")
+        }
+        let prices = rounds.values.compactMap { round -> Decimal? in
+            let payload =
+                ((round as? [String: Any])?["contract"] as? [String: Any])?["payload"]
+                as? [String: Any]
+            return (payload?["amuletPrice"] as? String).flatMap { Decimal(string: $0) }
+        }
+        return Array(Set(prices))
     }
 }

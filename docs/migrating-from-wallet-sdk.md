@@ -51,7 +51,7 @@ Package mapping:
 | `getTransferPreApprovalByParty` | `ScanClient.transferPreapprovalByParty(_:)` |
 | *(no equivalent — removal is validator-operated)* | `cancelTransferPreapproval(...)` — the receiver archives its own preapproval, self-signed |
 | `getInstrumentById` / `listInstruments` | Roadmap (registry metadata API) |
-| `createTap` | Roadmap |
+| `createTap` (`amulet.tapInternal` in newer versions) | `ValidatorClient.tap(amountUsd:commandId:)` — the validator wallet-API faucet: mints the USD value as Amulet (converted at the open round's price) to the authenticated user's wallet party, returns the minted contract id; test networks only. Onboarding lives beside it (`userStatus()`, `register()`) |
 | `buyMemberTraffic` / `getMemberTrafficStatus` | Roadmap (traffic work) |
 | `mergeHoldingUtxos`, merge delegations, featured-app rights | Roadmap |
 

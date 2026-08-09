@@ -79,28 +79,34 @@ public struct ValidatorClient: Sendable {
         return partyId
     }
 
-    /// Taps the faucet (`/v0/wallet/tap`): mints `amount` Amulet to the
-    /// authenticated user's wallet party. **Test networks only** — DevNet
-    /// and LocalNet validators expose the tap; on MainNet it fails.
+    /// Taps the faucet (`/v0/wallet/tap`): mints Amulet to the authenticated
+    /// user's wallet party. **Test networks only** — DevNet and LocalNet
+    /// validators expose the tap; on MainNet it fails.
+    ///
+    /// The amount is denominated in **USD**, matching the validator wallet's
+    /// tap: the minted Amulet quantity is `amountUsd / amuletPrice` at the
+    /// latest open mining round's price (rounded up). On LocalNet the price
+    /// is 0.005 USD/CC, so a 5 USD tap mints 1000 CC.
     ///
     /// Right after network bootstrap the tap fails until the first mining
     /// round opens (400/404, also 429/503 under load — retry those; see
     /// ``ValidatorError``).
     ///
     /// - Parameters:
-    ///   - amount: the Amulet amount to mint, a positive Daml Decimal as its
-    ///     canonical string (e.g. `"50.0"`, at most 10 decimal places).
+    ///   - amountUsd: the USD value to mint as Amulet, a positive Daml
+    ///     Decimal as its canonical string (e.g. `"50.0"`, at most 10
+    ///     decimal places).
     ///   - commandId: optional command id for deduplication; the validator
     ///     generates a random one when absent.
     /// - Returns: the contract id of the minted Amulet holding — watch for
     ///   it in ``TokenStandardClient/listHoldings(partyId:)``.
-    public func tap(amount: String, commandId: String? = nil) async throws -> String {
-        guard let decimal = Decimal(string: amount, locale: Locale(identifier: "en_US_POSIX")),
+    public func tap(amountUsd: String, commandId: String? = nil) async throws -> String {
+        guard let decimal = Decimal(string: amountUsd, locale: Locale(identifier: "en_US_POSIX")),
             decimal > 0
         else {
-            throw ValidatorError(statusCode: nil, description: "tap amount must be positive, got \(amount)")
+            throw ValidatorError(statusCode: nil, description: "tap amount must be positive, got \(amountUsd)")
         }
-        var body: [String: Any] = ["amount": amount]
+        var body: [String: Any] = ["amount": amountUsd]
         if let commandId {
             body["command_id"] = commandId
         }

@@ -83,9 +83,9 @@ struct LocalNetTransferHistoryIntegrationTests {
         }
     }
 
-    private static func tap(_ amount: String) async throws {
-        _ = try await retryUntil("tap \(amount) (waits for an open mining round)") {
-            try await validator.tap(amount: amount)
+    private static func tap(_ amountUsd: String) async throws {
+        _ = try await retryUntil("tap \(amountUsd) USD (waits for an open mining round)") {
+            try await validator.tap(amountUsd: amountUsd)
         }
     }
 

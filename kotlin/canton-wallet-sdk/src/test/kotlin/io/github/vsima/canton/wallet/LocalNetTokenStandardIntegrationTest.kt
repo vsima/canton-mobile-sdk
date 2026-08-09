@@ -23,8 +23,13 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Dns
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -341,13 +346,14 @@ class LocalNetTokenStandardIntegrationTest {
     }
 
     /**
-     * The SDK-level tap: [ValidatorClient.tap] mints the requested amount
-     * to the authenticated user's wallet party and returns the minted
+     * The SDK-level tap: [ValidatorClient.tap] mints the requested USD
+     * value to the authenticated user's wallet party and returns the minted
      * holding's contract id, which must show up in [TokenStandardClient.listHoldings]
-     * with exactly that amount.
+     * carrying exactly `amountUsd / amuletPrice` — Splice's own conversion
+     * at the open mining round's price.
      */
     @Test
-    fun `SDK-level tap mints the requested amount to the wallet party`() {
+    fun `SDK-level tap mints the requested USD value to the wallet party`() {
         assumeTrue(enabled, "SPLICE_LOCALNET not set; skipping LocalNet test")
         runBlocking {
             val plain = OkHttpChannelBuilder.forAddress(ledgerHost, ledgerPort).usePlaintext().build()
@@ -358,9 +364,9 @@ class LocalNetTokenStandardIntegrationTest {
                 val tokens = TokenStandardClient(walletChannel, registry)
                 val before = tokens.listHoldings(walletParty).sumOf { it.amount }
 
-                // Distinctive amount: nothing else on LocalNet mints this value.
-                val amount = BigDecimal("123.4567")
-                val mintedCid = tap(amount.toPlainString())
+                // Distinctive USD value: nothing else on LocalNet taps this.
+                val amountUsd = BigDecimal("123.4567")
+                val mintedCid = tap(amountUsd.toPlainString())
                 println("tap minted contract: ${mintedCid.take(20)}…")
 
                 val holdings = retryUntil("tapped holding visible in the ACS") {
@@ -370,19 +376,53 @@ class LocalNetTokenStandardIntegrationTest {
                 val minted = holdings.first { it.contractId == mintedCid }
                 println("minted holding: ${minted.amount} ${minted.instrumentId.id}")
                 assertEquals("Amulet", minted.instrumentId.id)
-                assertEquals(
-                    0,
-                    minted.amount.compareTo(amount),
-                    "tapped holding must carry the exact amount, got ${minted.amount}",
+
+                // The tap is USD-denominated: minted CC = amountUsd / amuletPrice
+                // at an open mining round's price, rounded up (the validator's
+                // own conversion — HttpWalletHandler.tap).
+                val prices = openMiningRoundAmuletPrices()
+                println("open round amulet prices: $prices")
+                assertTrue(
+                    prices.any { price ->
+                        minted.amount.compareTo(
+                            amountUsd.divide(price, java.math.RoundingMode.CEILING)
+                        ) == 0
+                    },
+                    "minted ${minted.amount} must be $amountUsd USD / an open round price in $prices",
                 )
                 val after = holdings.sumOf { it.amount }
                 assertTrue(
-                    after >= before + amount,
-                    "holdings must increase by the tapped amount: before=$before after=$after",
+                    after >= before + minted.amount,
+                    "holdings must increase by the minted amount: before=$before after=$after",
                 )
             } finally {
                 plain.shutdownNow()
             }
+        }
+    }
+
+    /** The distinct amulet prices on the currently-open mining rounds, via scan. */
+    private fun openMiningRoundAmuletPrices(): List<BigDecimal> {
+        val url = env("SPLICE_LOCALNET_SCAN_URL", "http://scan.localhost:4000/api/scan") +
+            "/v0/open-and-issuing-mining-rounds"
+        val body =
+            """{"cached_open_mining_round_contract_ids":[],"cached_issuing_round_contract_ids":[]}"""
+        http.newCall(
+            okhttp3.Request.Builder().url(url)
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+        ).execute().use { response ->
+            check(response.isSuccessful) { "open rounds read failed: HTTP ${response.code}" }
+            return Json.parseToJsonElement(response.body!!.string()).jsonObject
+                .getValue("open_mining_rounds").jsonObject.values
+                .map {
+                    BigDecimal(
+                        it.jsonObject.getValue("contract").jsonObject
+                            .getValue("payload").jsonObject
+                            .getValue("amuletPrice").jsonPrimitive.content
+                    )
+                }
+                .distinct()
         }
     }
 
@@ -399,10 +439,10 @@ class LocalNetTokenStandardIntegrationTest {
         return retryUntil("wallet user onboarding") { validator.register() }
     }
 
-    /** Taps [amount] to the operator wallet, returning the minted contract id. */
-    internal suspend fun tap(amount: String): String =
-        retryUntil("tap $amount (waits for an open mining round)") {
-            validator.tap(BigDecimal(amount))
+    /** Taps [amountUsd] (USD) to the operator wallet, returning the minted contract id. */
+    internal suspend fun tap(amountUsd: String): String =
+        retryUntil("tap $amountUsd USD (waits for an open mining round)") {
+            validator.tap(BigDecimal(amountUsd))
         }
 
     // -- plumbing ----------------------------------------------------------
