@@ -10,6 +10,11 @@ public struct RetryPolicy: Sendable, Hashable {
     public var initialBackoff: Duration
     public var backoffMultiplier: Double
     public var maxBackoff: Duration
+    /// A reconnecting stream's retry budget resets only after a connection
+    /// has both delivered at least one update and stayed alive for this
+    /// long; shorter-lived connections keep escalating the backoff and
+    /// consuming the budget.
+    public var streamHealthyWindow: Duration
 
     public static let `default` = RetryPolicy()
     public static let none = RetryPolicy(maxAttempts: 1)
@@ -18,13 +23,15 @@ public struct RetryPolicy: Sendable, Hashable {
         maxAttempts: Int = 4,
         initialBackoff: Duration = .milliseconds(250),
         backoffMultiplier: Double = 2.0,
-        maxBackoff: Duration = .seconds(5)
+        maxBackoff: Duration = .seconds(5),
+        streamHealthyWindow: Duration = .seconds(10)
     ) {
         precondition(maxAttempts >= 1, "maxAttempts must be at least 1")
         self.maxAttempts = maxAttempts
         self.initialBackoff = initialBackoff
         self.backoffMultiplier = backoffMultiplier
         self.maxBackoff = maxBackoff
+        self.streamHealthyWindow = streamHealthyWindow
     }
 
     func backoff(forAttempt attempt: Int) -> Duration {

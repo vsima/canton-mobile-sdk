@@ -178,7 +178,10 @@ public struct CantonClient: Sendable {
     /// Streams ledger updates for `subscription`, transparently reconnecting
     /// on retryable failures and resuming from the offset of the last
     /// received update — consumers see one uninterrupted, gap-free stream.
-    /// The retry budget resets whenever an update is received.
+    /// The retry budget resets only once a connection has proven healthy:
+    /// it delivered at least one update and stayed alive for
+    /// ``RetryPolicy/streamHealthyWindow``. Shorter-lived connections keep
+    /// escalating the backoff until ``RetryPolicy/maxAttempts`` is exhausted.
     ///
     /// The stream finishes normally when the server ends it (only for
     /// subscriptions with ``UpdateSubscription/endInclusive`` set) and throws
@@ -199,10 +202,12 @@ public struct CantonClient: Sendable {
 
         return AsyncThrowingStream { continuation in
             let task = Task {
+                let clock = ContinuousClock()
                 var cursor = subscription.beginExclusive
                 var attempt = 1
                 while !Task.isCancelled {
                     let begin = cursor
+                    let connectedAt = clock.now
                     do {
                         let (last, progressed, streamError) = try await self.withServices { services in
                             try await services.update.getUpdates(subscription.request(from: begin)) { response in
@@ -222,7 +227,13 @@ public struct CantonClient: Sendable {
                             }
                         }
                         cursor = last
-                        if progressed { attempt = 1 }
+                        // Only a connection that delivered an update and
+                        // outlived the healthy window earns a fresh retry
+                        // budget; a stream that reconnects and dies young
+                        // keeps escalating instead.
+                        if progressed, clock.now - connectedAt >= policy.streamHealthyWindow {
+                            attempt = 1
+                        }
                         guard let streamError else {
                             continuation.finish() // server completed (finite subscription)
                             return
