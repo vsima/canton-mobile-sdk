@@ -364,7 +364,7 @@ Capability-level comparison with Digital Asset's TypeScript
 | Holdings history | ✅ | ✅ | ✅ | Transfer-level rows — direction, counterparty, signed fee-inclusive net amount, memo — live-verified on LocalNet |
 | ANS / DSO reads | ✅ | ✅ | ✅ | `ScanClient`: ANS name resolution, DSO party |
 | Scan holdings summaries | — | ✅ | ✅ | `ScanClient.holdingsSummary`: server-side aggregates from Scan's ACS snapshots (per-snapshot lag, not real-time); JS folds holdings client-side |
-| DevNet taps | ✅ | 🔜 | 🔜 | The integration harness taps today; SDK-level API planned |
+| DevNet taps | ✅ | ✅ | ✅ | `ValidatorClient.tap` mints via the validator's wallet API, live-verified on LocalNet; the DevNet-registry run still needs DevNet credentials |
 | Traffic purchase | ✅ | 🔜 | 🔜 | Traffic purchase and status/fee reads planned |
 | dApp connectivity (CIP-0103) | ✅ | 🔜 | 🔜 | JS: separate `@canton-network/dapp-sdk`; exploring for native — see roadmap |
 | Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
@@ -467,12 +467,19 @@ proven and where.
       `at_or_before` matching, migration id auto-resolved) — so apps don't
       fold the full ACS client-side. Snapshot-lagged by design; the result
       carries the answering snapshot's record time
+- [x] SDK-level DevNet taps (live-verified on LocalNet, both SDKs):
+      `ValidatorClient` wraps the validator's user-facing wallet API —
+      onboarding (`userStatus` / `register`) and the test-network faucet
+      (`tap`), which mints the requested **USD** value as Amulet (converted
+      at the open mining round's price, like the validator wallet) and
+      returns the minted contract id. The integration harness now drives
+      its taps through this public surface instead of private duplicates
 
 ### Next
 
-- **SDK-level DevNet taps.** The integration harness already taps test
-  funds; promote that to a public API and run the full token-standard
-  loop against a DevNet registry.
+- **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
+  below); still pending is running the full token-standard loop against a
+  DevNet registry, which needs DevNet validator credentials.
 - **Traffic purchase and fee preview.** Buy synchronizer traffic for a
   party and preview fees before submitting.
 
