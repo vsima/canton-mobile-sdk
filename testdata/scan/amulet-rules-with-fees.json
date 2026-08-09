@@ -1,0 +1,88 @@
+{
+ "_comment": "Synthetic /v0/amulet-rules response for fee-schedule decoding tests. The initialValue transferConfig carries the historical MainNet-default fee schedule published in Splice's own docs (scan_bulk_data_api example OpenMiningRound transferConfigUsd: createFee 0.03, holdingFee rate 0.0000190259, transferFee initialRate 0.01 with steps at 100/1000/1000000, lockHolderFee 0.005). The futureValues entry switches to the CIP-0078 zero-fee config effective 2030-01-01, so schedule resolution is observable on both sides of the boundary.",
+ "amulet_rules_update": {
+  "contract": {
+   "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.AmuletRules:AmuletRules",
+   "contract_id": "00fee5c4edu1efixture000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+   "payload": {
+    "dso": "DSO::1220fixturefixturefixturefixturefixturefixturefixturefixture00000000",
+    "configSchedule": {
+     "initialValue": {
+      "decentralizedSynchronizer": {
+       "requiredSynchronizers": {
+        "map": [["global-domain::1220fixturefixturefixturefixturefixturefixturefixturefixture00000000", {}]]
+       },
+       "activeSynchronizer": "global-domain::1220fixturefixturefixturefixturefixturefixturefixturefixture00000000",
+       "fees": {
+        "baseRateTrafficLimits": {
+         "burstAmount": "400000",
+         "burstWindow": {"microseconds": "1200000000"}
+        },
+        "extraTrafficPrice": "16.67",
+        "readVsWriteScalingFactor": "4",
+        "minTopupAmount": "200000"
+       }
+      },
+      "transferConfig": {
+       "createFee": {"fee": "0.0300000000"},
+       "holdingFee": {"rate": "0.0000190259"},
+       "transferFee": {
+        "initialRate": "0.0100000000",
+        "steps": [
+         {"_1": "100.0000000000", "_2": "0.0010000000"},
+         {"_1": "1000.0000000000", "_2": "0.0001000000"},
+         {"_1": "1000000.0000000000", "_2": "0.0000100000"}
+        ]
+       },
+       "lockHolderFee": {"fee": "0.0050000000"},
+       "extraFeaturedAppRewardAmount": "1.0",
+       "maxNumInputs": "100",
+       "maxNumOutputs": "100",
+       "maxNumLockHolders": "50",
+       "tokenStandardMaxTTL": null
+      },
+      "tickDuration": {"microseconds": "600000000"}
+     },
+     "futureValues": [
+      {
+       "_1": "2030-01-01T00:00:00Z",
+       "_2": {
+        "decentralizedSynchronizer": {
+         "requiredSynchronizers": {
+          "map": [["global-domain::1220fixturefixturefixturefixturefixturefixturefixturefixture00000000", {}]]
+         },
+         "activeSynchronizer": "global-domain::1220fixturefixturefixturefixturefixturefixturefixturefixture00000000",
+         "fees": {
+          "baseRateTrafficLimits": {
+           "burstAmount": "500000",
+           "burstWindow": {"microseconds": "1800000000"}
+          },
+          "extraTrafficPrice": "20.0",
+          "readVsWriteScalingFactor": "4",
+          "minTopupAmount": "250000"
+         }
+        },
+        "transferConfig": {
+         "createFee": {"fee": "0.0"},
+         "holdingFee": {"rate": "0.0000190259"},
+         "transferFee": {"initialRate": "0.0", "steps": []},
+         "lockHolderFee": {"fee": "0.0"},
+         "extraFeaturedAppRewardAmount": "1.0",
+         "maxNumInputs": "100",
+         "maxNumOutputs": "100",
+         "maxNumLockHolders": "50",
+         "tokenStandardMaxTTL": null
+        },
+        "tickDuration": {"microseconds": "600000000"}
+       }
+      }
+     ]
+    },
+    "isDevNet": false
+   },
+   "created_event_blob": "<elided>",
+   "created_at": "2026-01-01T00:00:00Z"
+  },
+  "domain_id": "global-domain::1220fixturefixturefixturefixturefixturefixturefixturefixture00000000"
+ }
+}
