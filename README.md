@@ -461,7 +461,20 @@ proven and where.
 - [x] Custody hook and persistence: `DelegatingSigningDriver` adapts any
       external signer (Fireblocks, BitGo, HSMs) to the driver interface via
       two async callbacks; `WalletStore` persists party ↔ key-handle
-      bindings, with in-memory and (Apple) Keychain implementations
+      bindings, with in-memory, Apple Keychain, and Android implementations
+- [x] `AndroidKeystoreWalletStore`: records encrypted under an Android
+      Keystore AES-GCM key, with Jetpack DataStore owning the file — atomic
+      writes, one writer per file, never on the main thread. Deliberately
+      not `EncryptedSharedPreferences`, deprecated since `security-crypto`
+      1.1.0-alpha07. An unreadable store (the keystore key gone after a
+      device restore, an altered file) raises instead of resetting to
+      empty, because a wallet that silently forgets its party onboards a
+      second identity. Note what this does and doesn't do: hardware key
+      handles are keystore aliases, so the signing key never leaves the
+      TEE either way — encrypting the file protects the binding's
+      integrity and keeps the party id out of plain storage. Encoding is
+      unit-tested in CI; the keystore and DataStore paths have
+      instrumentation tests awaiting a device run
 - [x] Scan holdings summaries (live-verified on LocalNet, both SDKs):
       `ScanClient.holdingsSummary` reads server-side aggregated balances
       from Scan's periodic ACS snapshots (`/v1/holdings/summary`,
@@ -509,18 +522,6 @@ proven and where.
   until shortly before expiry — expiry supplied by the provider, or read
   from the JWT's `exp` claim. A breaking change to a public API, so it
   lands before 1.0.
-- **Durable Kotlin `WalletStore`.** `WalletStore` ships in-memory on both
-  platforms and Keychain-backed on Apple; Kotlin has no durable
-  implementation, so Android apps roll their own persistence. The
-  replacement is a Keystore-encrypted store — DataStore or a file, AES-GCM
-  under an Android Keystore master key. Explicitly *not*
-  `EncryptedSharedPreferences`: Jetpack Security's crypto library is
-  deprecated as of `security-crypto` 1.1.0-alpha07, with a history of
-  keyset-corruption crashes and main-thread violations. Note what's at
-  stake — the record holds a party ↔ key-handle binding, and hardware
-  handles are keystore aliases, so the private key never leaves
-  StrongBox/TEE either way. This is privacy and integrity hardening plus
-  platform parity, not key secrecy.
 - **Pluggable TLS trust (certificate pinning).** Mobile clients roam
   across networks where TLS interception is a real possibility, so let the
   host pin the trust anchors it expects. The mechanism differs per
