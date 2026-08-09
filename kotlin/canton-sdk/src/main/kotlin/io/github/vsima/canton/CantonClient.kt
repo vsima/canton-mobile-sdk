@@ -19,6 +19,7 @@ import io.grpc.stub.AbstractStub
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
+import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -176,7 +177,10 @@ public class CantonClient(
      * Streams ledger updates for [subscription], transparently reconnecting
      * on retryable failures and resuming from the offset of the last
      * received update — consumers see one uninterrupted, gap-free stream.
-     * The retry budget resets whenever an update is received.
+     * The retry budget resets only once a connection has proven healthy:
+     * it delivered at least one update and stayed alive for
+     * [RetryPolicy.streamHealthyWindow]. Shorter-lived connections keep
+     * escalating the backoff until [RetryPolicy.maxAttempts] is exhausted.
      *
      * The flow completes normally when the server ends the stream (only for
      * subscriptions with [UpdateSubscription.endInclusive] set) and throws
@@ -186,16 +190,24 @@ public class CantonClient(
         var cursor = subscription.beginExclusive
         var attempt = 1
         while (true) {
+            val connectedAt = TimeSource.Monotonic.markNow()
+            var progressed = false
             try {
                 updateService.getUpdates(subscription.toRequest(cursor)).collect { response ->
                     val update = LedgerUpdate.from(response) ?: return@collect
                     cursor = update.offset
-                    attempt = 1
+                    progressed = true
                     emit(update)
                 }
                 return@flow // server completed the stream (finite subscription)
             } catch (t: Throwable) {
                 val error = CantonError.from(t) ?: throw t
+                // Only a connection that delivered an update and outlived the
+                // healthy window earns a fresh retry budget; a stream that
+                // reconnects and dies young keeps escalating instead.
+                if (progressed && connectedAt.elapsedNow() >= retryPolicy.streamHealthyWindow) {
+                    attempt = 1
+                }
                 if (!error.retryable || attempt >= retryPolicy.maxAttempts) {
                     throw CantonException(error, t)
                 }

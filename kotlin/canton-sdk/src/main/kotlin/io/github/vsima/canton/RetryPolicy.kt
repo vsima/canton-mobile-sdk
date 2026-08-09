@@ -20,6 +20,13 @@ public data class RetryPolicy(
     val initialBackoff: Duration = 250.milliseconds,
     val backoffMultiplier: Double = 2.0,
     val maxBackoff: Duration = 5.seconds,
+    /**
+     * A reconnecting stream's retry budget resets only after a connection
+     * has both delivered at least one update and stayed alive for this
+     * long; shorter-lived connections keep escalating the backoff and
+     * consuming the budget.
+     */
+    val streamHealthyWindow: Duration = 10.seconds,
 ) {
     init {
         require(maxAttempts >= 1) { "maxAttempts must be at least 1" }
