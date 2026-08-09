@@ -31,6 +31,13 @@ import java.time.Instant
  */
 public object TokenStandard {
 
+    /**
+     * The CIP-0056 metadata key carrying a transfer's human-readable reason
+     * (memo). Set it in `Transfer.meta` when creating a transfer; surfaced
+     * as [TransferSummary.memo] in holdings history.
+     */
+    public const val reasonMetadataKey: String = "splice.lfdecentralizedtrust.org/reason"
+
     public val holdingInterfaceId: ValueOuterClass.Identifier =
         interfaceId("splice-api-token-holding-v1", "Splice.Api.Token.HoldingV1", "Holding")
 

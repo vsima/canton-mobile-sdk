@@ -42,9 +42,11 @@ public class TokenStandardClient(
 
     /**
      * One committed update's effect on a party's holdings: created holdings
-     * carry full views (credits); archived holdings surface as contract ids —
-     * resolve amounts against previously-seen state (the wallet's local UTXO
-     * set), which ACS-delta streams keep consistent by construction.
+     * carry full views (credits); archived holdings surface as contract ids,
+     * and — when their creation was seen earlier in the stream — as resolved
+     * [archived] holdings with amounts and owners. [summary] is the
+     * transfer-level reading (direction, counterparty, signed net amount,
+     * memo) when one is derivable.
      */
     public data class HoldingsChange(
         val updateId: String,
@@ -52,6 +54,17 @@ public class TokenStandardClient(
         val recordTime: Instant,
         val created: List<Holding>,
         val archivedContractIds: List<String>,
+        /**
+         * The archived holdings resolved against creations seen since ledger
+         * begin. An entry of [archivedContractIds] is missing here only when
+         * its creation predates the participant's retained history.
+         */
+        val archived: List<Holding> = emptyList(),
+        /**
+         * Transfer-level reading of this update, or null when none is
+         * derivable (e.g. the update touches several instruments at once).
+         */
+        val summary: TransferSummary? = null,
     )
 
     /** Active holding UTXOs visible to [partyId], any CIP-0056 instrument. */
@@ -71,7 +84,16 @@ public class TokenStandardClient(
     /**
      * The party's holdings history between two offsets: every committed
      * update that created or archived one of its CIP-0056 holdings, oldest
-     * first. Defaults to genesis → current ledger end (a finite read).
+     * first, with transfer-level [HoldingsChange.summary] rows. Defaults to
+     * genesis → current ledger end (a finite read).
+     *
+     * Implementation note: archive events carry no payload, so the stream is
+     * always walked from ledger begin — creations seen along the way resolve
+     * later archives (holding amounts/owners, transfer views of accepted
+     * instructions) even when [beginExclusive] > 0; only updates past
+     * [beginExclusive] are returned. On a pruned participant the walk starts
+     * at the retained history's begin, and archives of pre-retention
+     * holdings surface as bare contract ids.
      */
     public suspend fun holdingsHistory(
         partyId: String,
@@ -83,13 +105,19 @@ public class TokenStandardClient(
         if (end <= beginExclusive) return emptyList()
 
         val request = GetUpdatesRequest.newBuilder()
-            .setBeginExclusive(beginExclusive)
+            .setBeginExclusive(0)
             .setEndInclusive(end)
             .setUpdateFormat(
                 TransactionFilterOuterClass.UpdateFormat.newBuilder()
                     .setIncludeTransactions(
                         TransactionFilterOuterClass.TransactionFormat.newBuilder()
-                            .setEventFormat(interfaceEventFormat(partyId, TokenStandard.holdingInterfaceId))
+                            .setEventFormat(
+                                interfaceEventFormat(
+                                    partyId,
+                                    TokenStandard.holdingInterfaceId,
+                                    TokenStandard.transferInstructionInterfaceId,
+                                )
+                            )
                             .setTransactionShape(
                                 TransactionFilterOuterClass.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
                             )
@@ -97,22 +125,63 @@ public class TokenStandardClient(
             )
             .build()
 
+        val holdingsByCid = HashMap<String, Holding>()
+        val instructionsByCid = HashMap<String, TransferInstruction>()
+
         return update.getUpdates(request).toList().mapNotNull { response ->
             if (!response.hasTransaction()) return@mapNotNull null
             val transaction = response.transaction
             val created = mutableListOf<Holding>()
-            val archived = mutableListOf<String>()
+            val archived = mutableListOf<Holding>()
+            val archivedCids = mutableListOf<String>()
+            val instructions = mutableListOf<TransferInstruction>()
             for (event in transaction.eventsList) {
                 when {
                     event.hasCreated() -> {
-                        val view = event.created.interfaceViewsList.firstOrNull { it.hasViewValue() }
-                            ?: continue
-                        created += holdingFromView(event.created.contractId, view.viewValue)
+                        val contractId = event.created.contractId
+                        for (view in event.created.interfaceViewsList) {
+                            if (!view.hasViewValue()) continue
+                            when {
+                                view.interfaceId.sameEntity(TokenStandard.holdingInterfaceId) -> {
+                                    val holding = holdingFromView(contractId, view.viewValue)
+                                    holdingsByCid[contractId] = holding
+                                    created += holding
+                                }
+                                view.interfaceId.sameEntity(
+                                    TokenStandard.transferInstructionInterfaceId
+                                ) -> {
+                                    val instruction =
+                                        transferInstructionFromView(contractId, view.viewValue)
+                                    instructionsByCid[contractId] = instruction
+                                    instructions += instruction
+                                }
+                            }
+                        }
                     }
-                    event.hasArchived() -> archived += event.archived.contractId
+                    event.hasArchived() -> {
+                        val contractId = event.archived.contractId
+                        val holding = holdingsByCid.remove(contractId)
+                        val instruction = instructionsByCid.remove(contractId)
+                        when {
+                            holding != null -> {
+                                archived += holding
+                                archivedCids += contractId
+                            }
+                            instruction != null -> instructions += instruction
+                            // Unresolvable archive: keep it out of the holding
+                            // cids only when the ledger says it was solely a
+                            // transfer instruction.
+                            event.archived.implementedInterfacesList.isNotEmpty() &&
+                                event.archived.implementedInterfacesList.none {
+                                    it.sameEntity(TokenStandard.holdingInterfaceId)
+                                } -> Unit
+                            else -> archivedCids += contractId
+                        }
+                    }
                 }
             }
-            if (created.isEmpty() && archived.isEmpty()) return@mapNotNull null
+            if (transaction.offset <= beginExclusive) return@mapNotNull null
+            if (created.isEmpty() && archivedCids.isEmpty()) return@mapNotNull null
             HoldingsChange(
                 updateId = transaction.updateId,
                 offset = transaction.offset,
@@ -121,7 +190,9 @@ public class TokenStandardClient(
                     transaction.recordTime.nanos.toLong(),
                 ),
                 created = created,
-                archivedContractIds = archived,
+                archivedContractIds = archivedCids,
+                archived = archived,
+                summary = summarizeTransfer(partyId, created, archived, instructions),
             )
         }
     }
@@ -316,10 +387,11 @@ public class TokenStandardClient(
 
     private fun interfaceEventFormat(
         partyId: String,
-        interfaceId: ValueOuterClass.Identifier,
+        vararg interfaceIds: ValueOuterClass.Identifier,
     ): TransactionFilterOuterClass.EventFormat {
         val filters = TransactionFilterOuterClass.Filters.newBuilder()
-            .addCumulative(
+        for (interfaceId in interfaceIds) {
+            filters.addCumulative(
                 TransactionFilterOuterClass.CumulativeFilter.newBuilder()
                     .setInterfaceFilter(
                         TransactionFilterOuterClass.InterfaceFilter.newBuilder()
@@ -327,14 +399,23 @@ public class TokenStandardClient(
                             .setIncludeInterfaceView(true)
                     )
             )
-            .build()
+        }
         return TransactionFilterOuterClass.EventFormat.newBuilder()
-            .putFiltersByParty(partyId, filters)
+            .putFiltersByParty(partyId, filters.build())
             // Non-verbose values omit record field labels, which the view
             // decoders match on.
             .setVerbose(true)
             .build()
     }
+
+    /**
+     * Requests carry `#package-name` references while responses carry
+     * resolved package ids, so interface identity is matched on
+     * module + entity.
+     */
+    private fun ValueOuterClass.Identifier.sameEntity(
+        other: ValueOuterClass.Identifier,
+    ): Boolean = moduleName == other.moduleName && entityName == other.entityName
 
     private suspend fun activeInterfaceViews(
         partyId: String,
