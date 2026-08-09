@@ -23,14 +23,8 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Dns
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,7 +37,7 @@ import kotlin.test.fail
  * `docker compose --profile sv --profile app-user --profile app-provider up -d`).
  *
  * The full loop this verifies, all through the public SDK surface:
- *  1. tap Amulet to the app-user wallet party (validator API)
+ *  1. tap Amulet to the app-user wallet party ([ValidatorClient.tap])
  *  2. [listHoldings] decodes real Amulet holdings from the interface-filtered ACS
  *  3. allocate a P-256 external party on a Splice participant (WP1 on Splice)
  *  4. token-standard transfer wallet party → external party via the scan
@@ -346,50 +340,70 @@ class LocalNetTokenStandardIntegrationTest {
         }
     }
 
+    /**
+     * The SDK-level tap: [ValidatorClient.tap] mints the requested amount
+     * to the authenticated user's wallet party and returns the minted
+     * holding's contract id, which must show up in [TokenStandardClient.listHoldings]
+     * with exactly that amount.
+     */
+    @Test
+    fun `SDK-level tap mints the requested amount to the wallet party`() {
+        assumeTrue(enabled, "SPLICE_LOCALNET not set; skipping LocalNet test")
+        runBlocking {
+            val plain = OkHttpChannelBuilder.forAddress(ledgerHost, ledgerPort).usePlaintext().build()
+            try {
+                val walletChannel = authed(plain, walletUser)
+                val walletParty = onboardWalletUser()
+                val registry = TransferRegistryClient(registryUrl, http)
+                val tokens = TokenStandardClient(walletChannel, registry)
+                val before = tokens.listHoldings(walletParty).sumOf { it.amount }
+
+                // Distinctive amount: nothing else on LocalNet mints this value.
+                val amount = BigDecimal("123.4567")
+                val mintedCid = tap(amount.toPlainString())
+                println("tap minted contract: ${mintedCid.take(20)}…")
+
+                val holdings = retryUntil("tapped holding visible in the ACS") {
+                    tokens.listHoldings(walletParty)
+                        .takeIf { all -> all.any { it.contractId == mintedCid } }
+                }
+                val minted = holdings.first { it.contractId == mintedCid }
+                println("minted holding: ${minted.amount} ${minted.instrumentId.id}")
+                assertEquals("Amulet", minted.instrumentId.id)
+                assertEquals(
+                    0,
+                    minted.amount.compareTo(amount),
+                    "tapped holding must carry the exact amount, got ${minted.amount}",
+                )
+                val after = holdings.sumOf { it.amount }
+                assertTrue(
+                    after >= before + amount,
+                    "holdings must increase by the tapped amount: before=$before after=$after",
+                )
+            } finally {
+                plain.shutdownNow()
+            }
+        }
+    }
+
     // -- validator (wallet) API -------------------------------------------
 
-    internal fun onboardWalletUser(): String {
-        val status = validatorGet("v0/wallet/user-status")
-        if (status?.get("party_id")?.jsonPrimitive?.content?.isNotEmpty() == true &&
-            status["user_onboarded"]?.jsonPrimitive?.content == "true"
-        ) {
-            return status.getValue("party_id").jsonPrimitive.content
+    /** The public SDK surface the harness taps and onboards through. */
+    internal val validator = ValidatorClient(validatorApi, { jwt(walletUser) }, http)
+
+    internal suspend fun onboardWalletUser(): String {
+        val status = runCatching { validator.userStatus() }.getOrNull()
+        if (status != null && status.userOnboarded && status.partyId.isNotEmpty()) {
+            return status.partyId
         }
-        val registered = retryUntilBlocking("wallet user onboarding") {
-            validatorPost("v0/register", "{}")
-        }
-        return registered.getValue("party_id").jsonPrimitive.content
+        return retryUntil("wallet user onboarding") { validator.register() }
     }
 
-    internal fun tap(amount: String) {
-        retryUntilBlocking("tap $amount (waits for an open mining round)") {
-            validatorPost("v0/wallet/tap", """{"amount": "$amount"}""")
+    /** Taps [amount] to the operator wallet, returning the minted contract id. */
+    internal suspend fun tap(amount: String): String =
+        retryUntil("tap $amount (waits for an open mining round)") {
+            validator.tap(BigDecimal(amount))
         }
-    }
-
-    private fun validatorGet(path: String) = httpJson(
-        Request.Builder().url("$validatorApi/$path").get()
-    )
-
-    private fun validatorPost(path: String, body: String) = httpJson(
-        Request.Builder().url("$validatorApi/$path")
-            .post(body.toRequestBody("application/json".toMediaType()))
-    )
-
-    private fun httpJson(request: Request.Builder): kotlinx.serialization.json.JsonObject? {
-        val response = http.newCall(
-            request.header("Authorization", "Bearer ${jwt(walletUser)}").build()
-        ).execute()
-        response.use {
-            if (!it.isSuccessful) {
-                println("  (validator API ${it.code}: ${it.body?.string()?.take(200)})")
-                return null
-            }
-            val text = it.body?.string().orEmpty()
-            if (text.isBlank()) return kotlinx.serialization.json.JsonObject(emptyMap())
-            return Json.parseToJsonElement(text).jsonObject
-        }
-    }
 
     // -- plumbing ----------------------------------------------------------
 
@@ -441,7 +455,4 @@ class LocalNetTokenStandardIntegrationTest {
         }
         fail("$what: not satisfied after $attempts attempts")
     }
-
-    private fun <T : Any> retryUntilBlocking(what: String, block: () -> T?): T =
-        runBlocking { retryUntil(what) { block() } }
 }

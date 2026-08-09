@@ -62,50 +62,30 @@ struct LocalNetTransferHistoryIntegrationTests {
 
     // MARK: - validator (wallet) API
 
-    private static func validatorJSON(
-        path: String,
-        method: String,
-        body: String? = nil
-    ) async throws -> [String: Any]? {
-        let base = env("SPLICE_LOCALNET_VALIDATOR_URL", "http://wallet.localhost:2000/api/validator")
-        var request = URLRequest(url: URL(string: "\(base)/\(path)")!)
-        request.httpMethod = method
-        request.setValue(
-            "Bearer \(jwt(sub: env("SPLICE_LOCALNET_WALLET_USER", "app-user")))",
-            forHTTPHeaderField: "Authorization"
+    /// The public SDK surface the harness taps and onboards through.
+    private static var validator: ValidatorClient {
+        ValidatorClient(
+            baseURL: URL(
+                string: env("SPLICE_LOCALNET_VALIDATOR_URL", "http://wallet.localhost:2000/api/validator")
+            )!,
+            accessTokenProvider: { jwt(sub: env("SPLICE_LOCALNET_WALLET_USER", "app-user")) }
         )
-        if let body {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = Data(body.utf8)
-        }
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-            print("  (validator API \(code): \(String(decoding: data.prefix(200), as: UTF8.self)))")
-            return nil
-        }
-        guard !data.isEmpty else { return [:] }
-        return try JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
     private static func onboardWalletUser() async throws -> String {
-        if let status = try await validatorJSON(path: "v0/wallet/user-status", method: "GET"),
-            let party = status["party_id"] as? String, !party.isEmpty,
-            status["user_onboarded"] as? Bool == true
+        if let status = try? await validator.userStatus(),
+            status.userOnboarded, !status.partyId.isEmpty
         {
-            return party
+            return status.partyId
         }
-        let registered = try await retryUntil("wallet user onboarding") {
-            try await validatorJSON(path: "v0/register", method: "POST", body: "{}")
+        return try await retryUntil("wallet user onboarding") {
+            try await validator.register()
         }
-        return registered["party_id"] as! String
     }
 
     private static func tap(_ amount: String) async throws {
         _ = try await retryUntil("tap \(amount) (waits for an open mining round)") {
-            try await validatorJSON(
-                path: "v0/wallet/tap", method: "POST", body: #"{"amount": "\#(amount)"}"#
-            )
+            try await validator.tap(amount: amount)
         }
     }
 
