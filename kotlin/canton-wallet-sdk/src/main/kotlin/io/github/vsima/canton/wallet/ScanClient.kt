@@ -34,9 +34,9 @@ public class ScanException(message: String) : RuntimeException(message)
  * Read layer over a Super Validator's Scan API (`.../api/scan`).
  *
  * Covers the reads a wallet needs from the network's public index: the DSO
- * party, ANS name resolution (name-based sending), and aggregated holdings
- * from scan's server-side ACS snapshots. Not yet covered — amulet rules and
- * mining rounds (arrive with traffic-purchase support).
+ * party, ANS name resolution (name-based sending), aggregated holdings from
+ * scan's server-side ACS snapshots, the AmuletRules fee configuration, open
+ * mining rounds (amulet price), and per-member synchronizer traffic status.
  *
  * Note the base URL differs from [TransferRegistryClient]'s: registry
  * endpoints mount at the vhost root (`/registry/...`), scan endpoints under
@@ -183,7 +183,219 @@ public class ScanClient(
         return post("$baseUrl/v1/holdings/summary", body)?.let(::decodeHoldingsSummaryResult)
     }
 
+    /**
+     * The AmuletRules configuration effective at [asOf] (`/v0/amulet-rules`):
+     * the USD transfer-fee schedule, synchronizer traffic pricing, and the
+     * active synchronizer id — the reads that feed [TransferFeeEstimator]
+     * and [ValidatorClient.buyTraffic].
+     *
+     * AmuletRules publishes a `configSchedule` (initial value plus future
+     * values with effective times); this resolves it the way the ledger does
+     * (`Splice.Schedule.getValueAsOf`): the last future value effective at
+     * or before [asOf], else the initial value. Current networks always have
+     * an empty `futureValues` (CIP-0107 forbids scheduling new ones).
+     *
+     * @param asOf the instant to resolve the config schedule at (default: now).
+     */
+    public suspend fun amuletRulesConfig(asOf: java.time.Instant? = null): AmuletRulesConfig {
+        val response = post("$baseUrl/v0/amulet-rules", buildJsonObject {})
+            ?: throw ScanException("amulet rules not available (HTTP 404)")
+        return decodeAmuletRulesConfig(response, asOf ?: java.time.Instant.now())
+    }
+
+    /**
+     * The currently open mining rounds (`/v0/open-and-issuing-mining-rounds`),
+     * in ascending round order. Each round carries the USD amulet price that
+     * taps and fee conversions use. Note the list includes rounds whose
+     * [OpenMiningRound.opensAt] is still in the future — pick the round a
+     * submission would execute against with [latestUsable].
+     */
+    public suspend fun openMiningRounds(): List<OpenMiningRound> {
+        val body = buildJsonObject {
+            putJsonArray("cached_open_mining_round_contract_ids") {}
+            putJsonArray("cached_issuing_round_contract_ids") {}
+        }
+        val response = post("$baseUrl/v0/open-and-issuing-mining-rounds", body)
+            ?: throw ScanException("open mining rounds not available (HTTP 404)")
+        return decodeOpenMiningRounds(response)
+    }
+
+    /**
+     * The participant hosting [partyId] on [synchronizerId]
+     * (`/v0/domains/{id}/parties/{party}/participant-id`), as a sequencer
+     * member id (`PAR::name::fingerprint`) — the `memberId` that
+     * [memberTrafficStatus] expects. Null if scan doesn't know the party.
+     */
+    public suspend fun partyParticipantId(synchronizerId: String, partyId: String): String? {
+        val url = "$baseUrl/v0/domains/".toHttpUrl().newBuilder()
+            .addPathSegment(synchronizerId)
+            .addPathSegment("parties")
+            .addPathSegment(partyId)
+            .addPathSegment("participant-id")
+            .build()
+        return get(url.toString())?.stringField("participant_id")
+    }
+
+    /**
+     * A sequencer member's extra-traffic accounting, all in bytes. Purchased
+     * traffic becomes spendable once the sequencer incorporates it:
+     * [totalLimitBytes] catching up to [totalPurchasedBytes] means all
+     * purchases are live (either can briefly lead the other, as the two
+     * numbers come from the sequencer and scan's ledger ingestion
+     * respectively).
+     */
+    public data class MemberTrafficStatus(
+        /** Extra traffic the member has consumed so far. */
+        val totalConsumedBytes: Long,
+        /** Extra traffic the sequencer currently grants the member. */
+        val totalLimitBytes: Long,
+        /** Total extra traffic ever purchased for the member. */
+        val totalPurchasedBytes: Long,
+    )
+
+    /**
+     * The extra-traffic status of one sequencer member
+     * (`/v0/domains/{id}/members/{member}/traffic-status`) — the read that
+     * shows a [ValidatorClient.buyTraffic] purchase landing.
+     *
+     * @param synchronizerId the synchronizer to read traffic for
+     *   ([AmuletRulesConfig.activeSynchronizerId]).
+     * @param memberId the participant (or mediator) whose traffic to read,
+     *   `PAR::name::fingerprint` — resolve a party's participant with
+     *   [partyParticipantId].
+     * @return the member's traffic totals, or null if the member is unknown
+     *   to the synchronizer.
+     */
+    public suspend fun memberTrafficStatus(
+        synchronizerId: String,
+        memberId: String,
+    ): MemberTrafficStatus? {
+        val url = "$baseUrl/v0/domains/".toHttpUrl().newBuilder()
+            .addPathSegment(synchronizerId)
+            .addPathSegment("members")
+            .addPathSegment(memberId)
+            .addPathSegment("traffic-status")
+            .build()
+        val status = get(url.toString())?.get("traffic_status") as? JsonObject ?: return null
+        return decodeMemberTrafficStatus(status)
+    }
+
     internal companion object {
+        internal fun decodeAmuletRulesConfig(response: JsonObject, asOf: java.time.Instant): AmuletRulesConfig {
+            val schedule = response.objectAt("amulet_rules_update", "contract", "payload", "configSchedule")
+                ?: throw ScanException("amulet rules response missing configSchedule")
+            var config = schedule["initialValue"] as? JsonObject
+                ?: throw ScanException("amulet rules configSchedule missing initialValue")
+            // Splice.Schedule.getValueAsOf: the last future value whose
+            // effective time is at or before asOf wins; futureValues are
+            // sorted ascending on-ledger.
+            for (entry in (schedule["futureValues"] as? kotlinx.serialization.json.JsonArray).orEmpty()) {
+                val future = entry.jsonObject
+                val effectiveAt = future.stringField("_1")
+                    ?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+                    ?: throw ScanException("amulet rules future value missing effective time")
+                if (effectiveAt > asOf) break
+                config = future["_2"] as? JsonObject
+                    ?: throw ScanException("amulet rules future value missing config")
+            }
+
+            val transferConfig = config["transferConfig"] as? JsonObject
+                ?: throw ScanException("amulet rules config missing transferConfig")
+            val transferFee = transferConfig["transferFee"] as? JsonObject
+                ?: throw ScanException("amulet rules transferConfig missing transferFee")
+            val synchronizer = config["decentralizedSynchronizer"] as? JsonObject
+                ?: throw ScanException("amulet rules config missing decentralizedSynchronizer")
+            val fees = synchronizer["fees"] as? JsonObject
+                ?: throw ScanException("amulet rules decentralizedSynchronizer missing fees")
+            val limits = fees["baseRateTrafficLimits"] as? JsonObject
+                ?: throw ScanException("amulet rules fees missing baseRateTrafficLimits")
+
+            return AmuletRulesConfig(
+                transferFees = TransferFeeSchedule(
+                    createFeeUsd = transferConfig.decimalIn("createFee", "fee"),
+                    transferFee = SteppedRate(
+                        initialRate = transferFee.decimalField("initialRate"),
+                        steps = (transferFee["steps"] as? kotlinx.serialization.json.JsonArray).orEmpty().map { step ->
+                            SteppedRate.Step(
+                                boundary = step.jsonObject.decimalField("_1"),
+                                rate = step.jsonObject.decimalField("_2"),
+                            )
+                        },
+                    ),
+                    holdingFeeUsdPerRound = transferConfig.decimalIn("holdingFee", "rate"),
+                    lockHolderFeeUsd = transferConfig.decimalIn("lockHolderFee", "fee"),
+                ),
+                synchronizerFees = SynchronizerFeeConfig(
+                    extraTrafficPriceUsdPerMB = fees.decimalField("extraTrafficPrice"),
+                    minTopupAmountBytes = fees.longField("minTopupAmount")
+                        ?: throw ScanException("amulet rules fees missing minTopupAmount"),
+                    baseRateBurstAmountBytes = limits.longField("burstAmount")
+                        ?: throw ScanException("amulet rules traffic limits missing burstAmount"),
+                    baseRateBurstWindow = java.time.Duration.ofNanos(
+                        1000 * ((limits["burstWindow"] as? JsonObject)?.longField("microseconds")
+                            ?: throw ScanException("amulet rules traffic limits missing burstWindow"))
+                    ),
+                    readVsWriteScalingFactor = fees.longField("readVsWriteScalingFactor")
+                        ?: throw ScanException("amulet rules fees missing readVsWriteScalingFactor"),
+                ),
+                activeSynchronizerId = synchronizer.stringField("activeSynchronizer")
+                    ?: throw ScanException("amulet rules decentralizedSynchronizer missing activeSynchronizer"),
+            )
+        }
+
+        internal fun decodeOpenMiningRounds(response: JsonObject): List<OpenMiningRound> =
+            (response["open_mining_rounds"] as? JsonObject ?: JsonObject(emptyMap()))
+                .values
+                .map { round ->
+                    val payload = round.jsonObject.objectAt("contract", "payload")
+                        ?: throw ScanException("open mining round missing contract payload")
+                    OpenMiningRound(
+                        roundNumber = (payload["round"] as? JsonObject)?.longField("number")
+                            ?: throw ScanException("open mining round missing round number"),
+                        amuletPriceUsd = payload.decimalField("amuletPrice"),
+                        opensAt = payload.instantField("opensAt"),
+                        targetClosesAt = payload.instantField("targetClosesAt"),
+                    )
+                }
+                .sortedBy { it.roundNumber }
+
+        internal fun decodeMemberTrafficStatus(status: JsonObject): MemberTrafficStatus {
+            val actual = status["actual"] as? JsonObject
+                ?: throw ScanException("traffic status missing actual")
+            val target = status["target"] as? JsonObject
+                ?: throw ScanException("traffic status missing target")
+            return MemberTrafficStatus(
+                totalConsumedBytes = actual.longField("total_consumed")
+                    ?: throw ScanException("traffic status missing total_consumed"),
+                totalLimitBytes = actual.longField("total_limit")
+                    ?: throw ScanException("traffic status missing total_limit"),
+                totalPurchasedBytes = target.longField("total_purchased")
+                    ?: throw ScanException("traffic status missing total_purchased"),
+            )
+        }
+
+        private fun JsonObject.objectAt(vararg path: String): JsonObject? {
+            var current: JsonObject = this
+            for (key in path) {
+                current = current[key] as? JsonObject ?: return null
+            }
+            return current
+        }
+
+        private fun JsonObject.decimalField(key: String): BigDecimal =
+            stringField(key)?.toBigDecimalOrNull()
+                ?: throw ScanException("expected a decimal at $key")
+
+        private fun JsonObject.decimalIn(vararg path: String): BigDecimal {
+            val parent = objectAt(*path.dropLast(1).toTypedArray())
+                ?: throw ScanException("missing ${path.joinToString(".")}")
+            return parent.decimalField(path.last())
+        }
+
+        private fun JsonObject.instantField(key: String): java.time.Instant =
+            stringField(key)?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+                ?: throw ScanException("expected a timestamp at $key")
+
         internal fun decodeHoldingsSummaryResult(json: JsonObject): HoldingsSummaryResult =
             HoldingsSummaryResult(
                 recordTime = json.stringField("record_time")

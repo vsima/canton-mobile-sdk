@@ -11,9 +11,9 @@ public struct ScanError: Error, CustomStringConvertible {
 /// Read layer over a Super Validator's Scan API (`.../api/scan`).
 ///
 /// Covers the reads a wallet needs from the network's public index: the DSO
-/// party, ANS name resolution (name-based sending), and aggregated holdings
-/// from scan's server-side ACS snapshots. Not yet covered — amulet rules and
-/// mining rounds (arrive with traffic-purchase support).
+/// party, ANS name resolution (name-based sending), aggregated holdings from
+/// scan's server-side ACS snapshots, the AmuletRules fee configuration, open
+/// mining rounds (amulet price), and per-member synchronizer traffic status.
 ///
 /// Note the base URL differs from ``TransferRegistryClient``'s: registry
 /// endpoints mount at the vhost root (`/registry/...`), scan endpoints under
@@ -182,6 +182,255 @@ public struct ScanClient: Sendable {
             return nil
         }
         return try Self.holdingsSummaryResult(response)
+    }
+
+    /// The AmuletRules configuration effective at `asOf` (`/v0/amulet-rules`):
+    /// the USD transfer-fee schedule, synchronizer traffic pricing, and the
+    /// active synchronizer id — the reads that feed ``TransferFeeEstimator``
+    /// and ``ValidatorClient/buyTraffic(trafficAmountBytes:receivingValidatorPartyId:synchronizerId:trackingId:expiresAt:)``.
+    ///
+    /// AmuletRules publishes a `configSchedule` (initial value plus future
+    /// values with effective times); this resolves it the way the ledger does
+    /// (`Splice.Schedule.getValueAsOf`): the last future value effective at
+    /// or before `asOf`, else the initial value. Current networks always
+    /// have an empty `futureValues` (CIP-0107 forbids scheduling new ones).
+    ///
+    /// - Parameter asOf: the instant to resolve the config schedule at
+    ///   (default: now).
+    public func amuletRulesConfig(asOf: Date? = nil) async throws -> AmuletRulesConfig {
+        guard let response = try await post(path: "v0/amulet-rules", body: [:]) else {
+            throw ScanError(description: "amulet rules not available (HTTP 404)")
+        }
+        return try Self.amuletRulesConfig(response, asOf: asOf ?? Date())
+    }
+
+    /// The currently open mining rounds (`/v0/open-and-issuing-mining-rounds`),
+    /// in ascending round order. Each round carries the USD amulet price
+    /// that taps and fee conversions use. Note the list includes rounds
+    /// whose ``OpenMiningRound/opensAt`` is still in the future — pick the
+    /// round a submission would execute against with
+    /// ``Swift/Array/latestUsable(at:)``.
+    public func openMiningRounds() async throws -> [OpenMiningRound] {
+        let body: [String: Any] = [
+            "cached_open_mining_round_contract_ids": [String](),
+            "cached_issuing_round_contract_ids": [String](),
+        ]
+        guard let response = try await post(path: "v0/open-and-issuing-mining-rounds", body: body)
+        else {
+            throw ScanError(description: "open mining rounds not available (HTTP 404)")
+        }
+        return try Self.openMiningRounds(response)
+    }
+
+    /// The participant hosting `partyId` on `synchronizerId`
+    /// (`/v0/domains/{id}/parties/{party}/participant-id`), as a sequencer
+    /// member id (`PAR::name::fingerprint`) — the `memberId` that
+    /// ``memberTrafficStatus(synchronizerId:memberId:)`` expects. Nil if
+    /// scan doesn't know the party.
+    public func partyParticipantId(synchronizerId: String, partyId: String) async throws -> String? {
+        guard
+            let response = try await get(
+                path: "v0/domains/\(synchronizerId)/parties/\(partyId)/participant-id"
+            )
+        else {
+            return nil
+        }
+        return response["participant_id"] as? String
+    }
+
+    /// A sequencer member's extra-traffic accounting, all in bytes.
+    /// Purchased traffic becomes spendable once the sequencer incorporates
+    /// it: ``totalLimitBytes`` catching up to ``totalPurchasedBytes`` means
+    /// all purchases are live (either can briefly lead the other, as the two
+    /// numbers come from the sequencer and scan's ledger ingestion
+    /// respectively).
+    public struct MemberTrafficStatus: Sendable, Equatable {
+        /// Extra traffic the member has consumed so far.
+        public let totalConsumedBytes: Int64
+        /// Extra traffic the sequencer currently grants the member.
+        public let totalLimitBytes: Int64
+        /// Total extra traffic ever purchased for the member.
+        public let totalPurchasedBytes: Int64
+    }
+
+    /// The extra-traffic status of one sequencer member
+    /// (`/v0/domains/{id}/members/{member}/traffic-status`) — the read that
+    /// shows a ``ValidatorClient/buyTraffic(trafficAmountBytes:receivingValidatorPartyId:synchronizerId:trackingId:expiresAt:)``
+    /// purchase landing.
+    ///
+    /// - Parameters:
+    ///   - synchronizerId: the synchronizer to read traffic for
+    ///     (``AmuletRulesConfig/activeSynchronizerId``).
+    ///   - memberId: the participant (or mediator) whose traffic to read,
+    ///     `PAR::name::fingerprint` — resolve a party's participant with
+    ///     ``partyParticipantId(synchronizerId:partyId:)``.
+    /// - Returns: the member's traffic totals, or nil if the member is
+    ///   unknown to the synchronizer.
+    public func memberTrafficStatus(
+        synchronizerId: String,
+        memberId: String
+    ) async throws -> MemberTrafficStatus? {
+        guard
+            let response = try await get(
+                path: "v0/domains/\(synchronizerId)/members/\(memberId)/traffic-status"
+            ),
+            let status = response["traffic_status"] as? [String: Any]
+        else {
+            return nil
+        }
+        return try Self.memberTrafficStatus(status)
+    }
+
+    static func amuletRulesConfig(_ json: [String: Any], asOf: Date) throws -> AmuletRulesConfig {
+        guard
+            let schedule = objectAt(
+                json, "amulet_rules_update", "contract", "payload", "configSchedule"
+            )
+        else {
+            throw ScanError(description: "amulet rules response missing configSchedule")
+        }
+        guard var config = schedule["initialValue"] as? [String: Any] else {
+            throw ScanError(description: "amulet rules configSchedule missing initialValue")
+        }
+        // Splice.Schedule.getValueAsOf: the last future value whose
+        // effective time is at or before asOf wins; futureValues are sorted
+        // ascending on-ledger.
+        for entry in schedule["futureValues"] as? [Any] ?? [] {
+            guard
+                let future = entry as? [String: Any],
+                let effectiveAt = (future["_1"] as? String).flatMap(Self.isoDate)
+            else {
+                throw ScanError(description: "amulet rules future value missing effective time")
+            }
+            if effectiveAt > asOf { break }
+            guard let futureConfig = future["_2"] as? [String: Any] else {
+                throw ScanError(description: "amulet rules future value missing config")
+            }
+            config = futureConfig
+        }
+
+        guard
+            let transferConfig = config["transferConfig"] as? [String: Any],
+            let transferFee = transferConfig["transferFee"] as? [String: Any]
+        else {
+            throw ScanError(description: "amulet rules config missing transferConfig")
+        }
+        guard
+            let synchronizer = config["decentralizedSynchronizer"] as? [String: Any],
+            let fees = synchronizer["fees"] as? [String: Any],
+            let limits = fees["baseRateTrafficLimits"] as? [String: Any]
+        else {
+            throw ScanError(description: "amulet rules config missing decentralizedSynchronizer.fees")
+        }
+        guard let activeSynchronizerId = synchronizer["activeSynchronizer"] as? String else {
+            throw ScanError(
+                description: "amulet rules decentralizedSynchronizer missing activeSynchronizer"
+            )
+        }
+        let steps = try (transferFee["steps"] as? [Any] ?? []).map { step -> SteppedRate.Step in
+            guard let step = step as? [String: Any] else {
+                throw ScanError(description: "amulet rules transfer fee step is not an object")
+            }
+            return SteppedRate.Step(
+                boundary: try decimal(step, "_1"),
+                rate: try decimal(step, "_2")
+            )
+        }
+        return AmuletRulesConfig(
+            transferFees: TransferFeeSchedule(
+                createFeeUsd: try decimal(transferConfig["createFee"] as? [String: Any], "fee"),
+                transferFee: SteppedRate(
+                    initialRate: try decimal(transferFee, "initialRate"),
+                    steps: steps
+                ),
+                holdingFeeUsdPerRound: try decimal(
+                    transferConfig["holdingFee"] as? [String: Any], "rate"
+                ),
+                lockHolderFeeUsd: try decimal(
+                    transferConfig["lockHolderFee"] as? [String: Any], "fee"
+                )
+            ),
+            synchronizerFees: SynchronizerFeeConfig(
+                extraTrafficPriceUsdPerMB: try decimal(fees, "extraTrafficPrice"),
+                minTopupAmountBytes: try int64(fees, "minTopupAmount"),
+                baseRateBurstAmountBytes: try int64(limits, "burstAmount"),
+                baseRateBurstWindow: .microseconds(
+                    try int64(limits["burstWindow"] as? [String: Any], "microseconds")
+                ),
+                readVsWriteScalingFactor: try int64(fees, "readVsWriteScalingFactor")
+            ),
+            activeSynchronizerId: activeSynchronizerId
+        )
+    }
+
+    static func openMiningRounds(_ json: [String: Any]) throws -> [OpenMiningRound] {
+        let rounds = json["open_mining_rounds"] as? [String: Any] ?? [:]
+        return try rounds.values
+            .map { round -> OpenMiningRound in
+                guard
+                    let payload = objectAt(round as? [String: Any] ?? [:], "contract", "payload")
+                else {
+                    throw ScanError(description: "open mining round missing contract payload")
+                }
+                guard
+                    let opensAt = (payload["opensAt"] as? String).flatMap(Self.isoDate),
+                    let targetClosesAt = (payload["targetClosesAt"] as? String).flatMap(Self.isoDate)
+                else {
+                    throw ScanError(description: "open mining round missing opensAt/targetClosesAt")
+                }
+                return OpenMiningRound(
+                    roundNumber: try int64(payload["round"] as? [String: Any], "number"),
+                    amuletPriceUsd: try decimal(payload, "amuletPrice"),
+                    opensAt: opensAt,
+                    targetClosesAt: targetClosesAt
+                )
+            }
+            .sorted { $0.roundNumber < $1.roundNumber }
+    }
+
+    static func memberTrafficStatus(_ status: [String: Any]) throws -> MemberTrafficStatus {
+        guard
+            let actual = status["actual"] as? [String: Any],
+            let target = status["target"] as? [String: Any]
+        else {
+            throw ScanError(description: "traffic status missing actual/target")
+        }
+        return MemberTrafficStatus(
+            totalConsumedBytes: try int64(actual, "total_consumed"),
+            totalLimitBytes: try int64(actual, "total_limit"),
+            totalPurchasedBytes: try int64(target, "total_purchased")
+        )
+    }
+
+    private static func objectAt(_ json: [String: Any], _ path: String...) -> [String: Any]? {
+        var current = json
+        for key in path {
+            guard let next = current[key] as? [String: Any] else { return nil }
+            current = next
+        }
+        return current
+    }
+
+    private static func decimal(_ json: [String: Any]?, _ key: String) throws -> Decimal {
+        guard
+            let text = json?[key] as? String,
+            let value = Decimal(string: text, locale: Locale(identifier: "en_US_POSIX"))
+        else {
+            throw ScanError(description: "expected a decimal at \(key)")
+        }
+        return value
+    }
+
+    private static func int64(_ json: [String: Any]?, _ key: String) throws -> Int64 {
+        // Daml numbers arrive as strings in contract payloads and as JSON
+        // numbers in scan's own response fields — accept both.
+        if let number = json?[key] as? NSNumber {
+            return number.int64Value
+        }
+        if let text = json?[key] as? String, let value = Int64(text) {
+            return value
+        }
+        throw ScanError(description: "expected an integer at \(key)")
     }
 
     static func holdingsSummaryResult(_ json: [String: Any]) throws -> HoldingsSummaryResult {

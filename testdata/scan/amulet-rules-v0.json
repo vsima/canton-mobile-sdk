@@ -1,0 +1,154 @@
+{
+ "amulet_rules_update": {
+  "contract": {
+   "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.AmuletRules:AmuletRules",
+   "contract_id": "0031f7b48358536222d970ed668e3da37ad4adb4c6ec6a21d217b59b5345623772ca121220927afb77c2eac6244a6bce9e4cd9ff6537839432bd12231947e45ea59be7fa6f",
+   "payload": {
+    "dso": "DSO::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+    "configSchedule": {
+     "initialValue": {
+      "packageConfig": {
+       "amuletNameService": "0.1.23",
+       "walletPayments": "0.1.22",
+       "dsoGovernance": "0.1.28",
+       "validatorLifecycle": "0.1.8",
+       "amulet": "0.1.22",
+       "wallet": "0.1.23"
+      },
+      "externalPartyConfigStateTickDuration": null,
+      "decentralizedSynchronizer": {
+       "requiredSynchronizers": {
+        "map": [
+         [
+          "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+          {}
+         ]
+        ]
+       },
+       "activeSynchronizer": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+       "fees": {
+        "baseRateTrafficLimits": {
+         "burstAmount": "400000",
+         "burstWindow": {
+          "microseconds": "1200000000"
+         }
+        },
+        "extraTrafficPrice": "16.67",
+        "readVsWriteScalingFactor": "4",
+        "minTopupAmount": "200000"
+       }
+      },
+      "transferConfig": {
+       "holdingFee": {
+        "rate": "0.0000190259"
+       },
+       "extraFeaturedAppRewardAmount": "1.0",
+       "maxNumInputs": "100",
+       "tokenStandardMaxTTL": null,
+       "lockHolderFee": {
+        "fee": "0.0"
+       },
+       "createFee": {
+        "fee": "0.0"
+       },
+       "maxNumLockHolders": "50",
+       "transferFee": {
+        "initialRate": "0.0",
+        "steps": []
+       },
+       "maxNumOutputs": "100"
+      },
+      "optDevelopmentFundManager": null,
+      "rewardConfig": null,
+      "transferPreapprovalFee": null,
+      "issuanceCurve": {
+       "initialValue": {
+        "validatorRewardPercentage": "0.05",
+        "optDevelopmentFundPercentage": null,
+        "unfeaturedAppRewardCap": "0.6",
+        "appRewardPercentage": "0.15",
+        "featuredAppRewardCap": "100.0",
+        "amuletToIssuePerYear": "40000000000.0",
+        "validatorRewardCap": "0.2",
+        "optValidatorFaucetCap": "2.85"
+       },
+       "futureValues": [
+        {
+         "_1": {
+          "microseconds": "15768000000000"
+         },
+         "_2": {
+          "validatorRewardPercentage": "0.12",
+          "optDevelopmentFundPercentage": null,
+          "unfeaturedAppRewardCap": "0.6",
+          "appRewardPercentage": "0.4",
+          "featuredAppRewardCap": "100.0",
+          "amuletToIssuePerYear": "20000000000.0",
+          "validatorRewardCap": "0.2",
+          "optValidatorFaucetCap": "2.85"
+         }
+        },
+        {
+         "_1": {
+          "microseconds": "47304000000000"
+         },
+         "_2": {
+          "validatorRewardPercentage": "0.18",
+          "optDevelopmentFundPercentage": null,
+          "unfeaturedAppRewardCap": "0.6",
+          "appRewardPercentage": "0.62",
+          "featuredAppRewardCap": "100.0",
+          "amuletToIssuePerYear": "10000000000.0",
+          "validatorRewardCap": "0.2",
+          "optValidatorFaucetCap": "2.85"
+         }
+        },
+        {
+         "_1": {
+          "microseconds": "157680000000000"
+         },
+         "_2": {
+          "validatorRewardPercentage": "0.21",
+          "optDevelopmentFundPercentage": null,
+          "unfeaturedAppRewardCap": "0.6",
+          "appRewardPercentage": "0.69",
+          "featuredAppRewardCap": "100.0",
+          "amuletToIssuePerYear": "5000000000.0",
+          "validatorRewardCap": "0.2",
+          "optValidatorFaucetCap": "2.85"
+         }
+        },
+        {
+         "_1": {
+          "microseconds": "315360000000000"
+         },
+         "_2": {
+          "validatorRewardPercentage": "0.2",
+          "optDevelopmentFundPercentage": null,
+          "unfeaturedAppRewardCap": "0.6",
+          "appRewardPercentage": "0.75",
+          "featuredAppRewardCap": "100.0",
+          "amuletToIssuePerYear": "2500000000.0",
+          "validatorRewardCap": "0.2",
+          "optValidatorFaucetCap": "2.85"
+         }
+        }
+       ]
+      },
+      "transferPreapprovalBaseDuration": null,
+      "featuredAppActivityMarkerAmount": "1.0",
+      "tickDuration": {
+       "microseconds": "600000000"
+      }
+     },
+     "futureValues": []
+    },
+    "isDevNet": true,
+    "contractStateSchemaVersion": null
+   },
+   "created_event_blob": "<elided>",
+   "created_at": "2026-08-07T17:33:58.899695Z"
+  },
+  "domain_id": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924"
+ }
+}

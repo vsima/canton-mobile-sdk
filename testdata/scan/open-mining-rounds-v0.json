@@ -1,0 +1,241 @@
+{
+ "time_to_live_in_microseconds": 600000000,
+ "open_mining_rounds": {
+  "009ae60551bee58b985dd1dbe4ba8d97dbed20ad2042ca17a2e99541826abf9037ca121220f23a063650946dd40c45c81af6834c1b012fc0bb3f228a79542b07f57f6a15fc": {
+   "contract": {
+    "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.Round:OpenMiningRound",
+    "contract_id": "009ae60551bee58b985dd1dbe4ba8d97dbed20ad2042ca17a2e99541826abf9037ca121220f23a063650946dd40c45c81af6834c1b012fc0bb3f228a79542b07f57f6a15fc",
+    "payload": {
+     "dso": "DSO::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+     "tickDuration": {
+      "microseconds": "600000000"
+     },
+     "issuingFor": {
+      "microseconds": "77400000000"
+     },
+     "amuletPrice": "0.005",
+     "issuanceConfig": {
+      "validatorRewardPercentage": "0.05",
+      "optDevelopmentFundPercentage": null,
+      "unfeaturedAppRewardCap": "0.6",
+      "appRewardPercentage": "0.15",
+      "featuredAppRewardCap": "100.0",
+      "amuletToIssuePerYear": "40000000000.0",
+      "validatorRewardCap": "0.2",
+      "optValidatorFaucetCap": "2.85"
+     },
+     "opensAt": "2026-08-09T19:38:01.304622Z",
+     "rewardConfig": null,
+     "transferConfigUsd": {
+      "holdingFee": {
+       "rate": "0.0000190259"
+      },
+      "extraFeaturedAppRewardAmount": "1.0",
+      "maxNumInputs": "100",
+      "tokenStandardMaxTTL": null,
+      "lockHolderFee": {
+       "fee": "0.0"
+      },
+      "createFee": {
+       "fee": "0.0"
+      },
+      "maxNumLockHolders": "50",
+      "transferFee": {
+       "initialRate": "0.0",
+       "steps": []
+      },
+      "maxNumOutputs": "100"
+     },
+     "trafficPrice": null,
+     "targetClosesAt": "2026-08-09T19:58:01.304622Z",
+     "round": {
+      "number": "129"
+     }
+    },
+    "created_event_blob": "<elided>",
+    "created_at": "2026-08-09T19:28:01.304622Z"
+   },
+   "domain_id": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924"
+  },
+  "003dabdef57280a79ec07293f7f7bfb65db0894b6c9189a431d13fc04f1779c40fca121220681adf3e2da1d650436e3f0cb9f6296bd9c1b9ba92a56a4a49678aed00de4bca": {
+   "contract": {
+    "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.Round:OpenMiningRound",
+    "contract_id": "003dabdef57280a79ec07293f7f7bfb65db0894b6c9189a431d13fc04f1779c40fca121220681adf3e2da1d650436e3f0cb9f6296bd9c1b9ba92a56a4a49678aed00de4bca",
+    "payload": {
+     "dso": "DSO::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+     "tickDuration": {
+      "microseconds": "600000000"
+     },
+     "issuingFor": {
+      "microseconds": "78000000000"
+     },
+     "amuletPrice": "0.005",
+     "issuanceConfig": {
+      "validatorRewardPercentage": "0.05",
+      "optDevelopmentFundPercentage": null,
+      "unfeaturedAppRewardCap": "0.6",
+      "appRewardPercentage": "0.15",
+      "featuredAppRewardCap": "100.0",
+      "amuletToIssuePerYear": "40000000000.0",
+      "validatorRewardCap": "0.2",
+      "optValidatorFaucetCap": "2.85"
+     },
+     "opensAt": "2026-08-09T19:48:34.192536Z",
+     "rewardConfig": null,
+     "transferConfigUsd": {
+      "holdingFee": {
+       "rate": "0.0000190259"
+      },
+      "extraFeaturedAppRewardAmount": "1.0",
+      "maxNumInputs": "100",
+      "tokenStandardMaxTTL": null,
+      "lockHolderFee": {
+       "fee": "0.0"
+      },
+      "createFee": {
+       "fee": "0.0"
+      },
+      "maxNumLockHolders": "50",
+      "transferFee": {
+       "initialRate": "0.0",
+       "steps": []
+      },
+      "maxNumOutputs": "100"
+     },
+     "trafficPrice": null,
+     "targetClosesAt": "2026-08-09T20:08:34.192536Z",
+     "round": {
+      "number": "130"
+     }
+    },
+    "created_event_blob": "<elided>",
+    "created_at": "2026-08-09T19:38:34.192536Z"
+   },
+   "domain_id": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924"
+  },
+  "00687c6c071255f46915bf19f9e14f43b6bc03c7604368339108e803e478236673ca121220d3a30991ee4a07e47f8bd5a1ffcfedb431f63d9adfe8b89ca00606ce948b8611": {
+   "contract": {
+    "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.Round:OpenMiningRound",
+    "contract_id": "00687c6c071255f46915bf19f9e14f43b6bc03c7604368339108e803e478236673ca121220d3a30991ee4a07e47f8bd5a1ffcfedb431f63d9adfe8b89ca00606ce948b8611",
+    "payload": {
+     "dso": "DSO::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+     "tickDuration": {
+      "microseconds": "600000000"
+     },
+     "issuingFor": {
+      "microseconds": "78600000000"
+     },
+     "amuletPrice": "0.005",
+     "issuanceConfig": {
+      "validatorRewardPercentage": "0.05",
+      "optDevelopmentFundPercentage": null,
+      "unfeaturedAppRewardCap": "0.6",
+      "appRewardPercentage": "0.15",
+      "featuredAppRewardCap": "100.0",
+      "amuletToIssuePerYear": "40000000000.0",
+      "validatorRewardCap": "0.2",
+      "optValidatorFaucetCap": "2.85"
+     },
+     "opensAt": "2026-08-09T19:59:06.653164Z",
+     "rewardConfig": null,
+     "transferConfigUsd": {
+      "holdingFee": {
+       "rate": "0.0000190259"
+      },
+      "extraFeaturedAppRewardAmount": "1.0",
+      "maxNumInputs": "100",
+      "tokenStandardMaxTTL": null,
+      "lockHolderFee": {
+       "fee": "0.0"
+      },
+      "createFee": {
+       "fee": "0.0"
+      },
+      "maxNumLockHolders": "50",
+      "transferFee": {
+       "initialRate": "0.0",
+       "steps": []
+      },
+      "maxNumOutputs": "100"
+     },
+     "trafficPrice": null,
+     "targetClosesAt": "2026-08-09T20:19:06.653164Z",
+     "round": {
+      "number": "131"
+     }
+    },
+    "created_event_blob": "<elided>",
+    "created_at": "2026-08-09T19:49:06.653164Z"
+   },
+   "domain_id": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924"
+  }
+ },
+ "issuing_mining_rounds": {
+  "00ece8dafc5b633d0eb61040d8391c5827ab9d2258c2f646c51a008d5b5191ce2aca1212208806c1f94793694f6c745a00654a6c97b74d74b34db0ad2f412ff491ec892122": {
+   "contract": {
+    "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.Round:IssuingMiningRound",
+    "contract_id": "00ece8dafc5b633d0eb61040d8391c5827ab9d2258c2f646c51a008d5b5191ce2aca1212208806c1f94793694f6c745a00654a6c97b74d74b34db0ad2f412ff491ec892122",
+    "payload": {
+     "dso": "DSO::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+     "optIssuancePerValidatorFaucetCoupon": "570.0",
+     "issuancePerFeaturedAppRewardCoupon": "100.0",
+     "opensAt": "2026-08-09T19:38:15.120476Z",
+     "issuancePerSvRewardCoupon": "57.8386605784",
+     "targetClosesAt": "2026-08-09T19:58:15.120476Z",
+     "issuancePerUnfeaturedAppRewardCoupon": "0.6",
+     "round": {
+      "number": "126"
+     },
+     "issuancePerValidatorRewardCoupon": "0.2"
+    },
+    "created_event_blob": "<elided>",
+    "created_at": "2026-08-09T19:28:15.120476Z"
+   },
+   "domain_id": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924"
+  },
+  "00281c3f3701b8bba4fa062b4531b7ed0c72036bebe7ce51d5142585a13e8e954aca12122001e04e6a8b2bbc40e61dfe3bd847a8bb2070a9f235e5995c2aae0b95980a0cee": {
+   "contract": {
+    "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.Round:IssuingMiningRound",
+    "contract_id": "00281c3f3701b8bba4fa062b4531b7ed0c72036bebe7ce51d5142585a13e8e954aca12122001e04e6a8b2bbc40e61dfe3bd847a8bb2070a9f235e5995c2aae0b95980a0cee",
+    "payload": {
+     "dso": "DSO::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+     "optIssuancePerValidatorFaucetCoupon": "570.0",
+     "issuancePerFeaturedAppRewardCoupon": "100.0",
+     "opensAt": "2026-08-09T19:48:42.797372Z",
+     "issuancePerSvRewardCoupon": "57.8386605784",
+     "targetClosesAt": "2026-08-09T20:08:42.797372Z",
+     "issuancePerUnfeaturedAppRewardCoupon": "0.6",
+     "round": {
+      "number": "127"
+     },
+     "issuancePerValidatorRewardCoupon": "0.2"
+    },
+    "created_event_blob": "<elided>",
+    "created_at": "2026-08-09T19:38:42.797372Z"
+   },
+   "domain_id": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924"
+  },
+  "00eb7601a00e3d5029cb3547280252907fefe92b1a8904f9c0cfac68f218d547d2ca121220ae478261c3b2a216b645057ec750593e7bab6f140ff8dec49c682611ba885ad8": {
+   "contract": {
+    "template_id": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.Round:IssuingMiningRound",
+    "contract_id": "00eb7601a00e3d5029cb3547280252907fefe92b1a8904f9c0cfac68f218d547d2ca121220ae478261c3b2a216b645057ec750593e7bab6f140ff8dec49c682611ba885ad8",
+    "payload": {
+     "dso": "DSO::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+     "optIssuancePerValidatorFaucetCoupon": "570.0",
+     "issuancePerFeaturedAppRewardCoupon": "100.0",
+     "opensAt": "2026-08-09T19:59:26.948229Z",
+     "issuancePerSvRewardCoupon": "57.8386605784",
+     "targetClosesAt": "2026-08-09T20:19:26.948229Z",
+     "issuancePerUnfeaturedAppRewardCoupon": "0.6",
+     "round": {
+      "number": "128"
+     },
+     "issuancePerValidatorRewardCoupon": "0.2"
+    },
+    "created_event_blob": "<elided>",
+    "created_at": "2026-08-09T19:49:26.948229Z"
+   },
+   "domain_id": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924"
+  }
+ }
+}

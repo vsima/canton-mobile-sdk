@@ -52,7 +52,7 @@ Package mapping:
 | *(no equivalent — removal is validator-operated)* | `cancelTransferPreapproval(...)` — the receiver archives its own preapproval, self-signed |
 | `getInstrumentById` / `listInstruments` | Roadmap (registry metadata API) |
 | `createTap` (`amulet.tapInternal` in newer versions) | `ValidatorClient.tap(amountUsd:commandId:)` — the validator wallet-API faucet: mints the USD value as Amulet (converted at the open round's price) to the authenticated user's wallet party, returns the minted contract id; test networks only. Onboarding lives beside it (`userStatus()`, `register()`) |
-| `buyMemberTraffic` / `getMemberTrafficStatus` | Roadmap (traffic work) |
+| `buyMemberTraffic` / `getMemberTrafficStatus` | `ValidatorClient.buyTraffic(trafficAmountBytes:receivingValidatorPartyId:synchronizerId:trackingId:expiresAt:)` — creates the validator wallet API's buy-traffic request (traffic goes to the participant hosting the party, paid from the user's Amulet); poll `buyTrafficStatus(trackingId:)` to completed/failed. Status read: `ScanClient.memberTrafficStatus(synchronizerId:memberId:)` with `partyParticipantId(synchronizerId:partyId:)` to resolve the member |
 | `mergeHoldingUtxos`, merge delegations, featured-app rights | Roadmap |
 
 ## Reads
@@ -62,7 +62,7 @@ Package mapping:
 | (scan proxy) DSO party | `ScanClient.dsoPartyId()` |
 | ANS lookups | `ScanClient.lookupAnsEntryByName(_:)`, `listAnsEntries(pageSize:namePrefix:)` |
 | *(no equivalent — JS folds holding UTXOs client-side)* | `ScanClient.holdingsSummary(ownerPartyIds:asOf:migrationId:)` — server-side aggregates from Scan's ACS snapshots; snapshot-lagged, the result carries the answering snapshot's record time |
-| `ValidatorController.getOpenMiningRounds` / `getAmuletRules` | Roadmap (traffic work) |
+| `ValidatorController.getOpenMiningRounds` / `getAmuletRules` | `ScanClient.openMiningRounds()` (typed rounds with the USD amulet price; `latestUsable(at:)` picks the executing round) and `ScanClient.amuletRulesConfig(asOf:)` (typed USD fee schedule + synchronizer traffic pricing, config schedule resolved like the ledger does). The JS SDK returns the raw config; here `TransferFeeEstimator.estimate(schedule:amuletPriceUsd:amountCc:outputCount:)` additionally computes the fee preview — zero on current networks (CIP-0078) |
 | `LedgerController.activeContracts`, `ledgerEnd` | `CantonKit`'s `CantonClient` (`activeContractsSnapshot`, `ledgerEnd`, offset-resumable `updates`) |
 
 ## Not covered here

@@ -365,7 +365,8 @@ Capability-level comparison with Digital Asset's TypeScript
 | ANS / DSO reads | ✅ | ✅ | ✅ | `ScanClient`: ANS name resolution, DSO party |
 | Scan holdings summaries | — | ✅ | ✅ | `ScanClient.holdingsSummary`: server-side aggregates from Scan's ACS snapshots (per-snapshot lag, not real-time); JS folds holdings client-side |
 | DevNet taps | ✅ | ✅ | ✅ | `ValidatorClient.tap` mints via the validator's wallet API, live-verified on LocalNet; the DevNet-registry run still needs DevNet credentials |
-| Traffic purchase | ✅ | 🔜 | 🔜 | Traffic purchase and status/fee reads planned |
+| Traffic purchase | ✅ | ✅ | ✅ | `ValidatorClient.buyTraffic` + `buyTrafficStatus` (validator wallet API), traffic status via `ScanClient.memberTrafficStatus` — full buy → completed → status-reflects loop live-verified on LocalNet |
+| Transfer fee preview | — | ✅ | ✅ | Typed AmuletRules + open-round reads plus a pure `TransferFeeEstimator` (Splice's stepped-rate semantics); on current networks fees are zero by governance (CIP-0078), which the LocalNet run verifies against a real transfer. JS exposes the raw config only |
 | dApp connectivity (CIP-0103) | ✅ | 🔜 | 🔜 | JS: separate `@canton-network/dapp-sdk`; exploring for native — see roadmap |
 | Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
 
@@ -474,14 +475,31 @@ proven and where.
       at the open mining round's price, like the validator wallet) and
       returns the minted contract id. The integration harness now drives
       its taps through this public surface instead of private duplicates
+- [x] Transfer fee preview (live-verified on LocalNet, both SDKs):
+      `ScanClient.amuletRulesConfig` decodes the published USD fee schedule
+      (resolving the config schedule the way the ledger does) plus
+      synchronizer traffic pricing, `ScanClient.openMiningRounds` reads the
+      rounds' amulet price, and the pure `TransferFeeEstimator` reproduces
+      Splice's `chargeSteppedRate` tranche semantics — held to exact
+      expected values on the historical MainNet schedule in unit tests. On
+      today's networks the governance-zeroed config (CIP-0078/0107) makes
+      every estimate 0, and the LocalNet run proves it honestly: a real
+      transfer's sender net equals −(amount + estimate) through the
+      history API
+- [x] Traffic purchase (live-verified on LocalNet, both SDKs):
+      `ValidatorClient.buyTraffic` creates the validator wallet API's
+      buy-traffic request — traffic goes to the participant hosting the
+      given party, paid from the authenticated user's Amulet —
+      `buyTrafficStatus` polls it to completed/failed, and
+      `ScanClient.memberTrafficStatus` (with `partyParticipantId`) shows
+      the purchased bytes landing; the live test buys the network's
+      minimum top-up and watches the totals grow by it
 
 ### Next
 
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
   below); still pending is running the full token-standard loop against a
   DevNet registry, which needs DevNet validator credentials.
-- **Traffic purchase and fee preview.** Buy synchronizer traffic for a
-  party and preview fees before submitting.
 
 ### Exploring
 
