@@ -25,9 +25,10 @@ platform.
 
 > ⚠️ **Early days.** The generated Ledger API bindings are complete and the
 > ergonomic layer covers connections, auth, command submission with dedup,
-> and gap-free state sync. The wallet layer (external signing, party
-> onboarding) is new; the CIP-0056 token standard client and Scan reads are
-> in progress. See the [roadmap](#roadmap). Expect breaking changes before 1.0.
+> and gap-free state sync. The wallet layer — external signing, party
+> onboarding, the CIP-0056 token standard client, Scan reads — is newer but
+> live-verified end-to-end. See the [feature matrix](#feature-matrix) and
+> [roadmap](#roadmap). Expect breaking changes before 1.0.
 
 ## Packages
 
@@ -341,6 +342,32 @@ ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
 |---|---|---|
 | 0.1.x – 0.5.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
 
+## Feature matrix
+
+Capability-level comparison with Digital Asset's TypeScript
+[`@canton-network/wallet-sdk`](https://www.npmjs.com/package/@canton-network/wallet-sdk)
+("JS"). For the method-level mapping, see the
+[migration map](docs/migrating-from-wallet-sdk.md). ✅ shipped ·
+🔜 planned · — not offered.
+
+| Capability | JS | Swift | Kotlin | Notes |
+|---|:---:|:---:|:---:|---|
+| Key generation & signing (Ed25519, EC P-256) | ✅ | ✅ | ✅ | Both schemes live-verified against Canton here |
+| Hardware-resident keys | — | ✅ | ✅ | Secure Enclave (Swift), StrongBox / TEE keystore (Kotlin, `canton-wallet-android`) — all three tiers verified on physical devices |
+| Custody-provider hook | ✅ | ✅ | ✅ | JS ships first-party drivers (Fireblocks, Blockdaemon, Securosys); here `DelegatingSigningDriver` adapts any external signer, first-party integrations are on the roadmap |
+| External party onboarding | ✅ | ✅ | ✅ | Generate → sign → allocate in one call; live-verified with Ed25519 and P-256 |
+| Externally-signed submission | ✅ | ✅ | ✅ | Prepare → sign → execute via the Interactive Submission Service; live-verified end-to-end |
+| Client-side prepared-tx hash verification | ✅ | ✅ | ✅ | JS exposes `verifyTxHash` to call yourself; here `signAndExecute` verifies by default (opt out via `verifyHash`), held to shared golden vectors |
+| Completion tracking | ✅ | ✅ | ✅ | `signAndExecuteAndWait` awaits the ledger's completion event and returns the update id/offset — or the typed rejection |
+| CIP-0056 holdings, inbox & two-step transfers | ✅ | ✅ | ✅ | Live-verified against a live Amulet registry (Splice LocalNet) |
+| Transfer preapprovals (request / lookup / cancel) | ✅ | ✅ | ✅ | Receiver-side cancel is native-only (in JS, removal is validator-operated); all three live-verified here |
+| Holdings history | ✅ | ✅ | ✅ | First slice live-verified; transfer-level semantics matched to JS are next on the roadmap |
+| ANS / DSO reads | ✅ | ✅ | ✅ | `ScanClient`: ANS name resolution, DSO party |
+| DevNet taps | ✅ | 🔜 | 🔜 | The integration harness taps today; SDK-level API planned |
+| Traffic purchase | ✅ | 🔜 | 🔜 | Traffic purchase and status/fee reads planned |
+| dApp connectivity (CIP-0103) | ✅ | 🔜 | 🔜 | JS: separate `@canton-network/dapp-sdk`; exploring for native — see roadmap |
+| Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
+
 ## Roadmap
 
 The goal is wallet-grade parity with the official TypeScript
@@ -349,7 +376,18 @@ natively, on the canonical gRPC Ledger API, with device-held keys.
 Coming from the TS SDK? There's a
 [method-level migration map](docs/migrating-from-wallet-sdk.md).
 
-**Core layer (shipped)**
+### Shipped
+
+Both SDKs cover the full core ledger workflow — connections, auth, command
+submission with dedup, gap-free state sync — and a wallet layer that runs
+end-to-end against live networks: external party onboarding,
+externally-signed transactions with default-on hash verification and
+completion tracking, CIP-0056 holdings, transfers and preapprovals, and
+Scan reads. Device-held keys are hardware-verified at every tier — Secure
+Enclave, StrongBox, and TEE. The checklist below records exactly what's
+proven and where.
+
+**Core layer**
 
 - [x] Command submission with deduplication and automatic retry (`submitAndWait`, `submitAndWaitForTransaction`)
 - [x] Update streams (`AsyncSequence`/`Flow`) with reconnect and offset resumption
@@ -407,23 +445,39 @@ Coming from the TS SDK? There's a
       device): the receiver archives its own `TransferPreapproval`
       unilaterally via `cancelTransferPreapproval` — externally signed, no
       registry context needed
-- [ ] Token standard hardening: DevNet registry run; taps as SDK API,
-      traffic purchase, provider-side preapproval renew (tracking CIP-0112 /
-      Token Standard V2)
 - [x] Read layer, first slice (live-verified on LocalNet): parsed holdings
       history from ACS-delta update streams, ANS name resolution and DSO
       party via the Scan API
-- [ ] Read layer hardening: scan holdings summaries (needs server-side ACS
-      snapshots), richer transfer-level history semantics matched to the TS
-      SDK via golden vectors
 - [x] Custody hook and persistence: `DelegatingSigningDriver` adapts any
       external signer (Fireblocks, BitGo, HSMs) to the driver interface via
       two async callbacks; `WalletStore` persists party ↔ key-handle
       bindings, with in-memory and (Apple) Keychain implementations
-- [ ] First-party custody integrations built on the hook (Fireblocks raw
-      signing, BitGo) — need provider accounts to verify honestly
-- [ ] CIP-0103 dApp connectivity (deferred; revisit when the mobile
-      transport story firms up)
+
+### Next
+
+- **Transfer-level history semantics.** Holdings history today parses
+  ACS deltas; next is transfer-level semantics matched to the TS SDK's,
+  held to shared golden vectors — so a wallet can render "sent 10 CC to
+  alice" instead of raw UTXO deltas.
+- **SDK-level DevNet taps.** The integration harness already taps test
+  funds; promote that to a public API and run the full token-standard
+  loop against a DevNet registry.
+- **Traffic purchase and fee preview.** Buy synchronizer traffic for a
+  party and preview fees before submitting.
+- **Scan holdings summaries.** Aggregated balances from Scan's
+  server-side snapshots, so apps don't fold the full ACS client-side.
+
+### Exploring
+
+- **Custody-provider integrations.** `DelegatingSigningDriver` already
+  adapts any external signer; first-party drivers (Fireblocks raw
+  signing, BitGo) land once they can be verified against real provider
+  accounts.
+- **CIP-0103 dApp connectivity.** Letting dApps drive a native wallet;
+  revisited as the mobile transport story firms up.
+- **CIP-0112 / Token Standard V2.** Tracking the next token-standard
+  iteration — including provider-side preapproval renewal — as it
+  stabilizes.
 
 Deliberately out of scope: a JSON Ledger API fallback transport. The classic
 HTTP/2-hostility that motivates JSON fallbacks is a browser problem; native
