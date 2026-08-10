@@ -15,6 +15,8 @@ let package = Package(
         .library(name: "CantonKit", targets: ["CantonKit"]),
         .library(name: "CantonWalletKit", targets: ["CantonWalletKit"]),
         .library(name: "CantonLedgerAPI", targets: ["CantonLedgerAPI"]),
+        .library(name: "CantonDappKit", targets: ["CantonDappKit"]),
+        .library(name: "CantonDappWalletKit", targets: ["CantonDappWalletKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/grpc/grpc-swift-2.git", from: "2.4.0"),
@@ -52,6 +54,21 @@ let package = Package(
             dependencies: ["CantonKit", "CantonLedgerAPI"],
             path: "swift/Sources/CantonWalletKit"
         ),
+        // CIP-0103 dApp API, dApp side. Deliberately depends on NOTHING
+        // else in this package: a dApp linking it has no business pulling in
+        // the Ledger API stubs, signing drivers or the token standard.
+        .target(
+            name: "CantonDappKit",
+            path: "swift/Sources/CantonDappKit"
+        ),
+        // Wallet side of the same protocol: dispatch, per-peer grants and the
+        // approval seams. Signing and submission live in CantonWalletKit,
+        // which is exactly why the dApp-side target does not depend on it.
+        .target(
+            name: "CantonDappWalletKit",
+            dependencies: ["CantonDappKit", "CantonWalletKit"],
+            path: "swift/Sources/CantonDappWalletKit"
+        ),
         .testTarget(
             name: "CantonKitTests",
             dependencies: [
@@ -67,6 +84,16 @@ let package = Package(
             name: "CantonWalletKitTests",
             dependencies: ["CantonWalletKit"],
             path: "swift/Tests/CantonWalletKitTests"
+        ),
+        .testTarget(
+            name: "CantonDappKitTests",
+            dependencies: ["CantonDappKit"],
+            path: "swift/Tests/CantonDappKitTests"
+        ),
+        .testTarget(
+            name: "CantonDappWalletKitTests",
+            dependencies: ["CantonDappWalletKit"],
+            path: "swift/Tests/CantonDappWalletKitTests"
         ),
     ]
 )
