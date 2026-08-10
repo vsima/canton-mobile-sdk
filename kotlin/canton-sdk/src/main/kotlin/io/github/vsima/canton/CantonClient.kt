@@ -20,6 +20,10 @@ import java.io.Closeable
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -41,22 +45,33 @@ public class CantonClient(
     private val channel: ManagedChannel,
     callCredentials: CallCredentials? = null,
     private val retryPolicy: RetryPolicy = RetryPolicy.DEFAULT,
+    accessTokenProvider: (suspend () -> String)? = null,
 ) : Closeable {
 
     public constructor(configuration: CantonClientConfiguration) : this(
         configuration.buildChannel(),
-        configuration.accessTokenProvider?.let(::BearerTokenCallCredentials),
+        null,
         configuration.retryPolicy,
+        configuration.accessTokenProvider,
     )
 
+    /** Bridges suspending token fetches into gRPC's async credentials API. */
+    private val authScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val tokenCache: CachingTokenProvider? =
+        accessTokenProvider?.let { CachingTokenProvider(fetch = it) }
+
+    private val credentials: CallCredentials? =
+        callCredentials ?: tokenCache?.let { BearerTokenCallCredentials(authScope, it::token) }
+
     private val versionService =
-        VersionServiceGrpcKt.VersionServiceCoroutineStub(channel).withAuth(callCredentials)
+        VersionServiceGrpcKt.VersionServiceCoroutineStub(channel).withAuth(credentials)
     private val commandService =
-        CommandServiceGrpcKt.CommandServiceCoroutineStub(channel).withAuth(callCredentials)
+        CommandServiceGrpcKt.CommandServiceCoroutineStub(channel).withAuth(credentials)
     private val updateService =
-        UpdateServiceGrpcKt.UpdateServiceCoroutineStub(channel).withAuth(callCredentials)
+        UpdateServiceGrpcKt.UpdateServiceCoroutineStub(channel).withAuth(credentials)
     private val stateService =
-        StateServiceGrpcKt.StateServiceCoroutineStub(channel).withAuth(callCredentials)
+        StateServiceGrpcKt.StateServiceCoroutineStub(channel).withAuth(credentials)
 
     /**
      * Fetches the Ledger API version from the participant.
@@ -189,6 +204,7 @@ public class CantonClient(
     public fun updates(subscription: UpdateSubscription): Flow<LedgerUpdate> = flow {
         var cursor = subscription.beginExclusive
         var attempt = 1
+        var authRecovered = false
         while (true) {
             val connectedAt = TimeSource.Monotonic.markNow()
             var progressed = false
@@ -208,6 +224,28 @@ public class CantonClient(
                 if (progressed && connectedAt.elapsedNow() >= retryPolicy.streamHealthyWindow) {
                     attempt = 1
                 }
+                // Auth recovery re-arms on lifetime alone: a connection the
+                // server accepted and held past the healthy window proves
+                // the last refresh worked even if the ledger was idle —
+                // its token simply aged out again.
+                if (connectedAt.elapsedNow() >= retryPolicy.streamHealthyWindow) {
+                    authRecovered = false
+                }
+                // The participant terminates a stream whose access token
+                // expired mid-flight (observed as PERMISSION_DENIED, no
+                // RetryInfo). That is recoverable exactly when the provider
+                // can mint a token that differs from the one the failed
+                // connection used — its fetch has populated the cache by
+                // now, so cached() is that token. Reconnect once with the
+                // fresh one; a second auth failure without an intervening
+                // healthy connection is a real authorization problem and
+                // propagates.
+                if (error.isAuthFailure && tokenCache != null && !authRecovered &&
+                    tokenCache.refreshIfChanged(tokenCache.cached())
+                ) {
+                    authRecovered = true
+                    continue
+                }
                 if (!error.retryable || attempt >= retryPolicy.maxAttempts) {
                     throw CantonException(error, t)
                 }
@@ -218,6 +256,7 @@ public class CantonClient(
     }
 
     override fun close() {
+        authScope.cancel()
         channel.shutdown()
         if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
             channel.shutdownNow()
