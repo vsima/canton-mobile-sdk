@@ -11,8 +11,14 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // KeyGenParameterSpec needs API 23; the JVM modules stay at API 21.
-        minSdk = 23
+        // API 26 — and it is the JVM modules that set the floor, not this
+        // one. canton-sdk and canton-wallet-sdk use java.time and
+        // java.util.Base64 (both API 26 on Android) in the token provider,
+        // the Daml value builders, and the registry/scan/token-standard
+        // clients. Desugaring would paper over it; we deliberately don't
+        // enable it, so 26 is the honest floor. This module's own
+        // constraint, KeyGenParameterSpec, needs only 23.
+        minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

@@ -9,7 +9,9 @@ android {
 
     defaultConfig {
         applicationId = "io.github.vsima.canton.sample"
-        minSdk = 21
+        // 26, not 21: the SDK's JVM modules use java.time and
+        // java.util.Base64, which are API 26 on Android and not desugared.
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
