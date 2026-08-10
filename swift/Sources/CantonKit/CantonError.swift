@@ -32,6 +32,21 @@ public struct CantonError: Error, Sendable, Hashable {
     /// Human-readable description from the server.
     public let message: String
 
+    /// Whether the failure is an authentication/authorization rejection —
+    /// the candidates for a token refresh and reconnect. Live-verified
+    /// against LocalNet: an expired token is rejected on admission with
+    /// `unauthenticated` and no RetryInfo; reading for a party this
+    /// participant doesn't authorize is `permissionDenied`.
+    /// `ACCESS_TOKEN_EXPIRED` is Canton's error id for aborting an
+    /// already-running stream whose token lapsed — enforcement varies by
+    /// participant configuration (LocalNet 3.5.11 lets idle streams
+    /// outlive their token; deployments with ongoing auth checks abort).
+    public var isAuthFailure: Bool {
+        grpcCode == .unauthenticated ||
+            grpcCode == .permissionDenied ||
+            errorCode == "ACCESS_TOKEN_EXPIRED"
+    }
+
     init(
         grpcCode: RPCError.Code,
         errorCode: String?,

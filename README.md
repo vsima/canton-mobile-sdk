@@ -398,6 +398,20 @@ proven and where.
 - [x] ACS bootstrap (`activeContractsSnapshot` + update stream = gap-free state sync)
 - [x] Integration harness in CI (both SDKs against a live Canton node)
 - [x] Typed errors decoding Canton's `google.rpc` details (code, correlation id, retry hints)
+- [x] Async access-token provider with expiry-aware caching and stream
+      auth recovery (both SDKs, live-verified): `accessTokenProvider` may
+      suspend — an OIDC refresh belongs in it directly — and
+      `CachingTokenProvider` serves from cache until 30s before the JWT
+      `exp` claim, so the provider runs once per token lifetime instead of
+      once per RPC. Auth-terminated `updates()` streams refetch and
+      reconnect exactly when the provider yields a *different* token —
+      re-armed only after the server held a connection past the healthy
+      window — so an expired token heals invisibly while bad credentials
+      still fail fast. Semantics pinned by live probing: expiry is rejected
+      on admission as `UNAUTHENTICATED` with no RetryInfo (that recovery
+      path is live-tested end to end in both SDKs); mid-stream expiry
+      enforcement is deployment-specific, and Canton's
+      `ACCESS_TOKEN_EXPIRED` abort is treated as recoverable too
 - [x] Maven Central + first tagged release (`v0.1.0`)
 
 **Wallet layer**
@@ -516,25 +530,6 @@ proven and where.
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
   below); still pending is running the full token-standard loop against a
   DevNet registry, which needs DevNet validator credentials.
-- **Async access-token provider with expiry-aware caching — Kotlin
-  shipped, Swift port next.** Kotlin's `accessTokenProvider` is now
-  `suspend () -> String` (breaking, pre-1.0 by design): an OIDC refresh
-  belongs in the provider directly instead of blocking inside the
-  call-credentials callback. `CachingTokenProvider` serves the token from
-  cache until 30s before its JWT `exp` claim, so the provider is consulted
-  once per token lifetime, not once per RPC. And `updates()` streams now
-  self-heal across auth terminations: on an auth-coded failure the client
-  refetches, reconnects exactly when the provider yields a *different*
-  token, and re-arms only after a connection the server accepted and held
-  past the healthy window — so bad credentials still fail fast instead of
-  spinning. Live-probed against LocalNet to get the semantics right: an
-  expired token is rejected on admission with `UNAUTHENTICATED` and no
-  RetryInfo (the recovery path is live-tested end to end), while this
-  participant does not abort an already-open idle stream at expiry —
-  deployments with ongoing auth checks abort with `ACCESS_TOKEN_EXPIRED`,
-  which the client also treats as recoverable. The Swift SDK still invokes
-  its (already-async) provider per RPC and lacks stream auth recovery;
-  porting both is next.
 - **Pluggable TLS trust (certificate pinning).** Mobile clients roam
   across networks where TLS interception is a real possibility, so let the
   host pin the trust anchors it expects. The mechanism differs per
