@@ -117,11 +117,18 @@ Canton release.
 
 | | Swift | Kotlin |
 |---|---|---|
-| Minimum OS | iOS 18, macOS 15, tvOS 18, watchOS 11, visionOS 2 ¹ | Android API 21+ / any JVM 17+ |
+| Minimum OS | iOS 18, macOS 15, tvOS 18, watchOS 11, visionOS 2 ¹ | Android API 26+ ² / any JVM 17+ |
 | Toolchain | Swift 6 / Xcode 16+ | JDK 17+, Gradle 9 |
 | Transport | [gRPC Swift 2](https://github.com/grpc/grpc-swift-2) over Network.framework | [gRPC Kotlin](https://github.com/grpc/grpc-kotlin) + OkHttp |
 
 ¹ Inherited from gRPC Swift 2, which supports these platforms as minimums.
+
+² `canton-sdk` and everything above it use `java.time` and
+`java.util.Base64`, which are API 26 on Android. This SDK deliberately does
+**not** enable core-library desugaring — it would pull a shim into every
+consumer to paper over a floor that Android 8 (2017) already clears. The
+dApp modules `canton-dapp` and `canton-dapp-wallet` use neither and would run
+lower, but ship against the same floor for consistency.
 
 ## Installation
 
