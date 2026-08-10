@@ -368,6 +368,7 @@ Capability-level comparison with Digital Asset's TypeScript
 | Traffic purchase | ✅ | ✅ | ✅ | `ValidatorClient.buyTraffic` + `buyTrafficStatus` (validator wallet API), traffic status via `ScanClient.memberTrafficStatus` — full buy → completed → status-reflects loop live-verified on LocalNet |
 | Transfer fee preview | — | ✅ | ✅ | Typed AmuletRules + open-round reads plus a pure `TransferFeeEstimator` (Splice's stepped-rate semantics); on current networks fees are zero by governance (CIP-0078), which the LocalNet run verifies against a real transfer. JS exposes the raw config only |
 | dApp connectivity (CIP-0103) | ✅ | 🔜 | 🔜 | JS: separate `@canton-network/dapp-sdk`; exploring for native — see roadmap |
+| TLS trust / certificate pinning | — | ✅ | ✅ | `TlsTrust` pins the Ledger API connection to an operator's CA (and the REST clients with it); JS leaves trust to the runtime, which a browser cannot configure at all. Leaf/SPKI pinning is deliberately not offered — see [docs/tls-trust.md](docs/tls-trust.md) |
 | Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
 
 ## Roadmap
@@ -398,6 +399,17 @@ proven and where.
 - [x] ACS bootstrap (`activeContractsSnapshot` + update stream = gap-free state sync)
 - [x] Integration harness in CI (both SDKs against a live Canton node)
 - [x] Typed errors decoding Canton's `google.rpc` details (code, correlation id, retry hints)
+- [x] Pluggable TLS trust (both SDKs): `TlsTrust` pins the Ledger API
+      connection to an operator's certificate authority, so interception by
+      a CA the device happens to trust is rejected — with a matching
+      `okHttpClient()` / `urlSession()` so the off-ledger REST clients get
+      the same anchors instead of quietly staying on system trust.
+      Authorities only, never leaves: leaf pins break on someone else's
+      renewal, and Apple's Network.framework transport exposes no
+      verification callback that could enforce one. No default pins ship.
+      Held to a real TLS server in both suites, where the case that matters
+      is the *system-default* client being rejected by the same server a
+      pinned client reaches — see [docs/tls-trust.md](docs/tls-trust.md)
 - [x] Async access-token provider with expiry-aware caching and stream
       auth recovery (both SDKs, live-verified): `accessTokenProvider` may
       suspend — an OIDC refresh belongs in it directly — and
@@ -530,21 +542,6 @@ proven and where.
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
   below); still pending is running the full token-standard loop against a
   DevNet registry, which needs DevNet validator credentials.
-- **Pluggable TLS trust (certificate pinning).** Mobile clients roam
-  across networks where TLS interception is a real possibility, so let the
-  host pin the trust anchors it expects. The mechanism differs per
-  platform, and neither is the obvious one: the Kotlin Ledger API channel
-  is `grpc-okhttp` — gRPC's own transport, not an `OkHttpClient`, so
-  OkHttp's `CertificatePinner` does not apply and pinning goes through
-  `TlsChannelCredentials` with a custom trust manager; the REST clients
-  (Scan, validator, registry) do use real OkHttp, where `CertificatePinner`
-  applies directly. On Apple the NIOTS transport accepts
-  `TLSConfig.TrustRootsSource`, which covers certificate and CA pinning,
-  but exposes no verify-block hook — strict SPKI leaf pinning would need
-  the NIOSSL path or an upstream change. This ships as a hook with no
-  default pins: wallets connect to operator-run validators the SDK doesn't
-  control, and a bundled pin would brick the app on someone else's
-  certificate rotation.
 
 ### Exploring
 

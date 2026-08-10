@@ -17,6 +17,9 @@ package io.github.vsima.canton
  *   server rejects a connection for authentication reasons — so the
  *   provider must return a current token when asked again, never a stored
  *   copy of the one that just failed.
+ * @property tlsTrust which certificates to trust when [useTls] is on.
+ *   Defaults to the platform trust store; pin an operator's CA to reject
+ *   interception by a certificate authority the device happens to trust.
  * @property retryPolicy backoff applied to retryable ledger errors.
  */
 public data class CantonClientConfiguration(
@@ -24,5 +27,6 @@ public data class CantonClientConfiguration(
     val port: Int = 6865,
     val useTls: Boolean = true,
     val accessTokenProvider: (suspend () -> String)? = null,
+    val tlsTrust: TlsTrust = TlsTrust(),
     val retryPolicy: RetryPolicy = RetryPolicy.DEFAULT,
 )

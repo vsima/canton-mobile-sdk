@@ -77,12 +77,16 @@ public struct CantonClient: Sendable {
         #if canImport(Network)
         let transport: Transport = try .http2NIOTS(
             target: .dns(host: configuration.host, port: configuration.port),
-            transportSecurity: configuration.useTLS ? .tls : .plaintext
+            transportSecurity: configuration.useTLS
+                ? .tls(configuration.tlsTrust.transportServicesTLS())
+                : .plaintext
         )
         #else
         let transport: Transport = try .http2NIOPosix(
             target: .dns(host: configuration.host, port: configuration.port),
-            transportSecurity: configuration.useTLS ? .tls : .plaintext
+            transportSecurity: configuration.useTLS
+                ? .tls(configuration.tlsTrust.posixTLS())
+                : .plaintext
         )
         #endif
         return try await withGRPCClient(
