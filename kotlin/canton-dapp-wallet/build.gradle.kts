@@ -16,8 +16,15 @@ dependencies {
     // Signing and submission live here, which is exactly why the dApp-side
     // module does not depend on canton-wallet-sdk.
     api(project(":canton-wallet-sdk"))
+    // The prepare step and the ledgerApi proxy speak the JSON Ledger API over
+    // HTTP. OkHttp is `implementation` in canton-wallet-sdk, so it does not
+    // arrive transitively and has to be declared here. (kotlinx-serialization
+    // does arrive, via canton-dapp's `api`.)
+    implementation(libs.okhttp)
 
     testImplementation(libs.kotlin.test)
+    // In-process channel for pipeline tests that stop before the gRPC leg.
+    testImplementation(libs.grpc.inprocess)
 }
 
 tasks.test {
