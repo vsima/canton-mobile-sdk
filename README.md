@@ -516,15 +516,25 @@ proven and where.
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
   below); still pending is running the full token-standard loop against a
   DevNet registry, which needs DevNet validator credentials.
-- **Async access-token provider with expiry-aware caching.** Kotlin's
-  `accessTokenProvider` is a synchronous `() -> String`, while Swift's is
-  `async` and `ValidatorClient` already takes `suspend () -> String`. The
-  synchronous shape forces any host doing a real OIDC refresh to block
-  inside the call-credentials callback, and today both platforms invoke
-  the provider on every RPC. Unify on the async shape and cache the token
-  until shortly before expiry — expiry supplied by the provider, or read
-  from the JWT's `exp` claim. A breaking change to a public API, so it
-  lands before 1.0.
+- **Async access-token provider with expiry-aware caching — Kotlin
+  shipped, Swift port next.** Kotlin's `accessTokenProvider` is now
+  `suspend () -> String` (breaking, pre-1.0 by design): an OIDC refresh
+  belongs in the provider directly instead of blocking inside the
+  call-credentials callback. `CachingTokenProvider` serves the token from
+  cache until 30s before its JWT `exp` claim, so the provider is consulted
+  once per token lifetime, not once per RPC. And `updates()` streams now
+  self-heal across auth terminations: on an auth-coded failure the client
+  refetches, reconnects exactly when the provider yields a *different*
+  token, and re-arms only after a connection the server accepted and held
+  past the healthy window — so bad credentials still fail fast instead of
+  spinning. Live-probed against LocalNet to get the semantics right: an
+  expired token is rejected on admission with `UNAUTHENTICATED` and no
+  RetryInfo (the recovery path is live-tested end to end), while this
+  participant does not abort an already-open idle stream at expiry —
+  deployments with ongoing auth checks abort with `ACCESS_TOKEN_EXPIRED`,
+  which the client also treats as recoverable. The Swift SDK still invokes
+  its (already-async) provider per RPC and lacks stream auth recovery;
+  porting both is next.
 - **Pluggable TLS trust (certificate pinning).** Mobile clients roam
   across networks where TLS interception is a real possibility, so let the
   host pin the trust anchors it expects. The mechanism differs per

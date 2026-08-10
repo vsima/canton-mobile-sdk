@@ -38,6 +38,22 @@ public data class CantonError(
     /** Human-readable description from the server. */
     val description: String,
 ) {
+    /**
+     * Whether the failure is an authentication/authorization rejection —
+     * the candidates for a token refresh and reconnect. Live-verified
+     * against LocalNet: an expired token is rejected on admission with
+     * `UNAUTHENTICATED` and no RetryInfo; reading for a party this
+     * participant doesn't authorize is `PERMISSION_DENIED`.
+     * `ACCESS_TOKEN_EXPIRED` is Canton's error id for aborting an
+     * already-running stream whose token lapsed — enforcement varies by
+     * participant configuration (LocalNet 3.5.11 lets idle streams outlive
+     * their token; deployments with ongoing auth checks abort them).
+     */
+    public val isAuthFailure: Boolean
+        get() = grpcCode == Status.Code.UNAUTHENTICATED ||
+            grpcCode == Status.Code.PERMISSION_DENIED ||
+            errorCode == "ACCESS_TOKEN_EXPIRED"
+
     public companion object {
         private val STATUS_DETAILS_KEY: Metadata.Key<ByteArray> =
             Metadata.Key.of("grpc-status-details-bin", Metadata.BINARY_BYTE_MARSHALLER)
