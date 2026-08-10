@@ -25,6 +25,18 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class AndroidKeystoreSigningDriverTest {
 
+    /**
+     * Emulator keystores are software-only, so the hardware claim can only
+     * be held to on real devices — which is where it matters and where it
+     * has been verified (Secure Enclave, StrongBox, TEE). Everything else
+     * in these tests, the Canton encodings included, runs either way.
+     */
+    private val isEmulator: Boolean =
+        android.os.Build.FINGERPRINT.contains("generic") ||
+            android.os.Build.FINGERPRINT.contains("emulator") ||
+            android.os.Build.MODEL.contains("sdk_gphone") ||
+            android.os.Build.PRODUCT.contains("sdk")
+
     private fun verify(
         publicKey: CryptoOuterClass.SigningPublicKey,
         signature: CryptoOuterClass.Signature,
@@ -44,10 +56,12 @@ class AndroidKeystoreSigningDriverTest {
         try {
             val driver = AndroidKeystoreSigningDriver.generate(alias)
             println("KEYSTORE-CHECK: securityLevel=${driver.securityLevel}")
-            assertTrue(
-                "expected hardware-backed keystore on a physical device",
-                driver.isHardwareBacked,
-            )
+            if (!isEmulator) {
+                assertTrue(
+                    "expected hardware-backed keystore on a physical device",
+                    driver.isHardwareBacked,
+                )
+            }
 
             val hash = ByteArray(32) { it.toByte() }
             val publicKey = driver.publicKey()

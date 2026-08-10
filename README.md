@@ -473,8 +473,11 @@ proven and where.
       handles are keystore aliases, so the signing key never leaves the
       TEE either way — encrypting the file protects the binding's
       integrity and keeps the party id out of plain storage. Encoding is
-      unit-tested in CI; the keystore and DataStore paths have
-      instrumentation tests awaiting a device run
+      unit-tested in CI; the keystore and DataStore paths are covered by
+      instrumentation tests, green on an API 36 emulator — durability
+      asserted by decrypting the file independently of the store, plus
+      ciphertext-not-plaintext on disk, an altered file, a deleted keystore
+      key, and concurrent writers
 - [x] Scan holdings summaries (live-verified on LocalNet, both SDKs):
       `ScanClient.holdingsSummary` reads server-side aggregated balances
       from Scan's periodic ACS snapshots (`/v1/holdings/summary`,
