@@ -72,14 +72,14 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @After
-    fun tearDown() = runBlocking {
+    fun tearDown(): Unit = runBlocking {
         store().close()
         file.delete()
         KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(keyAlias)
     }
 
     @Test
-    fun persistsRecordsToDisk() = runBlocking {
+    fun persistsRecordsToDisk(): Unit = runBlocking {
         val original = record()
         store().save(original)
 
@@ -94,7 +94,7 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @Test
-    fun rereadsFromDiskAfterClose() = runBlocking {
+    fun rereadsFromDiskAfterClose(): Unit = runBlocking {
         val original = record()
         val store = store()
         store.save(original)
@@ -106,7 +106,7 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @Test
-    fun writesCiphertextNotPlaintext() = runBlocking {
+    fun writesCiphertextNotPlaintext(): Unit = runBlocking {
         val original = record(partyId = "wallet::needle-$suffix")
         store().save(original)
 
@@ -119,7 +119,7 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @Test
-    fun updatesAndDeletesRecords() = runBlocking {
+    fun updatesAndDeletesRecords(): Unit = runBlocking {
         val store = store()
         val original = record()
         store.save(original)
@@ -135,7 +135,7 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @Test
-    fun clearEmptiesTheStore() = runBlocking {
+    fun clearEmptiesTheStore(): Unit = runBlocking {
         val store = store()
         store.save(record())
         store.clear()
@@ -148,7 +148,7 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @Test
-    fun reportsAnAlteredFileInsteadOfLosingRecords() = runBlocking {
+    fun reportsAnAlteredFileInsteadOfLosingRecords(): Unit = runBlocking {
         val store = store()
         store.save(record())
         store.close()
@@ -167,7 +167,7 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @Test
-    fun reportsAMissingKeystoreKey() = runBlocking {
+    fun reportsAMissingKeystoreKey(): Unit = runBlocking {
         val store = store()
         store.save(record())
         store.close()
@@ -188,7 +188,7 @@ class AndroidKeystoreWalletStoreTest {
     }
 
     @Test
-    fun concurrentSavesAllLand() = runBlocking {
+    fun concurrentSavesAllLand(): Unit = runBlocking {
         val store = store()
         val parties = (1..16).map { "wallet::concurrent-$it" }
 
