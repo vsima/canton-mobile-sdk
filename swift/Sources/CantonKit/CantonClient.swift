@@ -27,8 +27,17 @@ public struct CantonClient: Sendable {
 
     public let configuration: CantonClientConfiguration
 
+    /// Expiry-aware cache in front of `configuration.accessTokenProvider`:
+    /// the provider is consulted once per token lifetime instead of once
+    /// per request, and auth-failed streams refresh through it before
+    /// reconnecting.
+    private let tokenCache: CachingTokenProvider?
+
     public init(configuration: CantonClientConfiguration) {
         self.configuration = configuration
+        self.tokenCache = configuration.accessTokenProvider.map {
+            CachingTokenProvider(fetch: $0)
+        }
     }
 
     /// Ledger API service clients bound to an open connection.
@@ -60,8 +69,10 @@ public struct CantonClient: Sendable {
         _ body: @Sendable (Services) async throws -> Result
     ) async throws -> Result {
         var interceptors: [any ClientInterceptor] = []
-        if let tokenProvider = configuration.accessTokenProvider {
-            interceptors.append(BearerTokenInterceptor(tokenProvider: tokenProvider))
+        if let tokenCache {
+            interceptors.append(
+                BearerTokenInterceptor(tokenProvider: { try await tokenCache.token() })
+            )
         }
         #if canImport(Network)
         let transport: Transport = try .http2NIOTS(
@@ -183,6 +194,10 @@ public struct CantonClient: Sendable {
     /// ``RetryPolicy/streamHealthyWindow``. Shorter-lived connections keep
     /// escalating the backoff until ``RetryPolicy/maxAttempts`` is exhausted.
     ///
+    /// Auth-terminated connections additionally refresh through the
+    /// access-token provider and reconnect when that yields a different
+    /// token, so a stream outliving its token heals instead of dying.
+    ///
     /// The stream finishes normally when the server ends it (only for
     /// subscriptions with ``UpdateSubscription/endInclusive`` set) and throws
     /// ``CantonError`` on non-retryable failures.
@@ -205,6 +220,30 @@ public struct CantonClient: Sendable {
                 let clock = ContinuousClock()
                 var cursor = subscription.beginExclusive
                 var attempt = 1
+                var authRecovered = false
+
+                // The participant rejects an expired token on admission
+                // (UNAUTHENTICATED, no RetryInfo) and some deployments
+                // abort running streams with ACCESS_TOKEN_EXPIRED. That is
+                // recoverable exactly when the provider can mint a token
+                // that differs from the one the failed connection used —
+                // its fetch has populated the cache by now. One recovery
+                // per connection lifetime: a second auth failure without
+                // the server having held a connection past the healthy
+                // window is a real authorization problem.
+                func recoverAuth(_ error: any Error) async -> Bool {
+                    guard !authRecovered,
+                          let cache = self.tokenCache,
+                          let canton = CantonError(error), canton.isAuthFailure
+                    else { return false }
+                    let previous = await cache.cached()
+                    guard let changed = try? await cache.refreshIfChanged(previous: previous),
+                          changed
+                    else { return false }
+                    authRecovered = true
+                    return true
+                }
+
                 while !Task.isCancelled {
                     let begin = cursor
                     let connectedAt = clock.now
@@ -234,9 +273,20 @@ public struct CantonClient: Sendable {
                         if progressed, clock.now - connectedAt >= policy.streamHealthyWindow {
                             attempt = 1
                         }
+                        // Auth recovery re-arms on lifetime alone: a
+                        // connection the server accepted and held past the
+                        // healthy window proves the last refresh worked
+                        // even if the ledger was idle — its token simply
+                        // aged out again.
+                        if clock.now - connectedAt >= policy.streamHealthyWindow {
+                            authRecovered = false
+                        }
                         guard let streamError else {
                             continuation.finish() // server completed (finite subscription)
                             return
+                        }
+                        if !(streamError is CancellationError), await recoverAuth(streamError) {
+                            continue
                         }
                         guard !(streamError is CancellationError),
                               let delay = retryDelay(for: streamError, attempt: attempt)
@@ -249,6 +299,12 @@ public struct CantonClient: Sendable {
                     } catch is CancellationError {
                         break
                     } catch {
+                        if clock.now - connectedAt >= policy.streamHealthyWindow {
+                            authRecovered = false
+                        }
+                        if await recoverAuth(error) {
+                            continue
+                        }
                         guard let delay = retryDelay(for: error, attempt: attempt) else {
                             continuation.finish(throwing: CantonError(error) ?? error)
                             return
