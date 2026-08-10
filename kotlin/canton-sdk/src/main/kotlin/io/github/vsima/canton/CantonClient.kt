@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.VersionServiceGrpcKt
 import com.daml.ledger.api.v2.VersionServiceOuterClass.GetLedgerApiVersionRequest
 import io.grpc.CallCredentials
 import io.grpc.ManagedChannel
+import io.grpc.TlsChannelCredentials
 import io.grpc.okhttp.OkHttpChannelBuilder
 import io.grpc.stub.AbstractStub
 import java.io.Closeable
@@ -267,7 +268,20 @@ public class CantonClient(
 private fun <S : AbstractStub<S>> S.withAuth(credentials: CallCredentials?): S =
     if (credentials != null) withCallCredentials(credentials) else this
 
-private fun CantonClientConfiguration.buildChannel(): ManagedChannel =
-    OkHttpChannelBuilder.forAddress(host, port)
-        .apply { if (useTls) useTransportSecurity() else usePlaintext() }
+private fun CantonClientConfiguration.buildChannel(): ManagedChannel {
+    if (!useTls) {
+        return OkHttpChannelBuilder.forAddress(host, port).usePlaintext().build()
+    }
+    val credentials = TlsChannelCredentials.newBuilder()
+        .apply { tlsTrust.trustManager()?.let { trustManager(it) } }
         .build()
+    return OkHttpChannelBuilder.forAddress(host, port, credentials)
+        .apply {
+            // Hostname verification lives on the transport, not the
+            // credentials: the trust manager only sees the chain.
+            if (!tlsTrust.verifyHostname) {
+                hostnameVerifier { _, _ -> true }
+            }
+        }
+        .build()
+}
