@@ -1,0 +1,435 @@
+{
+  "source": "hyperledger-labs/splice-wallet-kernel — /api-specs/openrpc-dapp-api.json",
+  "openrpcVersion": "0.5.0",
+  "note": [
+    "Golden vectors for the CIP-0103 dApp API codec, shared by the Kotlin and",
+    "Swift SDKs. Each entry in `vectors` must decode into the named type and",
+    "re-encode to a document equal to `json` (compared as parsed JSON, so key",
+    "order does not matter). That fixpoint property is what catches a codec",
+    "that silently drops an optional field or invents a null.",
+    "",
+    "Encoding rule these vectors assume: absent optionals are OMITTED, never",
+    "emitted as null. Decoding is tolerant and reads an explicit null as",
+    "absent, which is why `invalid` contains no null-for-optional cases.",
+    "",
+    "Note there is no `statusChanged` event: it appears in prose descriptions",
+    "of this protocol but not in OpenRPC 0.5.0. Status is polled via `status`."
+  ],
+  "vectors": [
+    {
+      "name": "provider-minimal",
+      "type": "Provider",
+      "json": { "id": "io.github.vsima.canton" }
+    },
+    {
+      "name": "provider-full",
+      "type": "Provider",
+      "json": {
+        "id": "io.github.vsima.canton",
+        "version": "0.6.0",
+        "providerType": "mobile",
+        "url": "https://github.com/vsima/canton-mobile-sdk",
+        "userUrl": "https://wallet.example.com/approve"
+      }
+    },
+    {
+      "name": "connect-result-connected",
+      "type": "ConnectResult",
+      "json": { "isConnected": true, "isNetworkConnected": true }
+    },
+    {
+      "name": "connect-result-rejected",
+      "type": "ConnectResult",
+      "json": {
+        "isConnected": false,
+        "isNetworkConnected": false,
+        "reason": "User rejected the request"
+      }
+    },
+    {
+      "name": "connect-result-wallet-but-no-network",
+      "type": "ConnectResult",
+      "json": {
+        "isConnected": true,
+        "isNetworkConnected": false,
+        "networkReason": "Participant unreachable",
+        "userUrl": "https://wallet.example.com/network"
+      }
+    },
+    {
+      "name": "network-minimal",
+      "type": "Network",
+      "json": { "networkId": "canton:da-mainnet" }
+    },
+    {
+      "name": "network-with-ledger-api",
+      "type": "Network",
+      "json": {
+        "networkId": "canton:localnet",
+        "ledgerApi": "http://127.0.0.1:2975"
+      }
+    },
+    {
+      "name": "session",
+      "type": "Session",
+      "json": { "accessToken": "eyJhbGciOiJIUzI1NiJ9.e30.signature", "userId": "app-user" }
+    },
+    {
+      "name": "wallet-primary",
+      "type": "Wallet",
+      "json": {
+        "primary": true,
+        "partyId": "app_user_localnet-localparty-1::12206e297fb60b09f7a0ae0cc6f81b672c69ca04a72fc34042f5a6364967ab87d7d0",
+        "status": "allocated",
+        "hint": "app_user_localnet-localparty-1",
+        "publicKey": "302a300506032b6570032100d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        "namespace": "12206e297fb60b09f7a0ae0cc6f81b672c69ca04a72fc34042f5a6364967ab87d7d0",
+        "networkId": "canton:localnet",
+        "signingProviderId": "android-keystore"
+      }
+    },
+    {
+      "name": "wallet-disabled-with-reason",
+      "type": "Wallet",
+      "json": {
+        "primary": false,
+        "partyId": "merchant::1220aabb",
+        "status": "removed",
+        "hint": "merchant",
+        "publicKey": "302a300506032b657003210000",
+        "namespace": "1220aabb",
+        "networkId": "canton:localnet",
+        "signingProviderId": "software",
+        "externalTxId": "tx-77",
+        "topologyTransactions": "CgYIARAB",
+        "disabled": true,
+        "reason": "Key rotated"
+      }
+    },
+    {
+      "name": "list-accounts-empty",
+      "type": "ListAccountsResult",
+      "json": []
+    },
+    {
+      "name": "list-accounts-two",
+      "type": "ListAccountsResult",
+      "json": [
+        {
+          "primary": true,
+          "partyId": "alice::1220aa",
+          "status": "allocated",
+          "hint": "alice",
+          "publicKey": "302a300506032b657003210001",
+          "namespace": "1220aa",
+          "networkId": "canton:localnet",
+          "signingProviderId": "software"
+        },
+        {
+          "primary": false,
+          "partyId": "bob::1220bb",
+          "status": "initialized",
+          "hint": "bob",
+          "publicKey": "302a300506032b657003210002",
+          "namespace": "1220bb",
+          "networkId": "canton:localnet",
+          "signingProviderId": "software"
+        }
+      ]
+    },
+    {
+      "name": "status-disconnected",
+      "type": "StatusEvent",
+      "json": {
+        "provider": { "id": "io.github.vsima.canton", "providerType": "mobile" },
+        "connection": {
+          "isConnected": false,
+          "isNetworkConnected": false,
+          "reason": "Not connected"
+        }
+      }
+    },
+    {
+      "name": "status-connected-with-network",
+      "type": "StatusEvent",
+      "json": {
+        "provider": { "id": "io.github.vsima.canton", "providerType": "mobile" },
+        "connection": { "isConnected": true, "isNetworkConnected": true },
+        "network": { "networkId": "canton:localnet", "ledgerApi": "http://127.0.0.1:2975" }
+      }
+    },
+    {
+      "name": "sign-message-request",
+      "type": "SignMessageRequest",
+      "json": { "message": "Sign in to Example dApp at 2026-08-10T09:26:00Z" }
+    },
+    {
+      "name": "sign-message-result",
+      "type": "SignMessageResult",
+      "json": { "signature": "3045022100c0ffee022012345678" }
+    },
+    {
+      "name": "ledger-api-get",
+      "type": "LedgerApiRequest",
+      "json": { "requestMethod": "get", "resource": "/v2/version" }
+    },
+    {
+      "name": "ledger-api-post-with-body-and-query",
+      "type": "LedgerApiRequest",
+      "json": {
+        "requestMethod": "post",
+        "resource": "/v2/state/active-contracts",
+        "body": { "filter": { "filtersByParty": {} }, "verbose": false },
+        "query": { "limit": "100" },
+        "path": { "party": "alice::1220aa" }
+      }
+    },
+    {
+      "name": "prepare-submission-commands-only",
+      "type": "JsPrepareSubmissionRequest",
+      "json": {
+        "commands": [
+          {
+            "ExerciseCommand": {
+              "templateId": "fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a:Splice.AmuletRules:AmuletRules",
+              "contractId": "00abcdef",
+              "choice": "AmuletRules_Transfer",
+              "choiceArgument": { "transfer": { "amount": "10.0000000000" } }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "prepare-submission-full-envelope",
+      "type": "JsPrepareSubmissionRequest",
+      "json": {
+        "commandId": "order-4711",
+        "commands": [
+          {
+            "CreateCommand": {
+              "templateId": "pkg:Module:Template",
+              "createArguments": { "owner": "alice::1220aa", "amount": "1.0" }
+            }
+          }
+        ],
+        "actAs": ["alice::1220aa"],
+        "readAs": ["bob::1220bb"],
+        "disclosedContracts": [
+          { "contractId": "00feed", "createdEventBlob": "CgYIARAB", "templateId": "pkg:Module:Other" }
+        ],
+        "synchronizerId": "global-domain::12206b93aa60fc251f939fd727b46a65a64991243600e6d8f1ba0099c3a5b331d924",
+        "packageIdSelectionPreference": ["fb10433a48c24f30076a7aee03a3e314b7ab02fe9a22e2069e3af92d2b6ac88a"]
+      }
+    },
+    {
+      "name": "prepare-submission-response",
+      "type": "JsPrepareSubmissionResponse",
+      "json": {
+        "preparedTransaction": "CgYIARABGgQIARAC",
+        "preparedTransactionHash": "1220ffeeddccbbaa99887766554433221100"
+      }
+    },
+    {
+      "name": "tx-changed-pending",
+      "type": "TxChangedEvent",
+      "json": { "status": "pending", "commandId": "order-4711" }
+    },
+    {
+      "name": "tx-changed-signed",
+      "type": "TxChangedEvent",
+      "json": {
+        "status": "signed",
+        "commandId": "order-4711",
+        "payload": {
+          "signature": "3045022100c0ffee",
+          "signedBy": "12206e297fb60b09f7a0ae0cc6f81b672c69ca04a72fc34042f5a6364967ab87d7d0",
+          "party": "alice::1220aa"
+        }
+      }
+    },
+    {
+      "name": "tx-changed-executed",
+      "type": "TxChangedEvent",
+      "json": {
+        "status": "executed",
+        "commandId": "order-4711",
+        "payload": {
+          "updateId": "1220c0ffee0011223344556677889900aabbccddeeff00112233445566778899",
+          "completionOffset": 4711
+        }
+      }
+    },
+    {
+      "name": "tx-changed-failed",
+      "type": "TxChangedEvent",
+      "json": { "status": "failed", "commandId": "order-4711" }
+    },
+    {
+      "name": "prepare-execute-and-wait-result",
+      "type": "prepareExecuteAndWaitResult",
+      "json": {
+        "tx": {
+          "status": "executed",
+          "commandId": "order-4711",
+          "payload": {
+            "updateId": "1220c0ffee0011223344556677889900aabbccddeeff00112233445566778899",
+            "completionOffset": 4711
+          }
+        }
+      }
+    },
+    {
+      "name": "message-signature-pending",
+      "type": "MessageSignatureEvent",
+      "json": { "status": "pending", "messageId": "3f2504e0-4f89-11d3-9a0c-0305e82c3301" }
+    },
+    {
+      "name": "message-signature-signed",
+      "type": "MessageSignatureEvent",
+      "json": {
+        "status": "signed",
+        "messageId": "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+        "signature": "3045022100c0ffee"
+      }
+    },
+    {
+      "name": "message-signature-failed",
+      "type": "MessageSignatureEvent",
+      "json": { "status": "failed", "messageId": "3f2504e0-4f89-11d3-9a0c-0305e82c3301" }
+    },
+    {
+      "name": "rpc-request-no-params",
+      "type": "JsonRpcRequest",
+      "json": { "jsonrpc": "2.0", "method": "listAccounts", "id": 1 }
+    },
+    {
+      "name": "rpc-request-with-params",
+      "type": "JsonRpcRequest",
+      "json": {
+        "jsonrpc": "2.0",
+        "method": "signMessage",
+        "params": { "message": "hello" },
+        "id": "req-2"
+      }
+    },
+    {
+      "name": "rpc-notification-tx-changed",
+      "type": "JsonRpcRequest",
+      "json": {
+        "jsonrpc": "2.0",
+        "method": "txChanged",
+        "params": { "status": "pending", "commandId": "order-4711" }
+      }
+    },
+    {
+      "name": "rpc-response-success",
+      "type": "JsonRpcResponse",
+      "json": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": { "isConnected": true, "isNetworkConnected": true }
+      }
+    },
+    {
+      "name": "rpc-response-null-result",
+      "type": "JsonRpcResponse",
+      "json": { "jsonrpc": "2.0", "id": 3, "result": null }
+    },
+    {
+      "name": "rpc-response-user-rejected",
+      "type": "JsonRpcResponse",
+      "json": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "error": { "code": 4001, "message": "User rejected the request" }
+      }
+    },
+    {
+      "name": "rpc-response-error-with-data",
+      "type": "JsonRpcResponse",
+      "json": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "error": {
+          "code": -32003,
+          "message": "Transaction rejected",
+          "data": { "traceId": "edb2e49d54df56b13dbb6627ef531bdd", "participant": "app-user" }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "wallet-missing-partyId",
+      "type": "Wallet",
+      "reason": "partyId is required",
+      "json": {
+        "primary": true,
+        "status": "allocated",
+        "hint": "alice",
+        "publicKey": "00",
+        "namespace": "1220aa",
+        "networkId": "canton:localnet",
+        "signingProviderId": "software"
+      }
+    },
+    {
+      "name": "wallet-unknown-status",
+      "type": "Wallet",
+      "reason": "status must be one of initialized|allocated|removed",
+      "json": {
+        "primary": true,
+        "partyId": "alice::1220aa",
+        "status": "pending",
+        "hint": "alice",
+        "publicKey": "00",
+        "namespace": "1220aa",
+        "networkId": "canton:localnet",
+        "signingProviderId": "software"
+      }
+    },
+    {
+      "name": "connect-result-missing-isNetworkConnected",
+      "type": "ConnectResult",
+      "reason": "both booleans are required, and defaulting one would report a connection that does not exist",
+      "json": { "isConnected": true }
+    },
+    {
+      "name": "ledger-api-unknown-method",
+      "type": "LedgerApiRequest",
+      "reason": "requestMethod must be one of get|post|patch|put|delete",
+      "json": { "requestMethod": "head", "resource": "/v2/version" }
+    },
+    {
+      "name": "prepare-submission-missing-commands",
+      "type": "JsPrepareSubmissionRequest",
+      "reason": "commands is the one field CIP-0103 marks required",
+      "json": { "commandId": "order-4711", "actAs": ["alice::1220aa"] }
+    },
+    {
+      "name": "tx-changed-unknown-status",
+      "type": "TxChangedEvent",
+      "reason": "status must be one of pending|signed|executed|failed",
+      "json": { "status": "submitted", "commandId": "order-4711" }
+    },
+    {
+      "name": "tx-changed-executed-without-payload",
+      "type": "TxChangedEvent",
+      "reason": "executed carries updateId and completionOffset",
+      "json": { "status": "executed", "commandId": "order-4711" }
+    },
+    {
+      "name": "rpc-request-wrong-version",
+      "type": "JsonRpcRequest",
+      "reason": "jsonrpc must be exactly 2.0",
+      "json": { "jsonrpc": "1.0", "method": "listAccounts", "id": 1 }
+    },
+    {
+      "name": "rpc-request-missing-method",
+      "type": "JsonRpcRequest",
+      "reason": "method is required",
+      "json": { "jsonrpc": "2.0", "id": 1 }
+    }
+  ]
+}
