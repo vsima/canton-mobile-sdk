@@ -27,15 +27,86 @@ platform.
 > ergonomic layer covers connections, auth, command submission with dedup,
 > and gap-free state sync. The wallet layer — external signing, party
 > onboarding, the CIP-0056 token standard client, Scan reads — is newer but
-> live-verified end-to-end. See the [feature matrix](#feature-matrix) and
-> [roadmap](#roadmap). Expect breaking changes before 1.0.
+> live-verified end-to-end. The dApp layer (CIP-0103) is **partial**: the
+> protocol, client and provider engine have shipped, but there is not yet a
+> transport between two separate apps. See the
+> [feature matrix](#feature-matrix) and [roadmap](#roadmap). Expect breaking
+> changes before 1.0.
 
-## Packages
+## Feature matrix
 
-| Platform | Package | Modules |
+Capability-level comparison with Digital Asset's TypeScript
+[`@canton-network/wallet-sdk`](https://www.npmjs.com/package/@canton-network/wallet-sdk)
+("JS"). For the method-level mapping, see the
+[migration map](docs/migrating-from-wallet-sdk.md). ✅ shipped ·
+◐ partial · 🔜 planned · — not offered.
+
+| Capability | JS | Swift | Kotlin | Notes |
+|---|:---:|:---:|:---:|---|
+| Key generation & signing (Ed25519, EC P-256) | ✅ | ✅ | ✅ | Both schemes live-verified against Canton here |
+| Hardware-resident keys | — | ✅ | ✅ | Secure Enclave (Swift), StrongBox / TEE keystore (Kotlin, `canton-wallet-android`) — all three tiers verified on physical devices |
+| Custody-provider hook | ✅ | ✅ | ✅ | JS ships first-party drivers (Fireblocks, Blockdaemon, Securosys); here `DelegatingSigningDriver` adapts any external signer, first-party integrations are on the roadmap |
+| External party onboarding | ✅ | ✅ | ✅ | Generate → sign → allocate in one call; live-verified with Ed25519 and P-256 |
+| Externally-signed submission | ✅ | ✅ | ✅ | Prepare → sign → execute via the Interactive Submission Service; live-verified end-to-end |
+| Client-side prepared-tx hash verification | ✅ | ✅ | ✅ | JS exposes `verifyTxHash` to call yourself; here `signAndExecute` verifies by default (opt out via `verifyHash`), held to shared golden vectors |
+| Completion tracking | ✅ | ✅ | ✅ | `signAndExecuteAndWait` awaits the ledger's completion event and returns the update id/offset — or the typed rejection |
+| CIP-0056 holdings, inbox & two-step transfers | ✅ | ✅ | ✅ | Live-verified against a live Amulet registry (Splice LocalNet) |
+| Transfer preapprovals (request / lookup / cancel) | ✅ | ✅ | ✅ | Receiver-side cancel is native-only (in JS, removal is validator-operated); all three live-verified here |
+| Holdings history | ✅ | ✅ | ✅ | Transfer-level rows — direction, counterparty, signed fee-inclusive net amount, memo — live-verified on LocalNet |
+| ANS / DSO reads | ✅ | ✅ | ✅ | `ScanClient`: ANS name resolution, DSO party |
+| Scan holdings summaries | — | ✅ | ✅ | `ScanClient.holdingsSummary`: server-side aggregates from Scan's ACS snapshots (per-snapshot lag, not real-time); JS folds holdings client-side |
+| DevNet taps | ✅ | ✅ | ✅ | `ValidatorClient.tap` mints via the validator's wallet API, live-verified on LocalNet; the DevNet-registry run still needs DevNet credentials |
+| Traffic purchase | ✅ | ✅ | ✅ | `ValidatorClient.buyTraffic` + `buyTrafficStatus` (validator wallet API), traffic status via `ScanClient.memberTrafficStatus` — full buy → completed → status-reflects loop live-verified on LocalNet |
+| Transfer fee preview | — | ✅ | ✅ | Typed AmuletRules + open-round reads plus a pure `TransferFeeEstimator` (Splice's stepped-rate semantics); on current networks fees are zero by governance (CIP-0078), which the LocalNet run verifies against a real transfer. JS exposes the raw config only |
+| dApp connectivity (CIP-0103) | ✅ | ◐ | ◐ | **Partial.** The dApp client, the wallet-side provider engine and an in-process transport have shipped, held to golden vectors from OpenRPC 0.5.0 that both platforms satisfy. **No transport between separate apps yet** — deep link and LAN gRPC are next. There is no relay by design, so a dApp will only ever reach a wallet on the same device or the same network. JS ships this as a separate, browser-only `@canton-network/dapp-sdk` |
+| TLS trust / certificate pinning | — | ✅ | ✅ | `TlsTrust` pins the Ledger API connection to an operator's CA (and the REST clients with it); JS leaves trust to the runtime, which a browser cannot configure at all. Leaf/SPKI pinning is deliberately not offered — see [docs/tls-trust.md](docs/tls-trust.md) |
+| Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
+
+## Libraries
+
+**Six Kotlin artifacts on Maven Central; one Swift package with five
+products.** Take the highest layer you need — each one brings the layers
+below it, so depending on the wallet layer gives you the ergonomic layer and
+the generated bindings too.
+
+The dApp libraries are the exception, and deliberately so: they sit *beside*
+the stack rather than on top of it, so an app that only wants to talk to a
+wallet never links the ledger stubs, the signing drivers or the token
+standard.
+
+### Swift
+
+Add the package once; `import` only the products you use.
+
+| Product | What it gives you | Builds on |
 |---|---|---|
-| iOS / macOS (Swift) | Swift Package Manager, this repo URL | `CantonWalletKit` (wallet layer), `CantonKit` (ergonomic layer), `CantonLedgerAPI` (generated bindings) |
-| Android / JVM (Kotlin) | [Maven Central](https://central.sonatype.com/namespace/io.github.vsima.canton) | `io.github.vsima.canton:canton-wallet-sdk`, `:canton-sdk`, `:canton-ledger-api` |
+| `CantonLedgerAPI` | Generated Ledger API messages and service clients. Regenerated wholesale from the vendored protos — never hand-edited. | — |
+| `CantonKit` | The ergonomic layer: connections, JWT auth with automatic refresh, TLS trust pinning, command submission with dedup, gap-free state sync, typed errors. | `CantonLedgerAPI` |
+| `CantonWalletKit` | The wallet layer: signing drivers (Secure Enclave, software, custody), external party onboarding, prepared-transaction hash verification, the CIP-0056 token standard, Scan and validator reads. | `CantonKit` |
+| `CantonDappKit` | **dApp side** of CIP-0103: protocol types, JSON-RPC codec, `DappClient`, the transport protocol. Depends on nothing else in the package. | — |
+| `CantonDappWalletKit` | **Wallet side** of CIP-0103: `DappSession`, per-peer account grants, the approval delegate, in-process transport. | `CantonDappKit`, `CantonWalletKit` |
+
+### Kotlin
+
+All under the `io.github.vsima.canton` group.
+
+| Artifact | What it gives you | Builds on |
+|---|---|---|
+| `canton-ledger-api` | Generated gRPC bindings for `com.daml.ledger.api.v2`, on the protobuf **lite** runtime. | — |
+| `canton-sdk` | The ergonomic layer — the Kotlin peer of `CantonKit`. Plain JVM, so it runs server-side unchanged. | `canton-ledger-api` |
+| `canton-wallet-sdk` | The wallet layer — the peer of `CantonWalletKit`. | `canton-sdk` |
+| `canton-wallet-android` | The only Android-specific artifact: `AndroidKeystoreSigningDriver` (StrongBox / TEE-backed keys) and an encrypted DataStore-backed wallet store. | `canton-wallet-sdk` |
+| `canton-dapp` | **dApp side** of CIP-0103. JSON and coroutines only — deliberately *not* `canton-sdk`. | — |
+| `canton-dapp-wallet` | **Wallet side** of CIP-0103. | `canton-dapp`, `canton-wallet-sdk` |
+
+### Which do I need?
+
+| I am building… | Swift | Kotlin |
+|---|---|---|
+| A read-only or backend integration | `CantonKit` | `canton-sdk` |
+| A wallet with device-held keys | `CantonWalletKit` | `canton-wallet-sdk` (+ `canton-wallet-android` on Android) |
+| A dApp that talks to someone else's wallet | `CantonDappKit` | `canton-dapp` |
+| A wallet that accepts dApp connections | `CantonDappWalletKit` | `canton-dapp-wallet` |
 
 Both SDKs are generated from the **same vendored protos** (pinned in
 [`proto/UPSTREAM_VERSION`](proto/UPSTREAM_VERSION)) and released in lockstep:
@@ -54,15 +125,22 @@ Canton release.
 
 ## Installation
 
+Pick your product/artifact from [Libraries](#libraries) above — the examples
+below use the ergonomic layer.
+
 ### Swift Package Manager
+
+One package, however many products you import.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/vsima/canton-mobile-sdk.git", from: "0.1.0"),
+    .package(url: "https://github.com/vsima/canton-mobile-sdk.git", from: "0.5.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
         .product(name: "CantonKit", package: "canton-mobile-sdk"),
+        // Wallet apps add:  .product(name: "CantonWalletKit", …)
+        // dApps add:        .product(name: "CantonDappKit", …)
     ]),
 ]
 ```
@@ -71,9 +149,14 @@ Or in Xcode: **File → Add Package Dependencies…** and paste the repo URL.
 
 ### Gradle
 
+Each layer brings the ones below it, so name only the highest you need.
+
 ```kotlin
 dependencies {
-    implementation("io.github.vsima.canton:canton-sdk:0.1.0")
+    implementation("io.github.vsima.canton:canton-sdk:0.5.0")
+    // Wallet apps:          canton-wallet-sdk  (+ canton-wallet-android on Android)
+    // dApps:                canton-dapp
+    // Wallets taking dApp connections: canton-dapp-wallet
 }
 ```
 
@@ -266,6 +349,12 @@ try {
 }
 ```
 
+## Compatibility
+
+| SDK version | Canton release | Ledger API |
+|---|---|---|
+| 0.1.x – 0.6.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
+
 ## Repository layout
 
 ```
@@ -274,13 +363,18 @@ canton-mobile-sdk/
 ├── proto/                   # Canton Ledger API protos, vendored at a pinned release
 ├── buf.yaml / buf.gen.yaml  # proto workspace + Swift codegen pipeline
 ├── swift/
-│   ├── Sources/CantonLedgerAPI/   # generated — never edited by hand
-│   ├── Sources/CantonKit/         # ergonomic layer (auth, connections, workflows)
-│   └── Sources/CantonWalletKit/   # wallet layer (signing drivers, external parties)
+│   ├── Sources/CantonLedgerAPI/       # generated — never edited by hand
+│   ├── Sources/CantonKit/             # ergonomic layer (auth, connections, workflows)
+│   ├── Sources/CantonWalletKit/       # wallet layer (signing drivers, external parties)
+│   ├── Sources/CantonDappKit/         # CIP-0103, dApp side
+│   └── Sources/CantonDappWalletKit/   # CIP-0103, wallet side
 ├── kotlin/
-│   ├── canton-ledger-api/         # generated bindings module (protoc at build time)
-│   ├── canton-sdk/                # ergonomic layer
-│   └── canton-wallet-sdk/         # wallet layer
+│   ├── canton-ledger-api/             # generated bindings module (protoc at build time)
+│   ├── canton-sdk/                    # ergonomic layer
+│   ├── canton-wallet-sdk/             # wallet layer
+│   ├── canton-wallet-android/         # Android Keystore driver + encrypted store
+│   ├── canton-dapp/                   # CIP-0103, dApp side
+│   └── canton-dapp-wallet/            # CIP-0103, wallet side
 ├── examples/
 │   ├── android/                   # sample app; CI builds debug + R8 release
 │   └── ios/                       # sample app; xcodegen project, CI simulator build
@@ -335,41 +429,6 @@ The iOS sample (`examples/ios`) mirrors it: a SwiftUI app depending on
 `cd examples/ios && xcodegen generate`, then open it in Xcode or build with
 `xcodebuild`. Both samples default to a local `integration/run-canton.sh`
 ledger (`127.0.0.1` on the iOS simulator, `10.0.2.2` on the Android emulator).
-
-## Compatibility
-
-| SDK version | Canton release | Ledger API |
-|---|---|---|
-| 0.1.x – 0.5.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
-
-## Feature matrix
-
-Capability-level comparison with Digital Asset's TypeScript
-[`@canton-network/wallet-sdk`](https://www.npmjs.com/package/@canton-network/wallet-sdk)
-("JS"). For the method-level mapping, see the
-[migration map](docs/migrating-from-wallet-sdk.md). ✅ shipped ·
-🔜 planned · — not offered.
-
-| Capability | JS | Swift | Kotlin | Notes |
-|---|:---:|:---:|:---:|---|
-| Key generation & signing (Ed25519, EC P-256) | ✅ | ✅ | ✅ | Both schemes live-verified against Canton here |
-| Hardware-resident keys | — | ✅ | ✅ | Secure Enclave (Swift), StrongBox / TEE keystore (Kotlin, `canton-wallet-android`) — all three tiers verified on physical devices |
-| Custody-provider hook | ✅ | ✅ | ✅ | JS ships first-party drivers (Fireblocks, Blockdaemon, Securosys); here `DelegatingSigningDriver` adapts any external signer, first-party integrations are on the roadmap |
-| External party onboarding | ✅ | ✅ | ✅ | Generate → sign → allocate in one call; live-verified with Ed25519 and P-256 |
-| Externally-signed submission | ✅ | ✅ | ✅ | Prepare → sign → execute via the Interactive Submission Service; live-verified end-to-end |
-| Client-side prepared-tx hash verification | ✅ | ✅ | ✅ | JS exposes `verifyTxHash` to call yourself; here `signAndExecute` verifies by default (opt out via `verifyHash`), held to shared golden vectors |
-| Completion tracking | ✅ | ✅ | ✅ | `signAndExecuteAndWait` awaits the ledger's completion event and returns the update id/offset — or the typed rejection |
-| CIP-0056 holdings, inbox & two-step transfers | ✅ | ✅ | ✅ | Live-verified against a live Amulet registry (Splice LocalNet) |
-| Transfer preapprovals (request / lookup / cancel) | ✅ | ✅ | ✅ | Receiver-side cancel is native-only (in JS, removal is validator-operated); all three live-verified here |
-| Holdings history | ✅ | ✅ | ✅ | Transfer-level rows — direction, counterparty, signed fee-inclusive net amount, memo — live-verified on LocalNet |
-| ANS / DSO reads | ✅ | ✅ | ✅ | `ScanClient`: ANS name resolution, DSO party |
-| Scan holdings summaries | — | ✅ | ✅ | `ScanClient.holdingsSummary`: server-side aggregates from Scan's ACS snapshots (per-snapshot lag, not real-time); JS folds holdings client-side |
-| DevNet taps | ✅ | ✅ | ✅ | `ValidatorClient.tap` mints via the validator's wallet API, live-verified on LocalNet; the DevNet-registry run still needs DevNet credentials |
-| Traffic purchase | ✅ | ✅ | ✅ | `ValidatorClient.buyTraffic` + `buyTrafficStatus` (validator wallet API), traffic status via `ScanClient.memberTrafficStatus` — full buy → completed → status-reflects loop live-verified on LocalNet |
-| Transfer fee preview | — | ✅ | ✅ | Typed AmuletRules + open-round reads plus a pure `TransferFeeEstimator` (Splice's stepped-rate semantics); on current networks fees are zero by governance (CIP-0078), which the LocalNet run verifies against a real transfer. JS exposes the raw config only |
-| dApp connectivity (CIP-0103) | ✅ | 🔜 | 🔜 | JS: separate `@canton-network/dapp-sdk`; exploring for native — see roadmap |
-| TLS trust / certificate pinning | — | ✅ | ✅ | `TlsTrust` pins the Ledger API connection to an operator's CA (and the REST clients with it); JS leaves trust to the runtime, which a browser cannot configure at all. Leaf/SPKI pinning is deliberately not offered — see [docs/tls-trust.md](docs/tls-trust.md) |
-| Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
 
 ## Roadmap
 
@@ -537,11 +596,43 @@ proven and where.
       the purchased bytes landing; the live test buys the network's
       minimum top-up and watches the totals grow by it
 
+**dApp layer (CIP-0103)**
+
+- [x] Protocol core, both SDKs: types, JSON-RPC 2.0 codec and EIP-1474
+      errors written against the OpenRPC document at `info.version` 0.5.0 —
+      fetched, not transcribed, which is how three errors in our own notes
+      surfaced (there is no `statusChanged` event, `LedgerApiRequest` has no
+      `headers` field, and `prepareExecute` returns null with the outcome
+      arriving via `txChanged`). Held to 35 positive and 9 negative golden
+      vectors in `testdata/dapp/`, shared by both platforms; the asserted
+      property is that decode-then-encode is a *fixpoint*, which catches the
+      dropped optionals and stray nulls a decode-only test sails past
+- [x] `DappClient` and the wallet-side `DappSession` provider engine, with
+      an in-process transport binding them — the same transport a host app
+      uses to embed the wallet layer while still coding against the standard
+      API, so moving to an external wallet later is a transport swap
+- [x] The rule the proxy design rests on: **a dApp may request an `actAs`,
+      it may not choose one.** Naming a party outside the peer's grant is
+      `4100`, never a silent substitution. Grants are per-session, so two
+      dApps cannot see each other's accounts; an approval delegate cannot
+      widen a grant beyond what the wallet offered; ledger access tokens are
+      never handed to a dApp; and `ledgerApi` defaults to a read-only policy
+      that also excludes user- and party-management, because read-only is
+      not the same as harmless
+
 ### Next
 
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
   below); still pending is running the full token-standard loop against a
   DevNet registry, which needs DevNet validator credentials.
+- **CIP-0103 transports between apps.** The protocol core and provider
+  engine have shipped (above); what's missing is a way for two *separate*
+  apps to talk. Next are a deep link / App Link for the same device and a
+  TLS gRPC stream over the LAN for two devices, paired by QR. Deliberately
+  no relay, so the honest limit is that a dApp reaches a wallet on the same
+  device or the same network — and not a wallet on cellular. Before that,
+  the prepare → verify → sign → execute pipeline behind
+  `PrepareExecutePipeline`.
 
 ### Exploring
 
@@ -549,8 +640,11 @@ proven and where.
   adapts any external signer; first-party drivers (Fireblocks raw
   signing, BitGo) land once they can be verified against real provider
   accounts.
-- **CIP-0103 dApp connectivity.** Letting dApps drive a native wallet;
-  revisited as the mobile transport story firms up.
+- **WalletConnect bridge for CIP-0103.** The one path an *unmodified web*
+  dApp has to a mobile wallet, and the only way to run the stock
+  `dapp-sdk` conformance example against us. Specified but unbuilt: it is
+  the design's single heavy third-party dependency, and the native
+  transports above cover the cases we care about without a relay.
 - **CIP-0112 / Token Standard V2.** Tracking the next token-standard
   iteration — including provider-side preapproval renewal — as it
   stabilizes.
