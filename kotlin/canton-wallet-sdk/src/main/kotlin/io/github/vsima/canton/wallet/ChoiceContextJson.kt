@@ -29,17 +29,17 @@ import kotlinx.serialization.json.putJsonObject
  * gRPC, so the context must be re-encoded as proto values. `AnyValue`'s
  * closed constructor set is what makes this translation total.
  */
-internal object ChoiceContextJson {
+public object ChoiceContextJson {
 
     /** `ExtraArgs { context, meta }` ready to embed in a choice-argument record. */
-    fun extraArgsValue(choiceContextData: JsonElement?, meta: Map<String, String> = emptyMap()): Value =
+    public fun extraArgsValue(choiceContextData: JsonElement?, meta: Map<String, String> = emptyMap()): Value =
         DamlValues.record(
             "context" to choiceContextValue(choiceContextData),
             "meta" to metadataValue(meta),
         )
 
     /** Daml JSON `ChoiceContext` -> proto record. Null/absent means an empty context. */
-    fun choiceContextValue(json: JsonElement?): Value {
+    public fun choiceContextValue(json: JsonElement?): Value {
         val values = when (json) {
             null, is JsonNull -> emptyMap()
             is JsonObject -> (json["values"] as? JsonObject)?.mapValues { anyValueToValue(it.value) }
@@ -50,7 +50,7 @@ internal object ChoiceContextJson {
     }
 
     /** One `AnyValue` variant from Daml JSON to its proto encoding. */
-    fun anyValueToValue(json: JsonElement): Value {
+    public fun anyValueToValue(json: JsonElement): Value {
         val obj = json as? JsonObject
             ?: throw DamlDecodeException("AnyValue must be a tagged object, was $json")
         val tag = (obj["tag"] as? JsonPrimitive)?.content
@@ -92,7 +92,7 @@ internal object ChoiceContextJson {
      * `TransferFactory_Transfer` choice arguments in Daml JSON API encoding,
      * for `GetFactoryRequest.choiceArguments` — `extraArgs` empty per spec.
      */
-    fun transferFactoryChoiceArguments(expectedAdmin: String, transfer: Transfer): JsonObject =
+    public fun transferFactoryChoiceArguments(expectedAdmin: String, transfer: Transfer): JsonObject =
         buildJsonObject {
             put("expectedAdmin", expectedAdmin)
             putJsonObject("transfer") {
