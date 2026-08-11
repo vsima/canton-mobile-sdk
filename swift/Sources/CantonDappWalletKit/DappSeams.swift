@@ -80,6 +80,17 @@ public protocol LedgerApiProxy: Sendable {
 /// credentials. The default is deliberately narrow; hosts widen it
 /// deliberately.
 public struct LedgerApiPolicy: Sendable {
+    /// One allowlist entry: an HTTP method plus a path prefix.
+    public struct Rule: Sendable, Equatable {
+        public let method: LedgerApiMethod
+        public let pathPrefix: String
+
+        public init(_ method: LedgerApiMethod, _ pathPrefix: String) {
+            self.method = method
+            self.pathPrefix = pathPrefix.lowercased()
+        }
+    }
+
     private let predicate: @Sendable (LedgerApiRequest) -> Bool
 
     public init(_ predicate: @escaping @Sendable (LedgerApiRequest) -> Bool) {
@@ -88,30 +99,98 @@ public struct LedgerApiPolicy: Sendable {
 
     public func allows(_ request: LedgerApiRequest) -> Bool { predicate(request) }
 
-    /// Read-style resources only.
-    ///
-    /// `GET` alone, and never the administrative surfaces: user management and
-    /// party management can grant rights and allocate parties, and neither is
-    /// something a dApp should reach *through* a wallet even when the wallet
-    /// itself may.
-    public static let readOnly = LedgerApiPolicy { request in
-        request.requestMethod == .get && !isAdministrative(request.resource)
-    }
+    /// The rules ``readOnly`` is built from, exposed so a host can compose a
+    /// wider policy without restating the read surface.
+    public static let readOnlyRules: [Rule] = [
+        Rule(.get, "/v2/version"),
+        Rule(.get, "/v2/state/"),
+        Rule(.post, "/v2/state/"),
+        Rule(.get, "/v2/updates/"),
+        Rule(.post, "/v2/updates"),
+        Rule(.post, "/v2/events/events-by-contract-id"),
+        Rule(.get, "/v2/packages"),
+        Rule(.get, "/v2/interactive-submission/preferred-package-version"),
+        Rule(.post, "/v2/interactive-submission/preferred-packages"),
+    ]
 
-    /// Refuses everything. The right default for a wallet that has not thought
-    /// about it.
+    /// The read surface of the JSON Ledger API — an **allowlist of method +
+    /// path prefix**, not a rule about HTTP verbs.
+    ///
+    /// That distinction is the whole point. An earlier version of this policy
+    /// allowed `GET` and nothing else, on the usual HTTP convention that
+    /// `GET` is the safe verb. Canton's JSON Ledger API does not follow it:
+    /// the ACS query is `POST /v2/state/active-contracts`, update reads are
+    /// `POST /v2/updates…`, and event lookup is
+    /// `POST /v2/events/events-by-contract-id`. Under a GET-only rule a dApp
+    /// could read the ledger end and the synchronizer list and essentially
+    /// nothing else — including, fatally, not its own holdings, which a
+    /// token-standard dApp needs to choose input UTXOs.
+    ///
+    /// Meanwhile `GET` is not reliably safe either: `POST /v2/packages`
+    /// uploads a DAR, so a verb-shaped rule gets the risk backwards in both
+    /// directions.
+    ///
+    /// What stays denied, by simply not being listed: command submission and
+    /// interactive submission (`prepare`/`execute` — a dApp reaches those
+    /// through `prepareExecute`, where they are approved and hash-verified),
+    /// DAR upload, package vetting, and every user/party/identity-provider
+    /// surface, which can grant rights and allocate parties.
+    public static let readOnly = LedgerApiPolicy.allowing(readOnlyRules)
+
+    /// Refuses everything. The right default for a wallet that has not
+    /// thought about it.
     public static let denyAll = LedgerApiPolicy { _ in false }
 
     /// Allows everything. For tests and for hosts that have made the call.
     public static let allowAll = LedgerApiPolicy { _ in true }
 
-    private static let administrative = ["/users", "/parties", "/idps", "/identity-provider"]
-
-    static func isAdministrative(_ resource: String) -> Bool {
-        var path = resource
-        if let query = path.firstIndex(of: "?") { path = String(path[path.startIndex..<query]) }
-        while path.hasSuffix("/") { path.removeLast() }
-        let lowered = path.lowercased()
-        return administrative.contains { lowered.hasSuffix($0) || lowered.contains("\($0)/") }
+    /// A policy allowing exactly these rules, for hosts widening
+    /// ``readOnly`` deliberately.
+    ///
+    /// ```swift
+    /// let policy = LedgerApiPolicy.allowing(
+    ///     LedgerApiPolicy.readOnlyRules + [.init(.post, "/v2/commands/async/submit")]
+    /// )
+    /// ```
+    ///
+    /// Matching drops the query string and refuses any resource that is not
+    /// already canonical — see ``canonicalLedgerApiPath(_:)`` for why a prefix
+    /// cannot be escaped by traversal or percent-encoding.
+    public static func allowing(_ rules: [Rule]) -> LedgerApiPolicy {
+        LedgerApiPolicy { request in
+            guard let path = canonicalLedgerApiPath(request.resource)?.lowercased() else { return false }
+            return rules.contains { $0.method == request.requestMethod && path.hasPrefix($0.pathPrefix) }
+        }
     }
+}
+
+/// The path a ``LedgerApiPolicy`` decision applies to, or nil when the
+/// resource is not in canonical form.
+///
+/// **Refused rather than normalised, deliberately.** The policy and the URL
+/// builder are two different parsers looking at the same string, and any
+/// disagreement between them is a bypass. Verified on the Kotlin side, where
+/// OkHttp percent-decodes `%2e` and *then* resolves dot segments:
+/// `/v2/state/%2e%2e/users` passes a prefix check on `/v2/state/` and arrives
+/// at the server as `/v2/users` — the administrative surface the policy
+/// exists to block. Foundation's canonicalisation differs from OkHttp's,
+/// which is its own reason not to depend on either.
+///
+/// Accepting exactly one spelling makes the parsers agree by construction.
+/// Nothing legitimate is lost: Ledger API resources are plain paths, and
+/// encoded *values* travel in `LedgerApiRequest.query`, which the URL builder
+/// escapes properly.
+func canonicalLedgerApiPath(_ resource: String) -> String? {
+    var path = resource
+    if let query = path.firstIndex(of: "?") { path = String(path[path.startIndex..<query]) }
+    if let fragment = path.firstIndex(of: "#") { path = String(path[path.startIndex..<fragment]) }
+    guard !path.isEmpty else { return nil }
+    // Percent-encoding and backslashes are the two ways a path can mean
+    // something different to a parser than it reads as.
+    guard !path.contains("%"), !path.contains("\\") else { return nil }
+    let normalised = path.hasPrefix("/") ? path : "/" + path
+    guard !normalised.split(separator: "/", omittingEmptySubsequences: false)
+        .contains(where: { $0 == "." || $0 == ".." })
+    else { return nil }
+    return normalised
 }

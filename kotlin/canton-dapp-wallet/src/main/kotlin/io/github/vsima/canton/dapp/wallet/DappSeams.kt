@@ -87,16 +87,48 @@ public fun interface LedgerApiPolicy {
 
     public companion object {
         /**
-         * Read-style resources only.
-         *
-         * `GET` alone, and never the administrative surfaces: user
-         * management and party management can grant rights and allocate
-         * parties, and neither is something a dApp should reach *through*
-         * a wallet even when the wallet itself may.
+         * The rules [ReadOnly] is built from, exposed so a host can
+         * compose a wider policy without restating the read surface.
          */
-        public val ReadOnly: LedgerApiPolicy = LedgerApiPolicy { request ->
-            request.requestMethod == LedgerApiMethod.GET && !request.resource.isAdministrative()
-        }
+        public val ReadOnlyRules: Array<Pair<LedgerApiMethod, String>> = arrayOf(
+            LedgerApiMethod.GET to "/v2/version",
+            LedgerApiMethod.GET to "/v2/state/",
+            LedgerApiMethod.POST to "/v2/state/",
+            LedgerApiMethod.GET to "/v2/updates/",
+            LedgerApiMethod.POST to "/v2/updates",
+            LedgerApiMethod.POST to "/v2/events/events-by-contract-id",
+            LedgerApiMethod.GET to "/v2/packages",
+            LedgerApiMethod.GET to "/v2/interactive-submission/preferred-package-version",
+            LedgerApiMethod.POST to "/v2/interactive-submission/preferred-packages",
+        )
+
+        /**
+         * The read surface of the JSON Ledger API — an **allowlist of
+         * method + path prefix**, not a rule about HTTP verbs.
+         *
+         * That distinction is the whole point. An earlier version of this
+         * policy allowed `GET` and nothing else, on the usual HTTP
+         * convention that `GET` is the safe verb. Canton's JSON Ledger API
+         * does not follow that convention: the ACS query is
+         * `POST /v2/state/active-contracts`, update reads are
+         * `POST /v2/updates…`, and event lookup is
+         * `POST /v2/events/events-by-contract-id`. Under a GET-only rule a
+         * dApp could read the ledger end and the synchronizer list and
+         * essentially nothing else — including, fatally, not its own
+         * holdings, which a token-standard dApp needs to choose input UTXOs.
+         *
+         * Meanwhile `GET` is not reliably safe either: `POST /v2/packages`
+         * uploads a DAR, so a verb-shaped rule gets the risk backwards in
+         * both directions.
+         *
+         * What stays denied, by simply not being listed: command submission
+         * and interactive submission (`prepare`/`execute` — a dApp reaches
+         * those through `prepareExecute`, where they are approved and
+         * hash-verified), DAR upload, package vetting, and every
+         * user/party/identity-provider surface, which can grant rights and
+         * allocate parties.
+         */
+        public val ReadOnly: LedgerApiPolicy = allowing(*ReadOnlyRules)
 
         /** Refuses everything. The right default for a wallet that has not thought about it. */
         public val DenyAll: LedgerApiPolicy = LedgerApiPolicy { false }
@@ -104,11 +136,59 @@ public fun interface LedgerApiPolicy {
         /** Allows everything. For tests and for hosts that have made the call. */
         public val AllowAll: LedgerApiPolicy = LedgerApiPolicy { true }
 
-        private val ADMINISTRATIVE = listOf("/users", "/parties", "/idps", "/identity-provider")
-
-        private fun String.isAdministrative(): Boolean {
-            val path = substringBefore('?').trimEnd('/').lowercase()
-            return ADMINISTRATIVE.any { path.endsWith(it) || path.contains("$it/") }
+        /**
+         * A policy allowing exactly these `method to path-prefix` pairs, for
+         * hosts widening [ReadOnly] deliberately.
+         *
+         * ```kotlin
+         * val policy = LedgerApiPolicy.allowing(
+         *     *LedgerApiPolicy.ReadOnlyRules,
+         *     LedgerApiMethod.POST to "/v2/commands/async/submit",
+         * )
+         * ```
+         *
+         * Matching drops the query string and refuses any resource that is
+         * not already canonical — see [canonicalLedgerApiPath] for why a
+         * prefix cannot be escaped by traversal or percent-encoding.
+         */
+        public fun allowing(vararg allowed: Pair<LedgerApiMethod, String>): LedgerApiPolicy {
+            val rules = allowed.map { (method, prefix) -> method to prefix.lowercase() }
+            return LedgerApiPolicy { request ->
+                val path = canonicalLedgerApiPath(request.resource)?.lowercase()
+                path != null && rules.any { (method, prefix) ->
+                    request.requestMethod == method && path.startsWith(prefix)
+                }
+            }
         }
+
     }
+}
+
+/**
+ * The path a [LedgerApiPolicy] decision applies to, or null when the resource
+ * is not in canonical form.
+ *
+ * **Refused rather than normalised, deliberately.** The policy and the URL
+ * builder are two different parsers looking at the same string, and any
+ * disagreement between them is a bypass. Verified: OkHttp percent-decodes
+ * `%2e` and *then* resolves dot segments, so `/v2/state/%2e%2e/users` passes
+ * a prefix check on `/v2/state/` and arrives at the server as `/v2/users` —
+ * the administrative surface the policy exists to block.
+ *
+ * Normalising here instead would mean reimplementing OkHttp's and
+ * Foundation's canonicalisation exactly, and staying identical to both as
+ * they change. Accepting exactly one spelling makes the two parsers agree by
+ * construction. Nothing legitimate is lost: Ledger API resources are plain
+ * paths, and encoded *values* travel in [LedgerApiRequest.query], which the
+ * URL builder escapes properly.
+ */
+internal fun canonicalLedgerApiPath(resource: String): String? {
+    val path = resource.substringBefore('?').substringBefore('#')
+    if (path.isEmpty()) return null
+    // Percent-encoding and backslashes are the two ways a path can mean
+    // something different to a parser than it reads as.
+    if ('%' in path || '\\' in path) return null
+    val normalised = if (path.startsWith("/")) path else "/$path"
+    if (normalised.split('/').any { it == "." || it == ".." }) return null
+    return normalised
 }

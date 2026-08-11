@@ -70,7 +70,15 @@ public struct JSONLedgerAPIClient: Sendable {
 
     private func resolve(_ resource: String, query: [String: JSONValue]?) throws -> URL {
         let base = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
-        let path = resource.hasPrefix("/") ? resource : "/\(resource)"
+        // The same canonical form the policy judged. Building the URL from
+        // anything else would let the two disagree, which is precisely how a
+        // prefix allowlist gets walked out of.
+        guard let path = canonicalLedgerApiPath(resource) else {
+            throw DappError(
+                code: .invalidParams,
+                message: "ledger API resource must be a plain path, was: \(resource)"
+            )
+        }
         guard var components = URLComponents(string: base + path) else {
             throw DappError(code: .invalidParams, message: "not a valid ledger API URL: \(base)\(path)")
         }

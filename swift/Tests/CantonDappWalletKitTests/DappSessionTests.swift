@@ -468,6 +468,106 @@ import Testing
         }
     }
 
+    @Test func theDefaultPolicyAllowsThePostShapedReadsCantonActuallyUses() async throws {
+        let session = makeSession()
+        _ = await session.handle(request(.connect))
+
+        // The reason the policy is an allowlist and not a verb rule: every
+        // read that matters here is a POST. A token-standard dApp cannot
+        // choose input UTXOs without the first one.
+        for resource in [
+            "/v2/state/active-contracts",
+            "/v2/state/active-contracts-page",
+            "/v2/updates",
+            "/v2/updates/flats",
+            "/v2/events/events-by-contract-id",
+        ] {
+            let response = await session.handle(ledgerApiRequest(.post, resource))
+            #expect(response.isOK, "POST \(resource) should be readable under the default policy")
+        }
+    }
+
+    @Test func theDefaultPolicyStillRefusesTheWritesThatShareThosePrefixes() async throws {
+        let session = makeSession()
+        _ = await session.handle(request(.connect))
+
+        let denied: [(LedgerApiMethod, String)] = [
+            // A DAR upload — the case that makes "GET is safe, POST is not"
+            // wrong in the other direction too.
+            (.post, "/v2/packages"),
+            (.post, "/v2/package-vetting/update"),
+            (.post, "/v2/commands/submit-and-wait"),
+            // Reachable only through prepareExecute, where it is approved
+            // and hash-verified.
+            (.post, "/v2/interactive-submission/prepare"),
+            (.post, "/v2/interactive-submission/execute"),
+        ]
+        for (method, resource) in denied {
+            let response = await session.handle(ledgerApiRequest(method, resource))
+            #expect(
+                response.error?.code == DappErrorCode.unauthorized.rawValue,
+                "\(method.rawValue) \(resource) must stay outside the default policy"
+            )
+        }
+    }
+
+    @Test func aPolicyPrefixCannotBeEscapedByPathTraversal() async throws {
+        let session = makeSession()
+        _ = await session.handle(request(.connect))
+
+        // Percent-encoded forms matter as much as literal ones: on the Kotlin
+        // side OkHttp decodes %2e and *then* resolves dot segments, so before
+        // the canonical-form check these reached /v2/users while the policy
+        // was still reading them as /v2/state/…. Both platforms refuse the
+        // same spellings so the two SDKs cannot drift apart on it.
+        for resource in [
+            "/v2/state/../users",
+            "/v2/state/%2e%2e/users",
+            "/v2/state/%2E%2E/%2E%2E/users",
+            "/v2/state/%2e%2e%2f%2e%2e/users",
+            "/v2/state/./../users",
+            "/v2/state\\..\\users",
+        ] {
+            let response = await session.handle(ledgerApiRequest(.get, resource))
+            #expect(
+                response.error?.code == DappErrorCode.unauthorized.rawValue,
+                "'\(resource)' must not escape the allowed prefix"
+            )
+        }
+    }
+
+    @Test func theClientRefusesANonCanonicalResourceEvenWithoutAPolicy() async throws {
+        // The policy is the security boundary, but JSONLedgerAPIClient is
+        // public: a host calling it directly must not be able to build a URL
+        // the policy would never have approved.
+        let client = JSONLedgerAPIClient(baseURL: "http://127.0.0.1:1")
+
+        var thrown: DappError?
+        do {
+            _ = try await client.call(LedgerApiRequest(requestMethod: .get, resource: "/v2/state/%2e%2e/users"))
+        } catch let error as DappError {
+            thrown = error
+        }
+
+        #expect(thrown?.code == .invalidParams)
+    }
+
+    @Test func aHostCanWidenThePolicyWithoutRestatingTheReadSurface() async throws {
+        let widened = LedgerApiPolicy.allowing(
+            LedgerApiPolicy.readOnlyRules + [.init(.post, "/v2/commands/submit-and-wait")]
+        )
+        let session = makeSession(ledgerApiPolicy: widened)
+        _ = await session.handle(request(.connect))
+
+        let allowed = await session.handle(ledgerApiRequest(.post, "/v2/commands/submit-and-wait"))
+        #expect(allowed.isOK)
+        // Widening one resource must not quietly open the rest.
+        let users = await session.handle(ledgerApiRequest(.get, "/v2/users"))
+        #expect(users.error?.code == DappErrorCode.unauthorized.rawValue)
+        let version = await session.handle(ledgerApiRequest(.get, "/v2/version"))
+        #expect(version.isOK)
+    }
+
     @Test func ledgerApiBeforeApprovalIsUnauthorized() async throws {
         let response = await makeSession().handle(ledgerApiRequest(.get, "/v2/version"))
 
