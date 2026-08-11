@@ -87,16 +87,48 @@ public fun interface LedgerApiPolicy {
 
     public companion object {
         /**
-         * Read-style resources only.
-         *
-         * `GET` alone, and never the administrative surfaces: user
-         * management and party management can grant rights and allocate
-         * parties, and neither is something a dApp should reach *through*
-         * a wallet even when the wallet itself may.
+         * The rules [ReadOnly] is built from, exposed so a host can
+         * compose a wider policy without restating the read surface.
          */
-        public val ReadOnly: LedgerApiPolicy = LedgerApiPolicy { request ->
-            request.requestMethod == LedgerApiMethod.GET && !request.resource.isAdministrative()
-        }
+        public val ReadOnlyRules: Array<Pair<LedgerApiMethod, String>> = arrayOf(
+            LedgerApiMethod.GET to "/v2/version",
+            LedgerApiMethod.GET to "/v2/state/",
+            LedgerApiMethod.POST to "/v2/state/",
+            LedgerApiMethod.GET to "/v2/updates/",
+            LedgerApiMethod.POST to "/v2/updates",
+            LedgerApiMethod.POST to "/v2/events/events-by-contract-id",
+            LedgerApiMethod.GET to "/v2/packages",
+            LedgerApiMethod.GET to "/v2/interactive-submission/preferred-package-version",
+            LedgerApiMethod.POST to "/v2/interactive-submission/preferred-packages",
+        )
+
+        /**
+         * The read surface of the JSON Ledger API — an **allowlist of
+         * method + path prefix**, not a rule about HTTP verbs.
+         *
+         * That distinction is the whole point. An earlier version of this
+         * policy allowed `GET` and nothing else, on the usual HTTP
+         * convention that `GET` is the safe verb. Canton's JSON Ledger API
+         * does not follow that convention: the ACS query is
+         * `POST /v2/state/active-contracts`, update reads are
+         * `POST /v2/updates…`, and event lookup is
+         * `POST /v2/events/events-by-contract-id`. Under a GET-only rule a
+         * dApp could read the ledger end and the synchronizer list and
+         * essentially nothing else — including, fatally, not its own
+         * holdings, which a token-standard dApp needs to choose input UTXOs.
+         *
+         * Meanwhile `GET` is not reliably safe either: `POST /v2/packages`
+         * uploads a DAR, so a verb-shaped rule gets the risk backwards in
+         * both directions.
+         *
+         * What stays denied, by simply not being listed: command submission
+         * and interactive submission (`prepare`/`execute` — a dApp reaches
+         * those through `prepareExecute`, where they are approved and
+         * hash-verified), DAR upload, package vetting, and every
+         * user/party/identity-provider surface, which can grant rights and
+         * allocate parties.
+         */
+        public val ReadOnly: LedgerApiPolicy = allowing(*ReadOnlyRules)
 
         /** Refuses everything. The right default for a wallet that has not thought about it. */
         public val DenyAll: LedgerApiPolicy = LedgerApiPolicy { false }
@@ -104,11 +136,34 @@ public fun interface LedgerApiPolicy {
         /** Allows everything. For tests and for hosts that have made the call. */
         public val AllowAll: LedgerApiPolicy = LedgerApiPolicy { true }
 
-        private val ADMINISTRATIVE = listOf("/users", "/parties", "/idps", "/identity-provider")
-
-        private fun String.isAdministrative(): Boolean {
-            val path = substringBefore('?').trimEnd('/').lowercase()
-            return ADMINISTRATIVE.any { path.endsWith(it) || path.contains("$it/") }
+        /**
+         * A policy allowing exactly these `method to path-prefix` pairs, for
+         * hosts widening [ReadOnly] deliberately.
+         *
+         * ```kotlin
+         * val policy = LedgerApiPolicy.allowing(
+         *     *LedgerApiPolicy.ReadOnlyRules,
+         *     LedgerApiMethod.POST to "/v2/commands/async/submit",
+         * )
+         * ```
+         *
+         * Matching normalises the query string away and rejects any resource
+         * containing `..`, so a prefix cannot be escaped by traversal.
+         */
+        public fun allowing(vararg allowed: Pair<LedgerApiMethod, String>): LedgerApiPolicy {
+            val rules = allowed.map { (method, prefix) -> method to prefix.lowercase() }
+            return LedgerApiPolicy { request ->
+                val path = request.resource.substringBefore('?').lowercase()
+                if (".." in path) {
+                    false
+                } else {
+                    val normalised = if (path.startsWith("/")) path else "/$path"
+                    rules.any { (method, prefix) ->
+                        request.requestMethod == method && normalised.startsWith(prefix)
+                    }
+                }
+            }
         }
+
     }
 }

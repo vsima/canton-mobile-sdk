@@ -532,6 +532,82 @@ class DappSessionTest {
     }
 
     @Test
+    fun `the default policy allows the POST-shaped reads Canton actually uses`(): Unit = runBlocking {
+        val session = session()
+        session.handle(request(DappMethod.CONNECT))
+
+        // The reason the policy is an allowlist and not a verb rule: every
+        // read that matters here is a POST. A token-standard dApp cannot
+        // choose input UTXOs without the first one.
+        for (resource in listOf(
+            "/v2/state/active-contracts",
+            "/v2/state/active-contracts-page",
+            "/v2/updates",
+            "/v2/updates/flats",
+            "/v2/events/events-by-contract-id",
+        )) {
+            val response = session.handle(ledgerApiRequest(LedgerApiMethod.POST, resource))
+            assertTrue(response.ok, "POST $resource should be readable under the default policy")
+        }
+    }
+
+    @Test
+    fun `the default policy still refuses the writes that share those prefixes`(): Unit = runBlocking {
+        val session = session()
+        session.handle(request(DappMethod.CONNECT))
+
+        val denied = listOf(
+            // A DAR upload — the case that makes "GET is safe, POST is not"
+            // wrong in the other direction too.
+            LedgerApiMethod.POST to "/v2/packages",
+            LedgerApiMethod.POST to "/v2/package-vetting/update",
+            LedgerApiMethod.POST to "/v2/commands/submit-and-wait",
+            // Reachable only through prepareExecute, where it is approved
+            // and hash-verified.
+            LedgerApiMethod.POST to "/v2/interactive-submission/prepare",
+            LedgerApiMethod.POST to "/v2/interactive-submission/execute",
+        )
+        for ((method, resource) in denied) {
+            val response = session.handle(ledgerApiRequest(method, resource))
+            assertEquals(
+                DappErrorCode.UNAUTHORIZED.code,
+                response.errorCode(),
+                "${method.wire} $resource must stay outside the default policy",
+            )
+        }
+    }
+
+    @Test
+    fun `a policy prefix cannot be escaped by path traversal`(): Unit = runBlocking {
+        val session = session()
+        session.handle(request(DappMethod.CONNECT))
+
+        val response = session.handle(
+            ledgerApiRequest(LedgerApiMethod.GET, "/v2/state/../users")
+        )
+
+        assertEquals(DappErrorCode.UNAUTHORIZED.code, response.errorCode())
+    }
+
+    @Test
+    fun `a host can widen the policy without restating the read surface`(): Unit = runBlocking {
+        val widened = LedgerApiPolicy.allowing(
+            *LedgerApiPolicy.ReadOnlyRules,
+            LedgerApiMethod.POST to "/v2/commands/submit-and-wait",
+        )
+        val session = session(ledgerApiPolicy = widened)
+        session.handle(request(DappMethod.CONNECT))
+
+        assertTrue(session.handle(ledgerApiRequest(LedgerApiMethod.POST, "/v2/commands/submit-and-wait")).ok)
+        // Widening one resource must not quietly open the rest.
+        assertEquals(
+            DappErrorCode.UNAUTHORIZED.code,
+            session.handle(ledgerApiRequest(LedgerApiMethod.GET, "/v2/users")).errorCode(),
+        )
+        assertTrue(session.handle(ledgerApiRequest(LedgerApiMethod.GET, "/v2/version")).ok)
+    }
+
+    @Test
     fun `ledgerApi before approval is unauthorized`(): Unit = runBlocking {
         val response = session().handle(ledgerApiRequest(LedgerApiMethod.GET, "/v2/version"))
 
