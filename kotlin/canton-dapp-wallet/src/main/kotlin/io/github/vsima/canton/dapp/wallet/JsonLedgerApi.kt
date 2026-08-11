@@ -87,7 +87,14 @@ public class JsonLedgerApiClient(
 
     private fun resolve(resource: String, query: JsonObject?): HttpUrl {
         val base = baseUrl.trimEnd('/')
-        val path = if (resource.startsWith("/")) resource else "/$resource"
+        // The same canonical form the policy judged. Building the URL from
+        // anything else would let the two disagree, which is precisely how a
+        // prefix allowlist gets walked out of.
+        val path = canonicalLedgerApiPath(resource)
+            ?: throw DappException(
+                DappErrorCode.INVALID_PARAMS,
+                "ledger API resource must be a plain path, was: $resource",
+            )
         val url = "$base$path".toHttpUrlOrNull()
             ?: throw DappException(
                 DappErrorCode.INVALID_PARAMS,

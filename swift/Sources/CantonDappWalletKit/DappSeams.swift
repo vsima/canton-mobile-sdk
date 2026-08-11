@@ -153,15 +153,44 @@ public struct LedgerApiPolicy: Sendable {
     /// )
     /// ```
     ///
-    /// Matching normalises the query string away and rejects any resource
-    /// containing `..`, so a prefix cannot be escaped by traversal.
+    /// Matching drops the query string and refuses any resource that is not
+    /// already canonical — see ``canonicalLedgerApiPath(_:)`` for why a prefix
+    /// cannot be escaped by traversal or percent-encoding.
     public static func allowing(_ rules: [Rule]) -> LedgerApiPolicy {
         LedgerApiPolicy { request in
-            var path = request.resource.lowercased()
-            if let query = path.firstIndex(of: "?") { path = String(path[path.startIndex..<query]) }
-            guard !path.contains("..") else { return false }
-            let normalised = path.hasPrefix("/") ? path : "/" + path
-            return rules.contains { $0.method == request.requestMethod && normalised.hasPrefix($0.pathPrefix) }
+            guard let path = canonicalLedgerApiPath(request.resource)?.lowercased() else { return false }
+            return rules.contains { $0.method == request.requestMethod && path.hasPrefix($0.pathPrefix) }
         }
     }
+}
+
+/// The path a ``LedgerApiPolicy`` decision applies to, or nil when the
+/// resource is not in canonical form.
+///
+/// **Refused rather than normalised, deliberately.** The policy and the URL
+/// builder are two different parsers looking at the same string, and any
+/// disagreement between them is a bypass. Verified on the Kotlin side, where
+/// OkHttp percent-decodes `%2e` and *then* resolves dot segments:
+/// `/v2/state/%2e%2e/users` passes a prefix check on `/v2/state/` and arrives
+/// at the server as `/v2/users` — the administrative surface the policy
+/// exists to block. Foundation's canonicalisation differs from OkHttp's,
+/// which is its own reason not to depend on either.
+///
+/// Accepting exactly one spelling makes the parsers agree by construction.
+/// Nothing legitimate is lost: Ledger API resources are plain paths, and
+/// encoded *values* travel in `LedgerApiRequest.query`, which the URL builder
+/// escapes properly.
+func canonicalLedgerApiPath(_ resource: String) -> String? {
+    var path = resource
+    if let query = path.firstIndex(of: "?") { path = String(path[path.startIndex..<query]) }
+    if let fragment = path.firstIndex(of: "#") { path = String(path[path.startIndex..<fragment]) }
+    guard !path.isEmpty else { return nil }
+    // Percent-encoding and backslashes are the two ways a path can mean
+    // something different to a parser than it reads as.
+    guard !path.contains("%"), !path.contains("\\") else { return nil }
+    let normalised = path.hasPrefix("/") ? path : "/" + path
+    guard !normalised.split(separator: "/", omittingEmptySubsequences: false)
+        .contains(where: { $0 == "." || $0 == ".." })
+    else { return nil }
+    return normalised
 }

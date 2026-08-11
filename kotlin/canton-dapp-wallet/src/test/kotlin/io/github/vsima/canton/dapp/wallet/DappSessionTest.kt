@@ -5,6 +5,7 @@ package io.github.vsima.canton.dapp.wallet
 
 import io.github.vsima.canton.dapp.ConnectResult
 import io.github.vsima.canton.dapp.DappErrorCode
+import io.github.vsima.canton.dapp.DappException
 import io.github.vsima.canton.dapp.DappEvent
 import io.github.vsima.canton.dapp.DappJson
 import io.github.vsima.canton.dapp.DappMethod
@@ -19,6 +20,7 @@ import io.github.vsima.canton.dapp.PrepareSubmission
 import io.github.vsima.canton.dapp.TxChangedEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -582,11 +584,40 @@ class DappSessionTest {
         val session = session()
         session.handle(request(DappMethod.CONNECT))
 
-        val response = session.handle(
-            ledgerApiRequest(LedgerApiMethod.GET, "/v2/state/../users")
-        )
+        // Percent-encoded forms matter as much as literal ones: OkHttp
+        // decodes %2e and *then* resolves dot segments, so before the
+        // canonical-form check these reached /v2/users and /users
+        // respectively while the policy was still reading them as
+        // /v2/state/… — verified against a real server.
+        for (resource in listOf(
+            "/v2/state/../users",
+            "/v2/state/%2e%2e/users",
+            "/v2/state/%2E%2E/%2E%2E/users",
+            "/v2/state/%2e%2e%2f%2e%2e/users",
+            "/v2/state/./../users",
+            "/v2/state\\..\\users",
+        )) {
+            val response = session.handle(ledgerApiRequest(LedgerApiMethod.GET, resource))
+            assertEquals(
+                DappErrorCode.UNAUTHORIZED.code,
+                response.errorCode(),
+                "'$resource' must not escape the allowed prefix",
+            )
+        }
+    }
 
-        assertEquals(DappErrorCode.UNAUTHORIZED.code, response.errorCode())
+    @Test
+    fun `the client refuses a non-canonical resource even without a policy`(): Unit = runBlocking {
+        // The policy is the security boundary, but JsonLedgerApiClient is
+        // public: a host calling it directly must not be able to build a URL
+        // the policy would never have approved.
+        val client = JsonLedgerApiClient("http://127.0.0.1:1")
+
+        val thrown = assertFailsWith<DappException> {
+            runBlocking { client.call(LedgerApiRequest(LedgerApiMethod.GET, "/v2/state/%2e%2e/users")) }
+        }
+
+        assertEquals(DappErrorCode.INVALID_PARAMS, thrown.errorCode)
     }
 
     @Test

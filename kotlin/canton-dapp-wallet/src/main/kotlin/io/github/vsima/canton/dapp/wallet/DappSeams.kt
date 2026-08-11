@@ -147,23 +147,48 @@ public fun interface LedgerApiPolicy {
          * )
          * ```
          *
-         * Matching normalises the query string away and rejects any resource
-         * containing `..`, so a prefix cannot be escaped by traversal.
+         * Matching drops the query string and refuses any resource that is
+         * not already canonical — see [canonicalLedgerApiPath] for why a
+         * prefix cannot be escaped by traversal or percent-encoding.
          */
         public fun allowing(vararg allowed: Pair<LedgerApiMethod, String>): LedgerApiPolicy {
             val rules = allowed.map { (method, prefix) -> method to prefix.lowercase() }
             return LedgerApiPolicy { request ->
-                val path = request.resource.substringBefore('?').lowercase()
-                if (".." in path) {
-                    false
-                } else {
-                    val normalised = if (path.startsWith("/")) path else "/$path"
-                    rules.any { (method, prefix) ->
-                        request.requestMethod == method && normalised.startsWith(prefix)
-                    }
+                val path = canonicalLedgerApiPath(request.resource)?.lowercase()
+                path != null && rules.any { (method, prefix) ->
+                    request.requestMethod == method && path.startsWith(prefix)
                 }
             }
         }
 
     }
+}
+
+/**
+ * The path a [LedgerApiPolicy] decision applies to, or null when the resource
+ * is not in canonical form.
+ *
+ * **Refused rather than normalised, deliberately.** The policy and the URL
+ * builder are two different parsers looking at the same string, and any
+ * disagreement between them is a bypass. Verified: OkHttp percent-decodes
+ * `%2e` and *then* resolves dot segments, so `/v2/state/%2e%2e/users` passes
+ * a prefix check on `/v2/state/` and arrives at the server as `/v2/users` —
+ * the administrative surface the policy exists to block.
+ *
+ * Normalising here instead would mean reimplementing OkHttp's and
+ * Foundation's canonicalisation exactly, and staying identical to both as
+ * they change. Accepting exactly one spelling makes the two parsers agree by
+ * construction. Nothing legitimate is lost: Ledger API resources are plain
+ * paths, and encoded *values* travel in [LedgerApiRequest.query], which the
+ * URL builder escapes properly.
+ */
+internal fun canonicalLedgerApiPath(resource: String): String? {
+    val path = resource.substringBefore('?').substringBefore('#')
+    if (path.isEmpty()) return null
+    // Percent-encoding and backslashes are the two ways a path can mean
+    // something different to a parser than it reads as.
+    if ('%' in path || '\\' in path) return null
+    val normalised = if (path.startsWith("/")) path else "/$path"
+    if (normalised.split('/').any { it == "." || it == ".." }) return null
+    return normalised
 }
