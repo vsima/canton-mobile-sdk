@@ -39,5 +39,10 @@ kotlin {
 
 dependencies {
     implementation("io.github.vsima.canton:canton-sdk:0.1.0-SNAPSHOT")
+    // The CIP-0103 dApp layer: the sample exercises an in-process
+    // client<->session round trip, which keeps the R8 release build covering
+    // these modules on Android.
+    implementation("io.github.vsima.canton:canton-dapp:0.1.0-SNAPSHOT")
+    implementation("io.github.vsima.canton:canton-dapp-wallet:0.1.0-SNAPSHOT")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 }

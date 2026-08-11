@@ -6,6 +6,15 @@ import android.view.Gravity
 import android.widget.TextView
 import io.github.vsima.canton.CantonClient
 import io.github.vsima.canton.CantonClientConfiguration
+import io.github.vsima.canton.dapp.DappClient
+import io.github.vsima.canton.dapp.DappWallet
+import io.github.vsima.canton.dapp.DappWalletStatus
+import io.github.vsima.canton.dapp.wallet.DappApproval
+import io.github.vsima.canton.dapp.wallet.DappApprovalRequest
+import io.github.vsima.canton.dapp.wallet.DappNetworkConfig
+import io.github.vsima.canton.dapp.wallet.DappPeer
+import io.github.vsima.canton.dapp.wallet.DappSession
+import io.github.vsima.canton.dapp.wallet.InProcessDappTransport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -46,11 +55,42 @@ class MainActivity : Activity() {
                         )
                     ).use { it.ledgerApiVersion() }
                 }
-                "Ledger API version: $version"
+                // The CIP-0103 layer, exercised in-process: session + client
+                // through the real codec and dispatch. Needs no network, and
+                // keeps the R8 release build honest about the dapp modules.
+                val granted = withContext(Dispatchers.Default) { dappRoundTrip() }
+                "Ledger API version: $version\ndApp layer: connected, $granted account(s) granted"
             } catch (e: Exception) {
                 "Could not reach ledger: ${e.message}"
             }
         }
+    }
+
+    /** Connect → listAccounts through the standard dApp surface. */
+    private suspend fun dappRoundTrip(): Int {
+        val account = DappWallet(
+            primary = true,
+            partyId = "sample::1220sample",
+            status = DappWalletStatus.ALLOCATED,
+            hint = "sample",
+            publicKey = "",
+            namespace = "1220sample",
+            networkId = "canton:sample",
+            signingProviderId = "none",
+        )
+        val session = DappSession(
+            peer = DappPeer(id = "sample", name = "Sample app", verified = true),
+            accounts = { listOf(account) },
+            approver = { request ->
+                DappApproval.Approved(
+                    accounts = (request as? DappApprovalRequest.Connection)?.available ?: emptyList()
+                )
+            },
+            network = DappNetworkConfig(networkId = "canton:sample"),
+        )
+        val client = DappClient(InProcessDappTransport(session))
+        check(client.connect().isConnected) { "in-process connect failed" }
+        return client.listAccounts().size
     }
 
     override fun onDestroy() {

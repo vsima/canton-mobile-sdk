@@ -263,7 +263,7 @@ internal fun Value.genMapEntries(): List<ValueOuterClass.GenMap.Entry> {
 // Encoding: typed values -> Daml values for choice arguments
 // ---------------------------------------------------------------------------
 
-internal fun Transfer.toValue(): Value =
+public fun Transfer.toValue(): Value =
     DamlValues.record(
         "sender" to DamlValues.party(sender),
         "receiver" to DamlValues.party(receiver),

@@ -25,6 +25,8 @@ dependencies {
     testImplementation(libs.kotlin.test)
     // In-process channel for pipeline tests that stop before the gRPC leg.
     testImplementation(libs.grpc.inprocess)
+    // Live LocalNet end-to-end: a real plaintext channel to the participant.
+    testImplementation(libs.grpc.okhttp)
 }
 
 tasks.test {
