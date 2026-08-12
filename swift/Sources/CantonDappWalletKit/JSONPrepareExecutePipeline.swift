@@ -209,16 +209,15 @@ public struct JSONPrepareExecutePipeline: PrepareExecutePipeline {
 
 /// `signMessage` backed by a `SigningDriver`.
 ///
-/// The message's UTF-8 bytes are signed as-is and the signature returned as
-/// base64. CIP-0103 specifies neither a domain-separation prefix nor an
-/// encoding, so this is a choice, not a standard — which matters, because a
-/// signature over raw caller-supplied bytes is one a verifier cannot
-/// distinguish from a signature over anything else the wallet signs.
+/// The signature is over ``DappSignMessage/signingBytes(_:)`` — the message
+/// behind a fixed domain-separation prefix — not the raw message, so a
+/// `signMessage` signature can never be mistaken for a signature over a
+/// transaction hash the same key also produces. Returned base64-encoded in the
+/// driver's native format (DER for ECDSA, raw for Ed25519); a dApp verifying it
+/// must reconstruct the same signing bytes.
 ///
-/// ``DappSession`` gates every call behind user approval and a rate limit,
-/// which is what keeps that from being exploitable. A wallet whose keys also
-/// sign ledger transaction hashes should satisfy itself that no message can be
-/// crafted to collide with one before enabling this in production.
+/// ``DappSession`` additionally gates every call behind user approval and a
+/// rate limit.
 public struct SigningDriverMessageSigner: DappMessageSigner {
     private let signer: any SigningDriver
 
@@ -227,7 +226,9 @@ public struct SigningDriverMessageSigner: DappMessageSigner {
     }
 
     public func sign(account: DappWallet, message: String) async throws -> String {
-        let signature = try await signer.sign(Data(message.utf8))
+        // Domain-separated, not the raw message — see DappSignMessage. A dApp
+        // verifying this signature must apply DappSignMessage.signingBytes too.
+        let signature = try await signer.sign(DappSignMessage.signingBytes(message))
         return signature.signature.base64EncodedString()
     }
 }

@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.interactive.InteractiveSubmissionServiceOuterClass
 import com.google.protobuf.ByteString
 import com.google.protobuf.InvalidProtocolBufferException
 import io.github.vsima.canton.dapp.DappErrorCode
+import io.github.vsima.canton.dapp.DappSignMessage
 import io.github.vsima.canton.dapp.DappException
 import io.github.vsima.canton.dapp.DappWallet
 import io.github.vsima.canton.dapp.TxChangedEvent
@@ -213,22 +214,23 @@ public class JsonPrepareExecutePipeline(
 /**
  * `signMessage` backed by a [SigningDriver].
  *
- * The message's UTF-8 bytes are signed as-is and the signature returned as
- * base64. CIP-0103 specifies neither a domain-separation prefix nor an
- * encoding, so this is a choice, not a standard — which matters, because a
- * signature over raw caller-supplied bytes is one a verifier cannot
- * distinguish from a signature over anything else the wallet signs.
+ * The signature is over [DappSignMessage.signingBytes] — the message behind a
+ * fixed domain-separation prefix — not the raw message, so a `signMessage`
+ * signature can never be mistaken for a signature over a transaction hash the
+ * same key also produces. The signature is returned base64-encoded in the
+ * driver's native format (DER for ECDSA, raw for Ed25519). A dApp verifying it
+ * must reconstruct the same signing bytes; see the sign-in reference example.
  *
- * [DappSession] gates every call behind user approval and a rate limit, which
- * is what keeps that from being exploitable. A wallet whose keys also sign
- * ledger transaction hashes should satisfy itself that no message can be
- * crafted to collide with one before enabling this in production.
+ * [DappSession] additionally gates every call behind user approval and a rate
+ * limit.
  */
 public class SigningDriverMessageSigner(
     private val signer: SigningDriver,
 ) : DappMessageSigner {
     override suspend fun sign(account: DappWallet, message: String): String {
-        val signature = signer.sign(message.toByteArray(Charsets.UTF_8))
+        // Domain-separated, not the raw message — see DappSignMessage. A dApp
+        // verifying this signature must apply DappSignMessage.signingBytes too.
+        val signature = signer.sign(DappSignMessage.signingBytes(message))
         return Base64.getEncoder().encodeToString(signature.signature.toByteArray())
     }
 }
