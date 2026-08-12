@@ -11,6 +11,7 @@ import io.github.vsima.canton.dapp.DappJson
 import io.github.vsima.canton.dapp.DappMethod
 import io.github.vsima.canton.dapp.DappProvider
 import io.github.vsima.canton.dapp.DappProviderType
+import io.github.vsima.canton.dapp.DappRequestHandler
 import io.github.vsima.canton.dapp.DappStatus
 import io.github.vsima.canton.dapp.DappWallet
 import io.github.vsima.canton.dapp.JsonRpcRequest
@@ -69,7 +70,7 @@ public class DappSession(
     /** Minimum gap between `signMessage` calls; see [DappApprovalRequest.Message]. */
     private val signMessageMinInterval: Duration = 1.seconds,
     private val timeSource: TimeSource = TimeSource.Monotonic,
-) {
+) : DappRequestHandler {
     private val lock = Mutex()
     private var granted: List<DappWallet> = emptyList()
     private var connected: Boolean = false
@@ -81,7 +82,7 @@ public class DappSession(
     )
 
     /** Events for this peer only. */
-    public val events: Flow<DappEvent> = _events.asSharedFlow()
+    override val events: Flow<DappEvent> = _events.asSharedFlow()
 
     /** The accounts this peer may currently see. Empty until [DappMethod.CONNECT] is approved. */
     public suspend fun grantedAccounts(): List<DappWallet> = lock.withLock { granted }
@@ -93,7 +94,7 @@ public class DappSession(
      * id, which callers should drop; returning null instead would make the
      * signature awkward for every transport that only ever sends requests.
      */
-    public suspend fun handle(request: JsonRpcRequest): JsonRpcResponse = try {
+    override suspend fun handle(request: JsonRpcRequest): JsonRpcResponse = try {
         JsonRpcResponse.success(request.id, dispatch(request))
     } catch (e: DappException) {
         JsonRpcResponse.failure(request.id, e)

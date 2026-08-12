@@ -45,3 +45,25 @@ public interface DappTransport {
      */
     public val events: Flow<DappEvent> get() = emptyFlow()
 }
+
+/**
+ * The wallet-side counterpart of [DappTransport]: something that answers
+ * JSON-RPC frames and emits events.
+ *
+ * This is what a *server* transport routes inbound frames into. It lives here,
+ * in `canton-dapp`, rather than in the wallet module on purpose: a transport
+ * that carries both roles (LAN gRPC, later WalletConnect) depends only on
+ * `canton-dapp`, so it must be able to name the provider without reaching into
+ * `canton-dapp-wallet`. The provider engine there satisfies this structurally.
+ *
+ * The mirror of [DappTransport] — `send` answers a request, this *is* the
+ * thing being sent to.
+ */
+public interface DappRequestHandler {
+    /** Handle one request and return its response. Must not throw for
+     *  protocol-level failures — return a JSON-RPC error response instead. */
+    public suspend fun handle(request: JsonRpcRequest): JsonRpcResponse
+
+    /** Events to forward to the connected dApp as JSON-RPC notifications. */
+    public val events: Flow<DappEvent>
+}
