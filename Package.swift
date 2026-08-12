@@ -17,6 +17,7 @@ let package = Package(
         .library(name: "CantonLedgerAPI", targets: ["CantonLedgerAPI"]),
         .library(name: "CantonDappKit", targets: ["CantonDappKit"]),
         .library(name: "CantonDappWalletKit", targets: ["CantonDappWalletKit"]),
+        .library(name: "CantonDappLanKit", targets: ["CantonDappLanKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/grpc/grpc-swift-2.git", from: "2.4.0"),
@@ -69,6 +70,18 @@ let package = Package(
             dependencies: ["CantonDappKit", "CantonWalletKit"],
             path: "swift/Sources/CantonDappWalletKit"
         ),
+        // LAN gRPC transport for the dApp API: JSON-RPC frames over a bidi
+        // stream. Depends only on CantonDappKit (+ grpc) — the transport
+        // carries both roles and must not pull in the wallet stack.
+        .target(
+            name: "CantonDappLanKit",
+            dependencies: [
+                "CantonDappKit",
+                .product(name: "GRPCCore", package: "grpc-swift-2"),
+                .product(name: "GRPCNIOTransportHTTP2", package: "grpc-swift-nio-transport"),
+            ],
+            path: "swift/Sources/CantonDappLanKit"
+        ),
         .testTarget(
             name: "CantonKitTests",
             dependencies: [
@@ -94,6 +107,11 @@ let package = Package(
             name: "CantonDappWalletKitTests",
             dependencies: ["CantonDappWalletKit"],
             path: "swift/Tests/CantonDappWalletKitTests"
+        ),
+        .testTarget(
+            name: "CantonDappLanKitTests",
+            dependencies: ["CantonDappLanKit", "CantonDappWalletKit"],
+            path: "swift/Tests/CantonDappLanKitTests"
         ),
     ]
 )
