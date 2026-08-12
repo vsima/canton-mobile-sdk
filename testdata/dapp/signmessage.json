@@ -1,0 +1,15 @@
+{
+  "note": [
+    "Shared golden vector for DappSignMessage, satisfied by both SDKs.",
+    "signingBytesHex is the lowercase hex of the exact bytes a signMessage",
+    "request signs: the domain prefix then the UTF-8 message. Byte-exact",
+    "agreement across platforms is what lets a Kotlin wallet and a Swift dApp",
+    "(or vice versa) interoperate on a signed message.",
+    "domainByteLength must exceed 32 so signing bytes can never equal a",
+    "32-byte prepared transaction hash."
+  ],
+  "domain": "CantonNetwork:CIP-0103:signMessage:v1\n",
+  "domainByteLength": 38,
+  "message": "Sign in to Example dApp\nnonce: 7f3a9c2e",
+  "signingBytesHex": "43616e746f6e4e6574776f726b3a4349502d303130333a7369676e4d6573736167653a76310a5369676e20696e20746f204578616d706c6520644170700a6e6f6e63653a203766336139633265"
+}
