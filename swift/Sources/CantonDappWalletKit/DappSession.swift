@@ -18,7 +18,7 @@ import Foundation
 ///
 /// ``handle(_:)`` never throws for protocol-level failures — it returns a
 /// JSON-RPC error response, because a transport needs something to send back.
-public actor DappSession {
+public actor DappSession: DappRequestHandler {
     private let peer: DappPeer
     private let accounts: DappAccountsSource
     private let approver: DappApprovalDelegate
