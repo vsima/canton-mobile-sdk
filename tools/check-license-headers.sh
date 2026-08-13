@@ -27,6 +27,10 @@ sources() {
   find \
     "$ROOT/kotlin/canton-sdk/src" \
     "$ROOT/kotlin/canton-wallet-sdk/src" \
+    "$ROOT/kotlin/canton-dapp/src" \
+    "$ROOT/kotlin/canton-dapp-wallet/src" \
+    "$ROOT/kotlin/canton-dapp-lan/src" \
+    "$ROOT/kotlin/canton-dapp-wc/src" \
     -name '*.kt' 2>/dev/null
 }
 

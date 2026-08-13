@@ -58,7 +58,7 @@ Capability-level comparison with Digital Asset's TypeScript
 | DevNet taps | ✅ | ✅ | ✅ | `ValidatorClient.tap` mints via the validator's wallet API, live-verified on LocalNet; the DevNet-registry run still needs DevNet credentials |
 | Traffic purchase | ✅ | ✅ | ✅ | `ValidatorClient.buyTraffic` + `buyTrafficStatus` (validator wallet API), traffic status via `ScanClient.memberTrafficStatus` — full buy → completed → status-reflects loop live-verified on LocalNet |
 | Transfer fee preview | — | ✅ | ✅ | Typed AmuletRules + open-round reads plus a pure `TransferFeeEstimator` (Splice's stepped-rate semantics); on current networks fees are zero by governance (CIP-0078), which the LocalNet run verifies against a real transfer. JS exposes the raw config only |
-| dApp connectivity (CIP-0103) | ✅ | ◐ | ◐ | **Partial.** The dApp client, the wallet-side provider engine, an in-process transport, a **LAN gRPC transport** (`canton-dapp-lan` / `CantonDappLanKit`), the prepare → verify → sign → execute pipeline, and **`signMessage` domain separation** have shipped — held to golden vectors from OpenRPC 0.5.0 that both platforms satisfy, and live-verified end-to-end on LocalNet. **Still open: a WalletConnect / `remote` bridge**, the only path an *unmodified web* dApp has to a mobile wallet. There is no relay by design, so a dApp reaches a wallet on the same device or the same network. JS ships this as a separate, browser-only `@canton-network/dapp-sdk` |
+| dApp connectivity (CIP-0103) | ✅ | ◐ | ◐ | **Partial.** The dApp client, the wallet-side provider engine, an in-process transport, a **LAN gRPC transport** (`canton-dapp-lan` / `CantonDappLanKit`), a **WalletConnect transport adapter** (`canton-dapp-wc`, Kotlin), the prepare → verify → sign → execute pipeline, and **`signMessage` domain separation** have shipped — held to golden vectors from OpenRPC 0.5.0 that both platforms satisfy, and live-verified end-to-end on LocalNet. **Still open: the WalletConnect native binding** — the adapter has shipped; the Reown WalletKit relay binding and wallet UI (and Swift parity) remain — the path an *unmodified web* dApp has to a mobile wallet. There is no relay by design, so a dApp reaches a wallet on the same device or the same network. JS ships this as a separate, browser-only `@canton-network/dapp-sdk` |
 | TLS trust / certificate pinning | — | ✅ | ✅ | `TlsTrust` pins the Ledger API connection to an operator's CA (and the REST clients with it); JS leaves trust to the runtime, which a browser cannot configure at all. Leaf/SPKI pinning is deliberately not offered — see [docs/tls-trust.md](docs/tls-trust.md) |
 | Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
 
@@ -636,8 +636,17 @@ proven and where.
 - [x] A **LAN gRPC transport** (`canton-dapp-lan` / `CantonDappLanKit`): one
       CIP-0103 session across a real bidirectional socket between two apps on
       the same network — the `DappRequestHandler` seam it forced is the one
-      WalletConnect will reuse. Proved by a byte-truncation mutation test;
+      WalletConnect reuses. Proved by a byte-truncation mutation test;
       plaintext for now, TLS the remaining piece
+- [x] A **WalletConnect transport adapter** (`canton-dapp-wc`, Kotlin): the
+      Canton half of a WalletConnect session over that same seam — CIP-0103
+      frames routed into the engine, plus the CAIP-10 encoding a Canton party
+      needs (its `::` and any `_` are illegal in a WalletConnect account, so it
+      is percent-encoded into the address). It depends on **no WalletConnect
+      client library**: a Reown WalletKit binding drives it through two pure
+      touch-points (`sessionNamespaces` + `handle`), so the adapter is unit-tested
+      against a real `DappSession` with no relay. The relay binding and wallet
+      UI are Next
 - [x] **`signMessage` domain separation**: signatures are over a 38-byte
       domain-prefixed message (`CantonNetwork:CIP-0103:signMessage:v1`), so a
       sign-in signature can never also be a valid transaction signature —
@@ -656,6 +665,13 @@ proven and where.
   cellular. (The reference apps in `canton-mobile-app` also demonstrate a
   self-describing `canton-checkout:` deep link — a camera-openable
   scan-to-pay QR that opens the wallet prefilled.)
+- **WalletConnect for CIP-0103: the native binding.** The transport adapter has
+  shipped (`canton-dapp-wc`, above) and is proven against a real `DappSession`;
+  what remains is the Reown WalletKit binding that does the relay I/O per
+  platform (Android first, then Swift `CantonDappWalletConnectKit`) and the
+  wallet's connect + approval UI. This is the one path an *unmodified web* dApp
+  has to a mobile wallet, and the design's single heavy third-party dependency —
+  now isolated in the binding, not the SDK.
 
 ### Exploring
 
@@ -663,11 +679,6 @@ proven and where.
   adapts any external signer; first-party drivers (Fireblocks raw
   signing, BitGo) land once they can be verified against real provider
   accounts.
-- **WalletConnect bridge for CIP-0103.** The one path an *unmodified web*
-  dApp has to a mobile wallet, and the only way to run the stock
-  `dapp-sdk` conformance example against us. Specified but unbuilt: it is
-  the design's single heavy third-party dependency, and the native
-  transports above cover the cases we care about without a relay.
 - **CIP-0112 / Token Standard V2.** Tracking the next token-standard
   iteration — including provider-side preapproval renewal — as it
   stabilizes.
