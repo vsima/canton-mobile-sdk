@@ -31,8 +31,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * relay I/O: on `onSessionProposal` it approves with [sessionNamespaces]; on
  * `onSessionRequest` it calls [handle] and responds with the result. Keeping the
  * client out means this adapter is plain JVM and is unit-tested against a real
- * `DappSession`, no relay — the same split the reference dApp server used to
- * prove the transport headless before any device work.
+ * `DappSession`, with no relay.
  *
  * The approval, signing and prepare→sign→execute all happen inside the engine;
  * this class adds no policy. It advertises the CIP-0103 method names verbatim
