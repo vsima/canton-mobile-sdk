@@ -18,6 +18,7 @@ let package = Package(
         .library(name: "CantonDappKit", targets: ["CantonDappKit"]),
         .library(name: "CantonDappWalletKit", targets: ["CantonDappWalletKit"]),
         .library(name: "CantonDappLanKit", targets: ["CantonDappLanKit"]),
+        .library(name: "CantonDappWCKit", targets: ["CantonDappWCKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/grpc/grpc-swift-2.git", from: "2.4.0"),
@@ -82,6 +83,16 @@ let package = Package(
             ],
             path: "swift/Sources/CantonDappLanKit"
         ),
+        // WalletConnect transport for the dApp API, wallet side: CAIP encoding
+        // and CIP-0103 frame routing into a DappRequestHandler. Like the Kotlin
+        // :canton-dapp-wc, it pulls in NO WalletConnect client library — a Reown
+        // WalletKit delegate in the app drives its two touch-points. So it
+        // depends only on CantonDappKit.
+        .target(
+            name: "CantonDappWCKit",
+            dependencies: ["CantonDappKit"],
+            path: "swift/Sources/CantonDappWCKit"
+        ),
         .testTarget(
             name: "CantonKitTests",
             dependencies: [
@@ -112,6 +123,13 @@ let package = Package(
             name: "CantonDappLanKitTests",
             dependencies: ["CantonDappLanKit", "CantonDappWalletKit"],
             path: "swift/Tests/CantonDappLanKitTests"
+        ),
+        // Drives the adapter against a real DappSession, so it needs the
+        // wallet-side engine as well as the transport under test.
+        .testTarget(
+            name: "CantonDappWCKitTests",
+            dependencies: ["CantonDappWCKit", "CantonDappWalletKit"],
+            path: "swift/Tests/CantonDappWCKitTests"
         ),
     ]
 )
