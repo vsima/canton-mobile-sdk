@@ -58,7 +58,7 @@ Capability-level comparison with Digital Asset's TypeScript
 | DevNet taps | ✅ | ✅ | ✅ | `ValidatorClient.tap` mints via the validator's wallet API, live-verified on LocalNet; the DevNet-registry run still needs DevNet credentials |
 | Traffic purchase | ✅ | ✅ | ✅ | `ValidatorClient.buyTraffic` + `buyTrafficStatus` (validator wallet API), traffic status via `ScanClient.memberTrafficStatus` — full buy → completed → status-reflects loop live-verified on LocalNet |
 | Transfer fee preview | — | ✅ | ✅ | Typed AmuletRules + open-round reads plus a pure `TransferFeeEstimator` (Splice's stepped-rate semantics); on current networks fees are zero by governance (CIP-0078), which the LocalNet run verifies against a real transfer. JS exposes the raw config only |
-| dApp connectivity (CIP-0103) | ✅ | ◐ | ◐ | **Partial.** The dApp client, the wallet-side provider engine and an in-process transport have shipped, held to golden vectors from OpenRPC 0.5.0 that both platforms satisfy. **No transport between separate apps yet** — deep link and LAN gRPC are next. There is no relay by design, so a dApp will only ever reach a wallet on the same device or the same network. JS ships this as a separate, browser-only `@canton-network/dapp-sdk` |
+| dApp connectivity (CIP-0103) | ✅ | ◐ | ◐ | **Partial.** The dApp client, the wallet-side provider engine, an in-process transport, a **LAN gRPC transport** (`canton-dapp-lan` / `CantonDappLanKit`), the prepare → verify → sign → execute pipeline, and **`signMessage` domain separation** have shipped — held to golden vectors from OpenRPC 0.5.0 that both platforms satisfy, and live-verified end-to-end on LocalNet. **Still open: a WalletConnect / `remote` bridge**, the only path an *unmodified web* dApp has to a mobile wallet. There is no relay by design, so a dApp reaches a wallet on the same device or the same network. JS ships this as a separate, browser-only `@canton-network/dapp-sdk` |
 | TLS trust / certificate pinning | — | ✅ | ✅ | `TlsTrust` pins the Ledger API connection to an operator's CA (and the REST clients with it); JS leaves trust to the runtime, which a browser cannot configure at all. Leaf/SPKI pinning is deliberately not offered — see [docs/tls-trust.md](docs/tls-trust.md) |
 | Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
 
@@ -626,20 +626,36 @@ proven and where.
       never handed to a dApp; and `ledgerApi` defaults to a read-only policy
       that also excludes user- and party-management, because read-only is
       not the same as harmless
+- [x] The prepare → verify → sign → execute pipeline
+      (`JsonPrepareExecutePipeline`): a dApp's `prepareExecute` proxies its
+      commands inside the wallet's envelope, decodes the prepared
+      transaction, and hands it to the existing `signAndExecuteAndWait` —
+      hash verified, signed via the driver, executed, completion awaited,
+      no transcode anywhere. Live-verified end-to-end on LocalNet with a
+      real token-standard transfer
+- [x] A **LAN gRPC transport** (`canton-dapp-lan` / `CantonDappLanKit`): one
+      CIP-0103 session across a real bidirectional socket between two apps on
+      the same network — the `DappRequestHandler` seam it forced is the one
+      WalletConnect will reuse. Proved by a byte-truncation mutation test;
+      plaintext for now, TLS the remaining piece
+- [x] **`signMessage` domain separation**: signatures are over a 38-byte
+      domain-prefixed message (`CantonNetwork:CIP-0103:signMessage:v1`), so a
+      sign-in signature can never also be a valid transaction signature —
+      byte-exact across platforms via a shared golden vector, checked with
+      real crypto over both Ed25519 and P-256
 
 ### Next
 
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
   below); still pending is running the full token-standard loop against a
   DevNet registry, which needs DevNet validator credentials.
-- **CIP-0103 transports between apps.** The protocol core and provider
-  engine have shipped (above); what's missing is a way for two *separate*
-  apps to talk. Next are a deep link / App Link for the same device and a
-  TLS gRPC stream over the LAN for two devices, paired by QR. Deliberately
-  no relay, so the honest limit is that a dApp reaches a wallet on the same
-  device or the same network — and not a wallet on cellular. Before that,
-  the prepare → verify → sign → execute pipeline behind
-  `PrepareExecutePipeline`.
+- **TLS + QR pairing for the LAN transport.** The LAN gRPC transport has
+  shipped (above), plaintext; what remains is a TLS stream paired by QR for
+  two devices. Deliberately no relay, so the honest limit is that a dApp
+  reaches a wallet on the same device or the same network — not a wallet on
+  cellular. (The reference apps in `canton-mobile-app` also demonstrate a
+  self-describing `canton-checkout:` deep link — a camera-openable
+  scan-to-pay QR that opens the wallet prefilled.)
 
 ### Exploring
 
