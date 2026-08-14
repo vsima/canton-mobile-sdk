@@ -68,8 +68,29 @@ import Testing
         let ns = wc.sessionNamespaces(accounts: [account])
         #expect(ns.chains == ["canton:localnet"])
         #expect(ns.accounts == ["canton:localnet:\(Caip.encodeParty(party))"])
-        #expect(ns.methods.contains("signMessage") && ns.methods.contains("prepareExecute"))
-        #expect(ns.methods.count == 11)
+        #expect(ns.methods.contains("canton_signMessage") && ns.methods.contains("canton_prepareSignExecute"))
+        #expect(ns.methods.count == 7)
+        #expect(ns.events == ["accountsChanged", "statusChanged"])
+    }
+
+    @Test func normalizeMapsTheCantonPrefixAndThePrepareSignExecuteRename() {
+        #expect(WcMethod.normalize("canton_signMessage") == "signMessage")
+        #expect(WcMethod.normalize("canton_prepareSignExecute") == "prepareExecuteAndWait")
+        #expect(WcMethod.normalize("canton_status") == "status")
+        #expect(WcMethod.normalize("signMessage") == "signMessage")  // a bare name passes through
+        #expect(WcMethod.normalize("connect") == "connect")
+    }
+
+    @Test func aCantonPrefixedRequestIsNormalizedAndAnswered() async throws {
+        let wc = try CantonWalletConnect(handler: session(approver: approveAll), networkId: "canton:localnet")
+        guard case .success = await wc.handle(req(1, "canton_connect")) else {
+            Issue.record("canton_connect should succeed"); return
+        }
+        let signed = await wc.handle(req(2, "canton_signMessage", .object(["message": .string("hi")])))
+        guard case .success(let result) = signed else {
+            Issue.record("canton_signMessage should succeed"); return
+        }
+        #expect(result.objectValue?["signature"]?.stringValue == "sig:hi")
     }
 
     @Test func connectThenSignMessageReturnsASignatureOverTheSession() async throws {
