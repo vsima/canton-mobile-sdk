@@ -23,9 +23,7 @@ import CantonDappKit
 /// `sessionProposalPublisher` it approves with ``sessionNamespaces(accounts:)``;
 /// on `sessionRequestPublisher` it calls ``handle(_:)`` and responds with the
 /// result. Keeping the client out means this adapter is plain Swift and is
-/// unit-tested against a real `DappSession`, no relay — the same split the
-/// reference dApp server used to prove the transport headless before any device
-/// work.
+/// unit-tested against a real `DappSession`, with no relay.
 ///
 /// The approval, signing and prepare→sign→execute all happen inside the engine;
 /// this type adds no policy. It advertises the CIP-0103 method names verbatim

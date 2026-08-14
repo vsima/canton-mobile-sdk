@@ -15,8 +15,9 @@ import java.io.ByteArrayOutputStream
  * the account address: a party id is `hint::1220<fingerprint>`, and the `::` —
  * plus any `_` in a hint — falls outside the CAIP-10 address charset
  * (`[-.%a-zA-Z0-9]`). So a party is percent-encoded into the address segment,
- * and recovered by the inverse. Canton has no registered WalletConnect
- * namespace, so `canton` is a convention of this SDK.
+ * and recovered by the inverse. `canton` is WalletConnect's namespace for
+ * Canton (`canton:<network-id>`, operator-defined), and this percent-encoded
+ * account (`::` -> `%3A%3A`) matches its published Canton chain support.
  */
 public object Caip {
 
