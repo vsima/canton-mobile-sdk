@@ -71,8 +71,9 @@ class CantonWalletConnectTest {
         val ns = wc.sessionNamespaces(listOf(account))
         assertEquals(listOf("canton:localnet"), ns.chains)
         assertEquals(listOf("canton:localnet:${Caip.encodeParty(party)}"), ns.accounts)
-        assertTrue("signMessage" in ns.methods && "prepareExecute" in ns.methods)
-        assertEquals(11, ns.methods.size)
+        assertTrue("canton_signMessage" in ns.methods && "canton_prepareSignExecute" in ns.methods)
+        assertEquals(7, ns.methods.size)
+        assertEquals(listOf("accountsChanged", "statusChanged"), ns.events)
     }
 
     @Test
@@ -114,5 +115,23 @@ class CantonWalletConnectTest {
             wc.handle(req(2, "signMessage", buildJsonObject { put("message", "hi") })),
         )
         assertEquals(DappErrorCode.USER_REJECTED.code, err.code)
+    }
+
+    @Test
+    fun `normalize maps the canton_ prefix and the prepareSignExecute rename`() {
+        assertEquals("signMessage", WcMethod.normalize("canton_signMessage"))
+        assertEquals("prepareExecuteAndWait", WcMethod.normalize("canton_prepareSignExecute"))
+        assertEquals("status", WcMethod.normalize("canton_status"))
+        assertEquals("signMessage", WcMethod.normalize("signMessage")) // a bare name passes through
+        assertEquals("connect", WcMethod.normalize("connect"))
+    }
+
+    @Test
+    fun `a canton_ prefixed request is normalized and answered`() = runBlocking {
+        val wc = CantonWalletConnect(session(approveAll), "canton:localnet")
+        assertIs<WcResponse.Success>(wc.handle(req(1, "canton_connect")))
+        val signed = wc.handle(req(2, "canton_signMessage", buildJsonObject { put("message", "hi") }))
+        val ok = assertIs<WcResponse.Success>(signed)
+        assertEquals("sig:hi", ok.result.jsonObject["signature"]?.jsonPrimitive?.content)
     }
 }

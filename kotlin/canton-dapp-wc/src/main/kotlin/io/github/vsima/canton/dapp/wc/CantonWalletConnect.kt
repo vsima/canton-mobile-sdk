@@ -35,9 +35,13 @@ import kotlinx.serialization.json.JsonPrimitive
  * prove the transport headless before any device work.
  *
  * The approval, signing and prepare→sign→execute all happen inside the engine;
- * this class adds no policy. It advertises the CIP-0103 method names verbatim
- * (`signMessage`, `prepareExecute`, …) so the frames the engine dispatches are
- * exactly what crosses the session.
+ * this class adds no policy. Over a WalletConnect session the Canton ecosystem
+ * (the official `@canton-network/dapp-sdk`, PartyLayer) names CIP-0103 methods
+ * with a `canton_` prefix — the convention EVM uses with `eth_` — so this
+ * advertises the `canton_` wire names and normalizes each inbound method back to
+ * the bare CIP-0103 name the engine answers. Bare names are still accepted, so a
+ * peer that speaks CIP-0103 verbatim (the reference dApp server) keeps working.
+ * See [WcMethod].
  */
 public class CantonWalletConnect(
     private val handler: DappRequestHandler,
@@ -46,11 +50,14 @@ public class CantonWalletConnect(
     /** The CAIP-2 chain this session advertises (validated from `networkId`). */
     public val chainId: String = Caip.chainId(networkId)
 
-    /** The CIP-0103 request methods advertised over a session. */
-    public val methods: List<String> get() = REQUEST_METHODS
+    /** The `canton_` request methods advertised over a session. */
+    public val methods: List<String> get() = WcMethod.ADVERTISED
 
-    /** Events advertised over a session — none carried yet (see the class doc). */
-    public val events: List<String> get() = emptyList()
+    /**
+     * The events a `canton_` dApp subscribes to. Advertised for interop;
+     * proactive emission is a follow-up.
+     */
+    public val events: List<String> get() = WcMethod.EVENTS
 
     /**
      * The namespaces to approve a session with, sharing [accounts]. Which
@@ -61,8 +68,8 @@ public class CantonWalletConnect(
         WcSessionNamespaces(
             chains = listOf(chainId),
             accounts = accounts.map { Caip.account(chainId, it.partyId) },
-            methods = REQUEST_METHODS,
-            events = emptyList(),
+            methods = WcMethod.ADVERTISED,
+            events = WcMethod.EVENTS,
         )
 
     /**
@@ -74,7 +81,7 @@ public class CantonWalletConnect(
      */
     public suspend fun handle(request: WcRequest): WcResponse {
         val frame = JsonRpcRequest(
-            method = request.method,
+            method = WcMethod.normalize(request.method),
             params = request.params,
             id = JsonPrimitive(request.requestId),
         )
@@ -87,24 +94,49 @@ public class CantonWalletConnect(
         }
     }
 
-    public companion object {
-        /**
-         * The CIP-0103 **callable** methods, by wire name — the event methods
-         * (`accountsChanged`, `txChanged`, `messageSignature`) are excluded
-         * because they only travel wallet→dApp as notifications.
-         */
-        public val REQUEST_METHODS: List<String> = listOf(
-            DappMethod.STATUS,
-            DappMethod.CONNECT,
-            DappMethod.DISCONNECT,
-            DappMethod.IS_CONNECTED,
-            DappMethod.GET_ACTIVE_NETWORK,
-            DappMethod.LIST_ACCOUNTS,
-            DappMethod.GET_PRIMARY_ACCOUNT,
-            DappMethod.SIGN_MESSAGE,
-            DappMethod.PREPARE_EXECUTE,
-            DappMethod.PREPARE_EXECUTE_AND_WAIT,
-            DappMethod.LEDGER_API,
-        ).map { it.wire }
+}
+
+/**
+ * The WalletConnect method-name convention for Canton CIP-0103.
+ *
+ * The Canton dApp ecosystem — the official `@canton-network/dapp-sdk` and
+ * PartyLayer — carries CIP-0103 over a WalletConnect session under `canton_`-
+ * prefixed method names, and names the prepare-sign-execute call
+ * `canton_prepareSignExecute` (for both `prepareExecute` and
+ * `prepareExecuteAndWait`). This advertises that wire set and maps an inbound
+ * method back to the bare CIP-0103 name the engine dispatches.
+ */
+internal object WcMethod {
+    const val PREFIX: String = "canton_"
+    const val PREPARE_SIGN_EXECUTE: String = "canton_prepareSignExecute"
+
+    /**
+     * The `canton_` methods advertised at proposal time — the ecosystem's set.
+     * `connect` / `disconnect` / `isConnected` are handled dApp-side and never
+     * sent as requests, so they are not advertised; they are still accepted
+     * inbound (bare or prefixed) via [normalize].
+     */
+    val ADVERTISED: List<String> = listOf(
+        PREFIX + DappMethod.STATUS.wire,
+        PREFIX + DappMethod.GET_ACTIVE_NETWORK.wire,
+        PREFIX + DappMethod.LIST_ACCOUNTS.wire,
+        PREFIX + DappMethod.GET_PRIMARY_ACCOUNT.wire,
+        PREFIX + DappMethod.SIGN_MESSAGE.wire,
+        PREPARE_SIGN_EXECUTE,
+        PREFIX + DappMethod.LEDGER_API.wire,
+    )
+
+    /** The events a `canton_` dApp subscribes to. */
+    val EVENTS: List<String> = listOf("accountsChanged", "statusChanged")
+
+    /**
+     * Maps an inbound wire method to the bare CIP-0103 method the engine answers:
+     * `canton_prepareSignExecute` → `prepareExecuteAndWait`; any other `canton_`
+     * method drops the prefix; a bare method passes through unchanged.
+     */
+    fun normalize(method: String): String = when {
+        method == PREPARE_SIGN_EXECUTE -> DappMethod.PREPARE_EXECUTE_AND_WAIT.wire
+        method.startsWith(PREFIX) -> method.removePrefix(PREFIX)
+        else -> method
     }
 }
