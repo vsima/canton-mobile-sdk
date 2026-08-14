@@ -90,8 +90,12 @@ on Kotlin, `CantonClient(channel, …)` accepts a fully configured
   certificate your pinned CA ever issued, for any name. It exists for
   self-signed deployment certificates issued without a matching SAN.
 - Pinning protects the transport. It is not a substitute for the
-  prepared-transaction hash verification that protects *what gets signed*
-  — see [prepared-tx-hash.md](prepared-tx-hash.md).
+  prepared-transaction hash verification, which ties the signature to the
+  exact transaction the participant prepared — so a node cannot swap the
+  bytes out from under the hash you signed. It does not, on its own, prove
+  the prepared transaction matches the user's intent: that is why the wallet
+  should render `prepared.preparedTransaction` to the user, not just the
+  dApp's requested `commands`. See [prepared-tx-hash.md](prepared-tx-hash.md).
 
 ## Test fixtures
 
