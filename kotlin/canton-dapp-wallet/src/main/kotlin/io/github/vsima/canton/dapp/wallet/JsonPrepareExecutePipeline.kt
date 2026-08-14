@@ -48,8 +48,9 @@ import kotlinx.serialization.json.put
  * wallet's, and `actAs` above all: it is the party the *user approved*, taken
  * from [PrepareExecuteContext.actAs], never from the dApp's request. A dApp
  * able to set it could make the wallet act as any party it names.
- * [DappSession] has already validated any requested `actAs` against the
- * peer's grant before this runs.
+ * [DappSession] has already validated any requested `actAs` — and any
+ * requested `readAs` — against the peer's grant before this runs, so both
+ * name only parties the user approved.
  *
  * Note the envelope carries fields Canton's published OpenAPI calls optional
  * — `synchronizerId` and `packageIdSelectionPreference`. The decoder requires
@@ -144,8 +145,11 @@ public class JsonPrepareExecutePipeline(
                     for (id in context.submission.packageIdSelectionPreference) add(JsonPrimitive(id))
                 },
             )
-            // Pass-throughs: harmless for the dApp to influence, since neither
-            // widens who acts.
+            // readAs is the dApp's, but [DappSession] has already checked every
+            // requested party against the peer's grant — like actAs — so this
+            // only ever forwards parties the user approved. disclosedContracts
+            // are on-ledger contracts the dApp discloses; they widen neither
+            // actAs nor readAs.
             if (context.submission.readAs.isNotEmpty()) {
                 put(
                     "readAs",

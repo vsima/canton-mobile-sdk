@@ -285,6 +285,7 @@ public actor DappSession: DappRequestHandler {
             throw DappError(code: .unsupportedMethod, message: "this wallet does not implement prepareExecute")
         }
         let account = try actAsAccount(submission)
+        try authorizeReadAs(submission)
         let commandId = submission.commandId ?? UUID().uuidString
 
         eventContinuation.yield(.txChanged(.pending(commandId: commandId)))
@@ -345,6 +346,25 @@ public actor DappSession: DappRequestHandler {
             )
         }
         return account
+    }
+
+    /// The `readAs` counterpart to ``actAsAccount(_:)``. A dApp may *request*
+    /// extra read parties, but only ones the user already approved for this
+    /// peer: the read authority a `readAs` draws on is the wallet's own ledger
+    /// token, so an unrecognised party is `4100` rather than a silent widening
+    /// of what the dApp can make the wallet read. Requested parties already in
+    /// the grant pass through unchanged.
+    private func authorizeReadAs(_ submission: PrepareSubmission) throws {
+        if submission.readAs.isEmpty { return }
+        let granted = Set(try requireGrant().map(\.partyId))
+        let foreign = submission.readAs.filter { !granted.contains($0) }
+        if !foreign.isEmpty {
+            throw DappError(
+                code: .unauthorized,
+                message: "readAs \(foreign.map { "'\($0)'" }.joined(separator: ", ")) "
+                    + "is not among the accounts approved for '\(peer.name)'"
+            )
+        }
     }
 
     // ── ledgerApi ──────────────────────────────────────────────────────

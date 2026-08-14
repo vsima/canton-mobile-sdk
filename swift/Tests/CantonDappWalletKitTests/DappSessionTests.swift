@@ -115,8 +115,8 @@ import Testing
         [.object(["CreateCommand": .object(["templateId": .string("pkg:M:T")])])]
     }
 
-    func submission(actAs: [String] = []) -> JSONValue {
-        DappJSON.encode(PrepareSubmission(commands: commands, actAs: actAs))
+    func submission(actAs: [String] = [], readAs: [String] = []) -> JSONValue {
+        DappJSON.encode(PrepareSubmission(commands: commands, actAs: actAs, readAs: readAs))
     }
 
     // ── Connection lifecycle ───────────────────────────────────────────
@@ -395,6 +395,33 @@ import Testing
 
         _ = await session.handle(
             request(.prepareExecuteAndWait, params: submission(actAs: [bob.partyId]))
+        )
+
+        #expect(recorded.value == bob.partyId)
+    }
+
+    @Test func readAsNamingAPartyOutsideTheGrantIsUnauthorized() async throws {
+        let session = makeSession(approver: Approver { [alice] _ in .approved(accounts: [alice]) })
+        _ = await session.handle(request(.connect))
+
+        let response = await session.handle(
+            request(.prepareExecuteAndWait, params: submission(readAs: [bob.partyId]))
+        )
+
+        // readAs draws on the wallet's own ledger token, so — like actAs — a
+        // dApp may request it but not choose a party the user never approved.
+        #expect(response.error?.code == DappErrorCode.unauthorized.rawValue)
+    }
+
+    @Test func readAsWithinTheGrantIsForwarded() async throws {
+        let recorded = Recorder()
+        let session = makeSession(
+            pipeline: Pipeline { context in recorded.set(context.submission.readAs.joined(separator: ",")) }
+        )
+        _ = await session.handle(request(.connect))
+
+        _ = await session.handle(
+            request(.prepareExecuteAndWait, params: submission(readAs: [bob.partyId]))
         )
 
         #expect(recorded.value == bob.partyId)
