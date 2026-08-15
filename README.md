@@ -63,7 +63,7 @@ Capability-level comparison with Digital Asset's TypeScript
 
 ## Libraries
 
-**Six Kotlin artifacts on Maven Central; one Swift package with five
+**Eight Kotlin artifacts on Maven Central; one Swift package with seven
 products.** Take the highest layer you need — each one brings the layers
 below it, so depending on the wallet layer gives you the ergonomic layer and
 the generated bindings too.
@@ -84,6 +84,8 @@ Add the package once; `import` only the products you use.
 | `CantonWalletKit` | The wallet layer: signing drivers (Secure Enclave, software, custody), external party onboarding, prepared-transaction hash verification, the CIP-0056 token standard, Scan and validator reads. | `CantonKit` |
 | `CantonDappKit` | **dApp side** of CIP-0103: protocol types, JSON-RPC codec, `DappClient`, the transport protocol. Depends on nothing else in the package. | — |
 | `CantonDappWalletKit` | **Wallet side** of CIP-0103: `DappSession`, per-peer account grants, the approval delegate, in-process transport. | `CantonDappKit`, `CantonWalletKit` |
+| `CantonDappLanKit` | LAN gRPC transport for CIP-0103 — one session across a real socket, no relay. | `CantonDappKit` |
+| `CantonDappWCKit` | WalletConnect transport adapter for CIP-0103 — drives the request handler over a WalletConnect session (your app supplies the Reown client). | `CantonDappKit` |
 
 ### Kotlin
 
@@ -97,6 +99,8 @@ All under the `io.github.vsima.canton` group.
 | `canton-wallet-android` | The only Android-specific artifact: `AndroidKeystoreSigningDriver` (StrongBox / TEE-backed keys) and an encrypted DataStore-backed wallet store. | `canton-wallet-sdk` |
 | `canton-dapp` | **dApp side** of CIP-0103. JSON and coroutines only — deliberately *not* `canton-sdk`. | — |
 | `canton-dapp-wallet` | **Wallet side** of CIP-0103. | `canton-dapp`, `canton-wallet-sdk` |
+| `canton-dapp-lan` | LAN gRPC transport for CIP-0103 — one session across a real socket, no relay. | `canton-dapp` |
+| `canton-dapp-wc` | WalletConnect transport adapter for CIP-0103 — drives the request handler over a WalletConnect session (your app supplies the Reown client). | `canton-dapp` |
 
 ### Which do I need?
 
@@ -140,7 +144,7 @@ One package, however many products you import.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/vsima/canton-mobile-sdk.git", from: "0.5.0"),
+    .package(url: "https://github.com/vsima/canton-mobile-sdk.git", from: "0.6.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -159,7 +163,7 @@ Each layer brings the ones below it, so name only the highest you need.
 
 ```kotlin
 dependencies {
-    implementation("io.github.vsima.canton:canton-sdk:0.5.0")
+    implementation("io.github.vsima.canton:canton-sdk:0.6.0")
     // Wallet apps:          canton-wallet-sdk  (+ canton-wallet-android on Android)
     // dApps:                canton-dapp
     // Wallets taking dApp connections: canton-dapp-wallet
@@ -373,14 +377,18 @@ canton-mobile-sdk/
 │   ├── Sources/CantonKit/             # ergonomic layer (auth, connections, workflows)
 │   ├── Sources/CantonWalletKit/       # wallet layer (signing drivers, external parties)
 │   ├── Sources/CantonDappKit/         # CIP-0103, dApp side
-│   └── Sources/CantonDappWalletKit/   # CIP-0103, wallet side
+│   ├── Sources/CantonDappWalletKit/   # CIP-0103, wallet side
+│   ├── Sources/CantonDappLanKit/      # CIP-0103, LAN gRPC transport
+│   └── Sources/CantonDappWCKit/       # CIP-0103, WalletConnect transport
 ├── kotlin/
 │   ├── canton-ledger-api/             # generated bindings module (protoc at build time)
 │   ├── canton-sdk/                    # ergonomic layer
 │   ├── canton-wallet-sdk/             # wallet layer
 │   ├── canton-wallet-android/         # Android Keystore driver + encrypted store
 │   ├── canton-dapp/                   # CIP-0103, dApp side
-│   └── canton-dapp-wallet/            # CIP-0103, wallet side
+│   ├── canton-dapp-wallet/            # CIP-0103, wallet side
+│   ├── canton-dapp-lan/               # CIP-0103, LAN gRPC transport
+│   └── canton-dapp-wc/                # CIP-0103, WalletConnect transport
 ├── examples/
 │   ├── android/                   # sample app; CI builds debug + R8 release
 │   └── ios/                       # sample app; xcodegen project, CI simulator build
