@@ -312,6 +312,7 @@ public class DappSession(
             "this wallet does not implement prepareExecute",
         )
         val account = actAsAccount(submission)
+        authorizeReadAs(submission)
         val commandId = submission.commandId ?: UUID.randomUUID().toString()
 
         _events.emit(DappEvent.TxChanged(TxChangedEvent.Pending(commandId)))
@@ -367,6 +368,27 @@ public class DappSession(
                 DappErrorCode.UNAUTHORIZED,
                 "actAs '$partyId' is not among the accounts approved for '${peer.name}'",
             )
+    }
+
+    /**
+     * The `readAs` counterpart to [actAsAccount]. A dApp may *request* extra
+     * read parties, but only ones the user already approved for this peer:
+     * the read authority a `readAs` draws on is the wallet's own ledger token,
+     * so an unrecognised party is `4100` rather than a silent widening of what
+     * the dApp can make the wallet read. Requested parties already in the
+     * grant pass through unchanged.
+     */
+    private suspend fun authorizeReadAs(submission: PrepareSubmission) {
+        if (submission.readAs.isEmpty()) return
+        val granted = requireGrant().mapTo(mutableSetOf()) { it.partyId }
+        val foreign = submission.readAs.filterNot { it in granted }
+        if (foreign.isNotEmpty()) {
+            throw DappException(
+                DappErrorCode.UNAUTHORIZED,
+                "readAs ${foreign.joinToString(", ") { "'$it'" }} " +
+                    "is not among the accounts approved for '${peer.name}'",
+            )
+        }
     }
 
     // ── ledgerApi ──────────────────────────────────────────────────────

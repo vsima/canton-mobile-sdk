@@ -133,8 +133,11 @@ public struct JSONPrepareExecutePipeline: PrepareExecutePipeline {
             "packageIdSelectionPreference":
                 .array(context.submission.packageIdSelectionPreference.map { .string($0) }),
         ]
-        // Pass-throughs: harmless for the dApp to influence, since neither
-        // widens who acts.
+        // readAs is the dApp's, but DappSession has already checked every
+        // requested party against the peer's grant — like actAs — so this only
+        // ever forwards parties the user approved. disclosedContracts are
+        // on-ledger contracts the dApp discloses; they widen neither actAs nor
+        // readAs.
         if !context.submission.readAs.isEmpty {
             object["readAs"] = .array(context.submission.readAs.map { .string($0) })
         }

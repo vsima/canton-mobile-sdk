@@ -388,8 +388,8 @@ class DappSessionTest {
         add(buildJsonObject { put("CreateCommand", buildJsonObject { put("templateId", "pkg:M:T") }) })
     }
 
-    private fun submission(actAs: List<String> = emptyList()) =
-        DappJson.encode(PrepareSubmission(commands = commands, actAs = actAs))
+    private fun submission(actAs: List<String> = emptyList(), readAs: List<String> = emptyList()) =
+        DappJson.encode(PrepareSubmission(commands = commands, actAs = actAs, readAs = readAs))
 
     @Test
     fun `prepareExecuteAndWait returns the executed transaction`(): Unit = runBlocking {
@@ -453,6 +453,39 @@ class DappSessionTest {
         session.handle(request(DappMethod.PREPARE_EXECUTE_AND_WAIT, submission(actAs = listOf(bob.partyId))))
 
         assertEquals(bob.partyId, actedAs)
+    }
+
+    @Test
+    fun `readAs naming a party outside the grant is unauthorized`(): Unit = runBlocking {
+        val session = session(
+            available = listOf(alice, bob),
+            approver = Approver { DappApproval.Approved(listOf(alice)) },
+        )
+        session.handle(request(DappMethod.CONNECT))
+
+        val response = session.handle(
+            request(DappMethod.PREPARE_EXECUTE_AND_WAIT, submission(readAs = listOf(bob.partyId))),
+        )
+
+        // readAs draws on the wallet's own ledger token, so — like actAs — a
+        // dApp may request it but not choose a party the user never approved.
+        assertEquals(DappErrorCode.UNAUTHORIZED.code, response.errorCode())
+    }
+
+    @Test
+    fun `readAs within the grant is forwarded`(): Unit = runBlocking {
+        var readAs: List<String>? = null
+        val session = session(
+            pipeline = { ctx ->
+                readAs = ctx.submission.readAs
+                TxChangedEvent.Executed(ctx.commandId, "update-1", 42)
+            },
+        )
+        session.handle(request(DappMethod.CONNECT))
+
+        session.handle(request(DappMethod.PREPARE_EXECUTE_AND_WAIT, submission(readAs = listOf(bob.partyId))))
+
+        assertEquals(listOf(bob.partyId), readAs)
     }
 
     @Test

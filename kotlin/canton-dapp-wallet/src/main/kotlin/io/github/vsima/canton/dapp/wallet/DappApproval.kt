@@ -47,10 +47,19 @@ public sealed interface DappApprovalRequest {
     /**
      * Sign and submit a transaction.
      *
-     * [submission] is what the dApp asked for. It is shown for context only:
-     * the wallet re-derives the envelope, and the transaction the user
-     * finally confirms is rendered from the *verified* prepared transaction,
-     * not from this.
+     * [submission] is what the dApp asked for — its `commands`, plus any
+     * `readAs`/`disclosedContracts`. It is the dApp-authored *intent*, and it
+     * is the only description of the transaction the engine hands this request:
+     * the compiled prepared transaction does not exist yet at approval time.
+     * The wallet still supplies the envelope — [actAs], `commandId`,
+     * `synchronizerId` — and has validated `actAs`/`readAs` against this peer's
+     * grant before you are asked.
+     *
+     * If the wallet must show the user the exact effects that will be signed
+     * (not just the dApp's intent), it should decode and render
+     * `prepared.preparedTransaction` from the prepare step itself. The pipeline
+     * recomputes and verifies that transaction's hash before signing, but the
+     * engine does not render it for you.
      */
     public data class Transaction(
         override val peer: DappPeer,
