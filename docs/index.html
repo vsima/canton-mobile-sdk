@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canton Mobile SDK — the native wallet stack for Canton</title>
+<meta name="description" content="Swift and Kotlin SDKs for the Canton Network: self-custody wallets with keys in the Secure Enclave or Android StrongBox, the CIP-0056 token standard, and CIP-0103 dApp connectivity over WalletConnect. Apache-2.0.">
+<meta property="og:title" content="Canton Mobile SDK — the native wallet stack for Canton">
+<meta property="og:description" content="Swift and Kotlin SDKs for the Canton Network. Keys born in device hardware, transactions verified on device before signing, released in lockstep and held to shared golden vectors.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vsima.github.io/canton-mobile-sdk/">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="%2316181D"/><rect x="7" y="12" width="8" height="8" rx="2" fill="%23E8502F"/><rect x="17" y="12" width="8" height="8" rx="2" fill="%236B57E0"/></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  :root {
+    --paper: #F6F6F3;
+    --paper-raised: #FDFDFB;
+    --ink: #16181D;
+    --graphite: #565B64;
+    --line: #DEDFD9;
+    --swift: #E8502F;
+    --kotlin: #6B57E0;
+    --code-text: #D7DAE0;
+    --code-comment: #7E8694;
+    --code-string: #E0B458;
+    --code-keyword: #92ACE3;
+    --sans: "Archivo", -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation: none !important; transition: none !important; }
+  }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--kotlin);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- nav ---- */
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; max-width: 1060px; margin: 0 auto;
+  }
+  .wordmark {
+    font-family: var(--mono); font-size: 14px; font-weight: 500;
+    text-decoration: none; letter-spacing: -0.02em;
+  }
+  .wordmark .dot-s { color: var(--swift); }
+  .wordmark .dot-k { color: var(--kotlin); }
+  .nav-links { display: flex; gap: 22px; align-items: center; }
+  .nav-links a {
+    font-size: 14.5px; text-decoration: none; color: var(--graphite);
+  }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-links a.gh { color: var(--ink); font-weight: 600; }
+  @media (max-width: 720px) { .nav-links a:not(.gh) { display: none; } }
+
+  /* ---- hero ---- */
+  /* .wrap sets padding/margin, so .wrap elements take vertical space via
+     margin with explicit auto sides — never via padding, which .wrap wins. */
+  header.wrap { margin: 76px auto 40px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12.5px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--graphite);
+  }
+  h1 {
+    font-size: clamp(38px, 6vw, 62px);
+    font-weight: 700; letter-spacing: -0.03em; line-height: 1.04;
+    margin: 18px 0 22px; max-width: 15ch;
+  }
+  .lede {
+    font-size: clamp(17px, 2.2vw, 20px); color: var(--graphite);
+    max-width: 62ch; line-height: 1.65;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .cta-row { display: flex; gap: 14px; margin-top: 34px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-block; text-decoration: none;
+    font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em;
+    padding: 13px 24px; border-radius: 8px;
+    border: 1px solid var(--ink);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .btn.primary:hover { box-shadow: 0 6px 18px rgba(22,24,29,0.22); }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .chip-row {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--graphite);
+  }
+  .chip {
+    border: 1px solid var(--line); background: var(--paper-raised);
+    border-radius: 100px; padding: 5px 13px;
+  }
+
+  /* ---- lockstep diptych ---- */
+  .diptych-section.wrap { margin: 0 auto 26px; }
+  .diptych {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  }
+  @media (max-width: 900px) { .diptych { grid-template-columns: 1fr; } }
+  .pane {
+    background: var(--ink); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 18px 44px -18px rgba(22,24,29,0.45);
+  }
+  .pane-head {
+    display: flex; align-items: center; gap: 9px;
+    padding: 13px 20px; border-bottom: 1px solid rgba(215,218,224,0.14);
+    font-family: var(--mono); font-size: 12.5px; color: var(--code-text);
+  }
+  .pane-head .lamp { width: 8px; height: 8px; border-radius: 50%; }
+  .pane.swift .lamp { background: var(--swift); }
+  .pane.kotlin .lamp { background: var(--kotlin); }
+  .pane-head .sub { color: var(--code-comment); margin-left: auto; }
+  @media (max-width: 520px) { .pane-head .sub { display: none; } }
+  pre {
+    padding: 20px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.8px; line-height: 1.72;
+    color: var(--code-text);
+  }
+  pre .c { color: var(--code-comment); font-style: italic; }
+  pre .k { color: var(--code-keyword); }
+  pre .s { color: var(--code-string); }
+  .diptych-caption {
+    text-align: center; margin-top: 22px;
+    font-size: 15px; color: var(--graphite); max-width: 58ch;
+    margin-left: auto; margin-right: auto;
+  }
+
+  /* ---- sections ---- */
+  section.wrap { margin: 96px auto 0; }
+  .section-head { margin-bottom: 38px; max-width: 60ch; }
+  h2 {
+    font-size: clamp(26px, 3.6vw, 34px); font-weight: 700;
+    letter-spacing: -0.025em; line-height: 1.15; margin: 14px 0 12px;
+  }
+  .section-head p { color: var(--graphite); font-size: 16.5px; }
+
+  /* ---- three propositions ---- */
+  .props { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  @media (max-width: 900px) { .props { grid-template-columns: 1fr; } }
+  .prop {
+    background: var(--paper-raised); border: 1px solid var(--line);
+    border-radius: 12px; padding: 26px 26px 28px;
+  }
+  .prop h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; margin-bottom: 10px; }
+  .prop p { font-size: 15.5px; color: var(--graphite); }
+  .prop p + p { margin-top: 10px; }
+  .prop code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 4px; padding: 1px 5px; white-space: nowrap;
+  }
+
+  /* ---- attestation table ---- */
+  .attest { border-top: 2px solid var(--ink); }
+  .attest-row {
+    display: grid; grid-template-columns: 1.1fr 1.5fr 1.2fr 0.7fr;
+    gap: 18px; align-items: baseline;
+    padding: 17px 4px; border-bottom: 1px solid var(--line);
+  }
+  @media (max-width: 720px) {
+    .attest-row { grid-template-columns: 1fr 1fr; row-gap: 6px; }
+  }
+  .attest-row .tier { font-weight: 600; font-size: 16.5px; letter-spacing: -0.01em; }
+  .attest-row .what, .attest-row .where { font-size: 14.5px; color: var(--graphite); }
+  .stamp {
+    font-family: var(--mono); font-size: 11.5px; font-weight: 500;
+    letter-spacing: 0.12em; justify-self: end;
+    border: 1px solid var(--ink); border-radius: 3px; padding: 3px 8px;
+  }
+  @media (max-width: 720px) { .stamp { justify-self: start; } }
+  .attest-note { margin-top: 22px; font-size: 15px; color: var(--graphite); max-width: 68ch; }
+
+  /* ---- interop band ---- */
+  .interop {
+    background: var(--ink); color: var(--code-text);
+    border-radius: 16px; padding: clamp(34px, 5vw, 58px);
+    margin-top: 74px;
+  }
+  .interop .eyebrow { color: var(--code-comment); }
+  .interop h2 { color: var(--paper); max-width: 24ch; }
+  .interop p { max-width: 64ch; font-size: 16.5px; color: var(--code-text); opacity: 0.92; }
+  .interop a.band-link {
+    display: inline-block; margin-top: 24px; text-decoration: none;
+    font-weight: 600; font-size: 15.5px; color: var(--paper);
+    border-bottom: 2px solid var(--kotlin); padding-bottom: 2px;
+  }
+  .interop a.band-link:hover { border-bottom-color: var(--swift); }
+
+  /* ---- install ---- */
+  .install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 900px) { .install-grid { grid-template-columns: 1fr; } }
+  .layer-table { margin-top: 40px; border-top: 2px solid var(--ink); }
+  .layer-row {
+    display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 18px;
+    padding: 14px 4px; border-bottom: 1px solid var(--line);
+    font-size: 15px; align-items: baseline;
+  }
+  .layer-row.head {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--graphite);
+  }
+  .layer-row code { font-family: var(--mono); font-size: 13px; }
+  @media (max-width: 720px) {
+    .layer-row { grid-template-columns: 1fr; row-gap: 3px; padding: 12px 4px; }
+    .layer-row.head span:not(:first-child) { display: none; }
+  }
+  .install-note { margin-top: 22px; font-size: 15px; color: var(--graphite); max-width: 68ch; }
+
+  /* ---- reference apps ---- */
+  .apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  @media (max-width: 900px) { .apps { grid-template-columns: 1fr; } }
+  .app-card {
+    display: block; text-decoration: none;
+    background: var(--paper-raised); border: 1px solid var(--line);
+    border-radius: 12px; padding: 26px;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .app-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -14px rgba(22,24,29,0.28); }
+  .app-card .tag {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--graphite);
+  }
+  .app-card h3 { font-size: 18.5px; font-weight: 600; margin: 10px 0 8px; letter-spacing: -0.015em; }
+  .app-card p { font-size: 15px; color: var(--graphite); }
+
+  /* ---- footer ---- */
+  footer { margin-top: 96px; border-top: 1px solid var(--line); padding: 40px 0 56px; }
+  .foot-grid { display: flex; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+  .foot-links { display: flex; gap: 26px; flex-wrap: wrap; }
+  .foot-links a { font-size: 14.5px; color: var(--graphite); text-decoration: none; }
+  .foot-links a:hover { color: var(--ink); }
+  .disclaimer { margin-top: 26px; font-size: 13.5px; color: var(--graphite); max-width: 78ch; }
+</style>
+</head>
+<body>
+
+<nav aria-label="Main">
+  <div class="nav-inner">
+    <a class="wordmark" href="#top">canton-mobile-sdk<span class="dot-s"> ●</span><span class="dot-k">●</span></a>
+    <div class="nav-links">
+      <a href="#why">Why native</a>
+      <a href="#verified">Verified</a>
+      <a href="#install">Install</a>
+      <a href="#apps">Reference apps</a>
+      <a class="gh" href="https://github.com/vsima/canton-mobile-sdk">GitHub&nbsp;↗</a>
+    </div>
+  </div>
+</nav>
+
+<header id="top" class="wrap">
+  <p class="eyebrow">Independent open source · Apache-2.0</p>
+  <h1>The native wallet stack for Canton.</h1>
+  <p class="lede">Swift and Kotlin SDKs for building self-custody wallets on the
+  <a href="https://www.canton.network/">Canton Network</a> — parties whose keys are
+  <strong>born in the Secure Enclave or Android StrongBox</strong>, transactions
+  re-verified on the device before the hardware signs, and the CIP-0056 token
+  standard spoken natively. No key ever leaves silicon.</p>
+  <div class="cta-row">
+    <a class="btn primary" href="https://github.com/vsima/canton-mobile-sdk#installation">Read the docs</a>
+    <a class="btn ghost" href="https://github.com/vsima/canton-mobile-app">See the reference apps</a>
+  </div>
+  <div class="chip-row">
+    <span class="chip">v0.6.0</span>
+    <span class="chip">Canton 3.5.11 – 3.5.12</span>
+    <span class="chip">Maven Central + Swift PM</span>
+    <span class="chip">gRPC Ledger API</span>
+  </div>
+</header>
+
+<div class="diptych-section wrap">
+  <div class="diptych">
+    <div class="pane swift">
+      <div class="pane-head"><span class="lamp"></span>Swift<span class="sub">Secure Enclave</span></div>
+<pre><code><span class="k">import</span> CantonWalletKit
+
+<span class="c">// A key born in the Secure Enclave — never exportable</span>
+<span class="k">let</span> driver = <span class="k">try</span> SecureEnclaveSigningDriver()
+
+<span class="c">// A party only this device can act for</span>
+<span class="k">let</span> party = <span class="k">try await</span> ExternalPartyClient(client: client)
+    .allocate(driver: driver, synchronizerId: sync,
+              partyHint: <span class="s">"alice"</span>)
+
+<span class="c">// Prepare on the node → re-verify the hash on device</span>
+<span class="c">// → sign in hardware → execute</span>
+<span class="k">let</span> submission = InteractiveSubmissionClient(client: client)
+<span class="k">let</span> tx = <span class="k">try await</span> submission.prepare(
+    commands: [pay], actAs: party.partyId,
+    synchronizerId: sync)
+<span class="k">try await</span> submission.signAndExecute(
+    prepared: tx, driver: driver, partyId: party.partyId,
+    keyFingerprint: party.publicKeyFingerprint)</code></pre>
+    </div>
+    <div class="pane kotlin">
+      <div class="pane-head"><span class="lamp"></span>Kotlin<span class="sub">StrongBox / TEE</span></div>
+<pre><code><span class="k">import</span> io.github.vsima.canton.wallet.*
+
+<span class="c">// A key held in StrongBox, TEE fallback — never exportable</span>
+<span class="k">val</span> driver = AndroidKeystoreSigningDriver
+    .generate(alias = <span class="s">"wallet"</span>)
+
+<span class="c">// A party only this device can act for</span>
+<span class="k">val</span> party = ExternalPartyClient(channel)
+    .allocate(driver, synchronizerId, partyHint = <span class="s">"alice"</span>)
+
+<span class="c">// Prepare on the node → re-verify the hash on device</span>
+<span class="c">// → sign in hardware → execute</span>
+<span class="k">val</span> submission = InteractiveSubmissionClient(channel)
+<span class="k">val</span> tx = submission.prepare(
+    listOf(pay), party.partyId, synchronizerId)
+submission.signAndExecute(
+    tx, driver, party.partyId, party.publicKeyFingerprint)</code></pre>
+    </div>
+  </div>
+  <p class="diptych-caption">Released in lockstep: one version covers both languages,
+  generated from the same vendored Canton protos and held to shared golden vectors.</p>
+</div>
+
+<section id="why" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Why native</p>
+    <h2>The official SDKs are TypeScript. Phones are not.</h2>
+    <p>The ecosystem's <code style="font-family:var(--mono);font-size:0.9em">@canton-network</code>
+    SDKs are excellent — for Node and the browser. A mobile wallet needs what only
+    the platform can give: hardware key stores, biometric gates, and a runtime
+    that survives flaky networks. That layer is this SDK.</p>
+  </div>
+  <div class="props">
+    <div class="prop">
+      <h3>Keys live in silicon</h3>
+      <p>Signing drivers for the Secure Enclave and the Android Keystore
+      (StrongBox first, TEE fallback) — plus software drivers for tests and a
+      <code>DelegatingSigningDriver</code> hook for custody providers.</p>
+      <p>Every externally-signed transaction is re-hashed and verified
+      <em>on the device</em> by default before the hardware signs. The
+      participant never holds the key and cannot act for the party.</p>
+    </div>
+    <div class="prop">
+      <h3>The whole wallet surface</h3>
+      <p>CIP-0056 holdings, the propose→accept inbox, and transfers with memos.
+      Transfer preapprovals — request, lookup, and receiver-side cancel.
+      Transfer-level history with counterparties and signed net amounts.</p>
+      <p>Plus fee preview, Scan and validator reads, ANS lookups, DevNet taps,
+      traffic purchase, gap-free state sync, and typed Canton errors with retry
+      hints.</p>
+    </div>
+    <div class="prop">
+      <h3>dApps connect natively</h3>
+      <p>CIP-0103 on both sides: a <code>DappClient</code> for dApps and a
+      wallet-side session engine with per-peer grants and approval hooks —
+      over WalletConnect, LAN gRPC, or in-process transports.</p>
+      <p><code>signMessage</code> is domain-separated from transaction hashes,
+      and the wire types are held to golden vectors from the CIP-0103 OpenRPC
+      spec.</p>
+    </div>
+  </div>
+</section>
+
+<section id="verified" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Verified where it counts</p>
+    <h2>Hardware claims, tested on hardware.</h2>
+    <p>"Hardware-backed" is a claim apps inherit from their SDK — so this SDK
+    proves it at every security tier, on physical devices.</p>
+  </div>
+  <div class="attest">
+    <div class="attest-row">
+      <span class="tier">Secure Enclave</span>
+      <span class="what">Apple's dedicated security coprocessor</span>
+      <span class="where">iPhone, on device</span>
+      <span class="stamp">VERIFIED</span>
+    </div>
+    <div class="attest-row">
+      <span class="tier">StrongBox</span>
+      <span class="what">Dedicated secure element, Android</span>
+      <span class="where">Samsung Galaxy Z&nbsp;Flip5, on device</span>
+      <span class="stamp">VERIFIED</span>
+    </div>
+    <div class="attest-row">
+      <span class="tier">Hardware TEE</span>
+      <span class="what">Android Keystore trusted execution environment</span>
+      <span class="where">OnePlus Open, on device</span>
+      <span class="stamp">VERIFIED</span>
+    </div>
+    <div class="attest-row">
+      <span class="tier">Secure Enclave, macOS</span>
+      <span class="what">Apple silicon — the real enclave, exercised in CI</span>
+      <span class="where">Every CI run</span>
+      <span class="stamp">VERIFIED</span>
+    </div>
+  </div>
+  <p class="attest-note">And beyond the key stores: both SDKs run integration
+  suites against a live Canton participant, end to end — onboarding, signing,
+  token-standard transfers, preapprovals — and cross-platform behavior
+  (prepared-transaction hashing, signMessage domain separation, the CIP-0103
+  codec) is pinned by golden vectors both platforms must satisfy.</p>
+
+  <div class="interop">
+    <p class="eyebrow">Independent-implementation proof</p>
+    <h2>The other end of the demo is not our code.</h2>
+    <p>The reference storefront runs on the official
+    <code style="font-family:var(--mono);font-size:0.9em">@canton-network</code>
+    TypeScript SDKs. It signs a customer in with their wallet and takes a
+    one-tap payment from it over WalletConnect — real CIP-0103, an independent
+    implementation on the far end — live-verified end to end on both platforms.</p>
+    <a class="band-link" href="https://github.com/vsima/canton-mobile-app">Walk through the reference flow →</a>
+  </div>
+</section>
+
+<section id="install" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Install</p>
+    <h2>One dependency. Take the layer you need.</h2>
+    <p>Eight Kotlin artifacts on Maven Central, one Swift package with seven
+    products — each layer brings the ones beneath it.</p>
+  </div>
+  <div class="install-grid">
+    <div class="pane swift">
+      <div class="pane-head"><span class="lamp"></span>Swift Package Manager</div>
+<pre><code>dependencies: [
+  .package(
+    url: <span class="s">"https://github.com/vsima/canton-mobile-sdk.git"</span>,
+    from: <span class="s">"0.6.0"</span>),
+]
+<span class="c">// then import CantonWalletKit, CantonDappKit, …</span></code></pre>
+    </div>
+    <div class="pane kotlin">
+      <div class="pane-head"><span class="lamp"></span>Gradle</div>
+<pre><code>dependencies {
+    implementation(
+        <span class="s">"io.github.vsima.canton:canton-wallet-sdk:0.6.0"</span>)
+    <span class="c">// + canton-wallet-android for StrongBox / TEE keys</span>
+}</code></pre>
+    </div>
+  </div>
+  <div class="layer-table">
+    <div class="layer-row head"><span>I am building…</span><span>Swift</span><span>Kotlin</span></div>
+    <div class="layer-row"><span>A read-only or backend integration</span><code>CantonKit</code><code>canton-sdk</code></div>
+    <div class="layer-row"><span>A wallet with device-held keys</span><code>CantonWalletKit</code><code>canton-wallet-sdk</code></div>
+    <div class="layer-row"><span>A dApp that talks to someone's wallet</span><code>CantonDappKit</code><code>canton-dapp</code></div>
+    <div class="layer-row"><span>A wallet that accepts dApp connections</span><code>CantonDappWalletKit</code><code>canton-dapp-wallet</code></div>
+  </div>
+  <p class="install-note">Requirements: iOS 18+ / macOS 15+ with Swift 6 · Android 8+
+  (API 26) or any JVM 17+. Migrating from the TypeScript SDK? There's a
+  <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/docs/migrating-from-wallet-sdk.md">method-level map</a>.</p>
+</section>
+
+<section id="apps" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Reference apps</p>
+    <h2>Real apps, kept honest by CI.</h2>
+    <p>Every SDK claim above is exercised by working reference apps — built on
+    the public API only, live-verified against a Canton LocalNet.</p>
+  </div>
+  <div class="apps">
+    <a class="app-card" href="https://github.com/vsima/canton-mobile-app">
+      <span class="tag">SwiftUI · Jetpack Compose</span>
+      <h3>The wallets</h3>
+      <p>Complete self-custody wallets for iOS and Android from stock platform
+      components: portfolio, inbox, scan-to-pay, transfer history, and
+      WalletConnect approval sheets — signing on the device key.</p>
+    </a>
+    <a class="app-card" href="https://github.com/vsima/canton-mobile-app/tree/main/dapp-server">
+      <span class="tag">Node / TypeScript</span>
+      <h3>The dApp shop</h3>
+      <p>A storefront on the official <span style="font-family:var(--mono);font-size:0.9em">@canton-network</span>
+      SDKs that takes a payment and watches the ledger settle it — sign-in with
+      Canton, checkout QR, and WalletConnect one-tap pay.</p>
+    </a>
+    <a class="app-card" href="https://github.com/vsima/canton-mobile-app#the-three-references">
+      <span class="tag">CIP-0103 client</span>
+      <h3>The dApp app</h3>
+      <p>A minimal client that links <em>only</em> the dApp module — no signing
+      drivers, no ledger stubs. Its build succeeding from that dependency set
+      alone proves the SDK's custody boundary, on every CI run.</p>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <a class="wordmark" href="#top">canton-mobile-sdk<span class="dot-s"> ●</span><span class="dot-k">●</span></a>
+      <div class="foot-links">
+        <a href="https://github.com/vsima/canton-mobile-sdk">GitHub</a>
+        <a href="https://github.com/vsima/canton-mobile-sdk#feature-matrix">Feature matrix</a>
+        <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/docs/migrating-from-wallet-sdk.md">Migrate from the TS SDK</a>
+        <a href="https://github.com/vsima/canton-mobile-app">Reference apps</a>
+        <a href="https://github.com/vsima/canton-mobile-sdk/issues">Issues</a>
+      </div>
+    </div>
+    <p class="disclaimer">An independent, community-built open-source project,
+    licensed Apache-2.0. Not affiliated with or endorsed by Digital Asset, the
+    Canton Foundation, or the Global Synchronizer Foundation. Canton is a
+    trademark of its respective owner.</p>
+  </div>
+</footer>
+
+</body>
+</html>
