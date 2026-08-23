@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Canton Mobile SDK — the native wallet stack for Canton</title>
+<title>Canton Mobile SDK: the native wallet stack for Canton</title>
 <meta name="description" content="Swift and Kotlin SDKs for the Canton Network: self-custody wallets with keys in the Secure Enclave or Android StrongBox, the CIP-0056 token standard, and CIP-0103 dApp connectivity over WalletConnect. Apache-2.0.">
-<meta property="og:title" content="Canton Mobile SDK — the native wallet stack for Canton">
-<meta property="og:description" content="Swift and Kotlin SDKs for the Canton Network. Keys born in device hardware, transactions verified on device before signing, released in lockstep and held to shared golden vectors.">
+<meta property="og:title" content="Canton Mobile SDK: the native wallet stack for Canton">
+<meta property="og:description" content="Swift and Kotlin SDKs for the Canton Network. Keys created in device hardware, transactions verified on the phone before signing, and one SDK family for both platforms.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://vsima.github.io/canton-mobile-sdk/">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="%2316181D"/><rect x="7" y="12" width="8" height="8" rx="2" fill="%23E8502F"/><rect x="17" y="12" width="8" height="8" rx="2" fill="%236B57E0"/></svg>'>
@@ -78,7 +78,7 @@
 
   /* ---- hero ---- */
   /* .wrap sets padding/margin, so .wrap elements take vertical space via
-     margin with explicit auto sides — never via padding, which .wrap wins. */
+     margin with explicit auto sides, never via padding, which .wrap wins. */
   header.wrap { margin: 76px auto 40px; }
   .eyebrow {
     font-family: var(--mono); font-size: 12.5px; font-weight: 500;
@@ -275,10 +275,11 @@
   <p class="eyebrow">Independent open source · Apache-2.0</p>
   <h1>The native wallet stack for Canton.</h1>
   <p class="lede">Swift and Kotlin SDKs for building self-custody wallets on the
-  <a href="https://www.canton.network/">Canton Network</a> — parties whose keys are
-  <strong>born in the Secure Enclave or Android StrongBox</strong>, transactions
-  re-verified on the device before the hardware signs, and the CIP-0056 token
-  standard spoken natively. No key ever leaves silicon.</p>
+  <a href="https://www.canton.network/">Canton Network</a>. Keys are
+  <strong>created inside the Secure Enclave or Android StrongBox</strong> and can
+  never leave the device. Transactions are verified on the phone before the
+  hardware signs. Payments, the token standard, and dApp connections work out
+  of the box, so you build the product, not the plumbing.</p>
   <div class="cta-row">
     <a class="btn primary" href="https://github.com/vsima/canton-mobile-sdk#installation">Read the docs</a>
     <a class="btn ghost" href="https://github.com/vsima/canton-mobile-app">See the reference apps</a>
@@ -297,7 +298,7 @@
       <div class="pane-head"><span class="lamp"></span>Swift<span class="sub">Secure Enclave</span></div>
 <pre><code><span class="k">import</span> CantonWalletKit
 
-<span class="c">// A key born in the Secure Enclave — never exportable</span>
+<span class="c">// Created in the Secure Enclave, never exportable</span>
 <span class="k">let</span> driver = <span class="k">try</span> SecureEnclaveSigningDriver()
 
 <span class="c">// A party only this device can act for</span>
@@ -319,7 +320,7 @@
       <div class="pane-head"><span class="lamp"></span>Kotlin<span class="sub">StrongBox / TEE</span></div>
 <pre><code><span class="k">import</span> io.github.vsima.canton.wallet.*
 
-<span class="c">// A key held in StrongBox, TEE fallback — never exportable</span>
+<span class="c">// Created in StrongBox (TEE fallback), never exportable</span>
 <span class="k">val</span> driver = AndroidKeystoreSigningDriver
     .generate(alias = <span class="s">"wallet"</span>)
 
@@ -336,8 +337,9 @@ submission.signAndExecute(
     tx, driver, party.partyId, party.publicKeyFingerprint)</code></pre>
     </div>
   </div>
-  <p class="diptych-caption">Released in lockstep: one version covers both languages,
-  generated from the same vendored Canton protos and held to shared golden vectors.</p>
+  <p class="diptych-caption">One SDK family, two first-class languages. Every release
+  covers Swift and Kotlin together and passes the same test vectors, so your iOS and
+  Android apps always behave the same.</p>
 </div>
 
 <section id="why" class="wrap">
@@ -345,37 +347,38 @@ submission.signAndExecute(
     <p class="eyebrow">Why native</p>
     <h2>The official SDKs are TypeScript. Phones are not.</h2>
     <p>The ecosystem's <code style="font-family:var(--mono);font-size:0.9em">@canton-network</code>
-    SDKs are excellent — for Node and the browser. A mobile wallet needs what only
-    the platform can give: hardware key stores, biometric gates, and a runtime
-    that survives flaky networks. That layer is this SDK.</p>
+    SDKs are excellent for Node and the browser. A mobile wallet needs what only
+    the platform can give: hardware key storage, biometric approval, and
+    connections that survive real-world mobile networks. This SDK is that layer,
+    in the languages your team already ships in.</p>
   </div>
   <div class="props">
     <div class="prop">
       <h3>Keys live in silicon</h3>
       <p>Signing drivers for the Secure Enclave and the Android Keystore
-      (StrongBox first, TEE fallback) — plus software drivers for tests and a
+      (StrongBox first, TEE fallback), software drivers for tests, and a
       <code>DelegatingSigningDriver</code> hook for custody providers.</p>
-      <p>Every externally-signed transaction is re-hashed and verified
-      <em>on the device</em> by default before the hardware signs. The
-      participant never holds the key and cannot act for the party.</p>
+      <p>Your users truly hold their own assets: no server ever sees a key or
+      can move funds on its own, and every transaction is verified
+      <em>on the device</em> by default before the hardware signs it.</p>
     </div>
     <div class="prop">
       <h3>The whole wallet surface</h3>
-      <p>CIP-0056 holdings, the propose→accept inbox, and transfers with memos.
-      Transfer preapprovals — request, lookup, and receiver-side cancel.
-      Transfer-level history with counterparties and signed net amounts.</p>
-      <p>Plus fee preview, Scan and validator reads, ANS lookups, DevNet taps,
-      traffic purchase, gap-free state sync, and typed Canton errors with retry
-      hints.</p>
+      <p>Balances, a payment inbox, and transfers with memos on the CIP-0056
+      token standard. Instant receiving through preapprovals, including
+      cancel. Full transfer history with counterparties and net amounts.</p>
+      <p>Plus fee previews, name lookups, test funds, traffic purchase,
+      gap-free state sync, and typed errors with retry hints. The feature set
+      of a production wallet, ready before you write your first screen.</p>
     </div>
     <div class="prop">
       <h3>dApps connect natively</h3>
-      <p>CIP-0103 on both sides: a <code>DappClient</code> for dApps and a
-      wallet-side session engine with per-peer grants and approval hooks —
-      over WalletConnect, LAN gRPC, or in-process transports.</p>
-      <p><code>signMessage</code> is domain-separated from transaction hashes,
-      and the wire types are held to golden vectors from the CIP-0103 OpenRPC
-      spec.</p>
+      <p>Give dApps the standard way in: wallet sign-in, message signing, and
+      one-tap payments over WalletConnect, LAN, or in-process transports, with
+      every request gated by approval screens you control.</p>
+      <p>Both sides of the CIP-0103 protocol ship in the box, tested against
+      the published spec, so your wallet speaks the same language as the rest
+      of the Canton ecosystem.</p>
     </div>
   </div>
 </section>
@@ -384,8 +387,8 @@ submission.signAndExecute(
   <div class="section-head">
     <p class="eyebrow">Verified where it counts</p>
     <h2>Hardware claims, tested on hardware.</h2>
-    <p>"Hardware-backed" is a claim apps inherit from their SDK — so this SDK
-    proves it at every security tier, on physical devices.</p>
+    <p>Apps inherit the claim "hardware-backed" from their SDK. This one proves
+    it at every security tier, on physical devices.</p>
   </div>
   <div class="attest">
     <div class="attest-row">
@@ -408,26 +411,28 @@ submission.signAndExecute(
     </div>
     <div class="attest-row">
       <span class="tier">Secure Enclave, macOS</span>
-      <span class="what">Apple silicon — the real enclave, exercised in CI</span>
+      <span class="what">Apple silicon Macs, the real enclave</span>
       <span class="where">Every CI run</span>
       <span class="stamp">VERIFIED</span>
     </div>
   </div>
-  <p class="attest-note">And beyond the key stores: both SDKs run integration
-  suites against a live Canton participant, end to end — onboarding, signing,
-  token-standard transfers, preapprovals — and cross-platform behavior
-  (prepared-transaction hashing, signMessage domain separation, the CIP-0103
-  codec) is pinned by golden vectors both platforms must satisfy.</p>
+  <p class="attest-note">Beyond the key stores, both SDKs run their full
+  integration suites against a live Canton network: onboarding, signing, token
+  transfers, and preapprovals, end to end. Shared test vectors pin the
+  security-critical behavior, like transaction hashing and message signing, so
+  Swift and Kotlin can never quietly drift apart.</p>
 
   <div class="interop">
-    <p class="eyebrow">Independent-implementation proof</p>
-    <h2>The other end of the demo is not our code.</h2>
-    <p>The reference storefront runs on the official
+    <p class="eyebrow">Ecosystem compatibility</p>
+    <h2>Works with Canton's official stack. Proven live.</h2>
+    <p>Compatibility is demonstrated, not promised. The reference storefront is
+    built on Digital Asset's official
     <code style="font-family:var(--mono);font-size:0.9em">@canton-network</code>
-    TypeScript SDKs. It signs a customer in with their wallet and takes a
-    one-tap payment from it over WalletConnect — real CIP-0103, an independent
-    implementation on the far end — live-verified end to end on both platforms.</p>
-    <a class="band-link" href="https://github.com/vsima/canton-mobile-app">Walk through the reference flow →</a>
+    TypeScript SDKs, and it signs users in and takes one-tap WalletConnect
+    payments from a wallet built on this SDK, end to end, on both platforms.
+    Build on this SDK and you plug into the same ecosystem every Canton dApp
+    targets.</p>
+    <a class="band-link" href="https://github.com/vsima/canton-mobile-app">See the working integration →</a>
   </div>
 </section>
 
@@ -435,8 +440,9 @@ submission.signAndExecute(
   <div class="section-head">
     <p class="eyebrow">Install</p>
     <h2>One dependency. Take the layer you need.</h2>
-    <p>Eight Kotlin artifacts on Maven Central, one Swift package with seven
-    products — each layer brings the ones beneath it.</p>
+    <p>Standard tooling, no exotic setup: add one dependency from Maven Central
+    or Swift Package Manager, start at the layer that matches your app, and
+    each layer includes everything beneath it.</p>
   </div>
   <div class="install-grid">
     <div class="pane swift">
@@ -465,16 +471,17 @@ submission.signAndExecute(
     <div class="layer-row"><span>A wallet that accepts dApp connections</span><code>CantonDappWalletKit</code><code>canton-dapp-wallet</code></div>
   </div>
   <p class="install-note">Requirements: iOS 18+ / macOS 15+ with Swift 6 · Android 8+
-  (API 26) or any JVM 17+. Migrating from the TypeScript SDK? There's a
-  <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/docs/migrating-from-wallet-sdk.md">method-level map</a>.</p>
+  (API 26) or any JVM 17+. Coming from the TypeScript SDK? There's a
+  <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/docs/migrating-from-wallet-sdk.md">method-by-method migration guide</a>.</p>
 </section>
 
 <section id="apps" class="wrap">
   <div class="section-head">
     <p class="eyebrow">Reference apps</p>
-    <h2>Real apps, kept honest by CI.</h2>
-    <p>Every SDK claim above is exercised by working reference apps — built on
-    the public API only, live-verified against a Canton LocalNet.</p>
+    <h2>Start from working apps, not a blank page.</h2>
+    <p>Everything on this page runs in complete reference apps: two wallets and
+    a shop, built only on the SDK's public API and verified against a live
+    Canton network. Clone them, run them, and keep what you need.</p>
   </div>
   <div class="apps">
     <a class="app-card" href="https://github.com/vsima/canton-mobile-app">
@@ -482,21 +489,22 @@ submission.signAndExecute(
       <h3>The wallets</h3>
       <p>Complete self-custody wallets for iOS and Android from stock platform
       components: portfolio, inbox, scan-to-pay, transfer history, and
-      WalletConnect approval sheets — signing on the device key.</p>
+      WalletConnect approvals, all signing on the device key.</p>
     </a>
     <a class="app-card" href="https://github.com/vsima/canton-mobile-app/tree/main/dapp-server">
       <span class="tag">Node / TypeScript</span>
       <h3>The dApp shop</h3>
       <p>A storefront on the official <span style="font-family:var(--mono);font-size:0.9em">@canton-network</span>
-      SDKs that takes a payment and watches the ledger settle it — sign-in with
-      Canton, checkout QR, and WalletConnect one-tap pay.</p>
+      SDKs that takes a payment and watches the ledger settle it: wallet
+      sign-in, checkout QR codes, and WalletConnect one-tap pay.</p>
     </a>
     <a class="app-card" href="https://github.com/vsima/canton-mobile-app#the-three-references">
       <span class="tag">CIP-0103 client</span>
       <h3>The dApp app</h3>
-      <p>A minimal client that links <em>only</em> the dApp module — no signing
-      drivers, no ledger stubs. Its build succeeding from that dependency set
-      alone proves the SDK's custody boundary, on every CI run.</p>
+      <p>The least a dApp needs: a minimal client built from the dApp module
+      alone, with no path to keys or the ledger. That boundary keeps
+      third-party dApps out of your users' wallets, and CI enforces it on
+      every run.</p>
     </a>
   </div>
 </section>
