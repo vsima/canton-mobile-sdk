@@ -55,6 +55,14 @@ public final class CantonWalletConnect: Sendable {
     /// accounts to share is the wallet's decision (its connect-approval UI);
     /// this only projects them into CAIP-10 form under the `canton` namespace.
     public func sessionNamespaces(accounts: [DappWallet]) -> WcSessionNamespaces {
+        Self.sessionNamespaces(chainId: chainId, accounts: accounts)
+    }
+
+    /// ``sessionNamespaces(accounts:)`` without an adapter instance. A wallet
+    /// that keeps one adapter (and one `DappSession`) per peer needs
+    /// namespaces at proposal time, before any session for that peer exists;
+    /// the namespaces depend only on the chain and the offered accounts.
+    public static func sessionNamespaces(chainId: String, accounts: [DappWallet]) -> WcSessionNamespaces {
         WcSessionNamespaces(
             chains: [chainId],
             accounts: accounts.map { Caip.account(chainId: chainId, partyId: $0.partyId) },

@@ -64,12 +64,23 @@ public class CantonWalletConnect(
      * only projects them into CAIP-10 form under the `canton` namespace.
      */
     public fun sessionNamespaces(accounts: List<DappWallet>): WcSessionNamespaces =
-        WcSessionNamespaces(
-            chains = listOf(chainId),
-            accounts = accounts.map { Caip.account(chainId, it.partyId) },
-            methods = WcMethod.ADVERTISED,
-            events = WcMethod.EVENTS,
-        )
+        sessionNamespaces(chainId, accounts)
+
+    public companion object {
+        /**
+         * [sessionNamespaces] without an adapter instance. A wallet that keeps
+         * one adapter (and one `DappSession`) per peer needs namespaces at
+         * proposal time, before any session for that peer exists; the
+         * namespaces depend only on the chain and the offered accounts.
+         */
+        public fun sessionNamespaces(chainId: String, accounts: List<DappWallet>): WcSessionNamespaces =
+            WcSessionNamespaces(
+                chains = listOf(chainId),
+                accounts = accounts.map { Caip.account(chainId, it.partyId) },
+                methods = WcMethod.ADVERTISED,
+                events = WcMethod.EVENTS,
+            )
+    }
 
     /**
      * Routes one inbound `session_request` into the engine and maps the reply.
