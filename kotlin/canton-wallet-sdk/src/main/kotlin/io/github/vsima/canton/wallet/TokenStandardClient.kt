@@ -212,7 +212,12 @@ public class TokenStandardClient(
         synchronizerId: String,
         userId: String? = null,
         meta: Map<String, String> = emptyMap(),
-        requestedAt: Instant = Instant.now(),
+        // Backdated: the registry enforces requestedAt <= ledger time, so a
+        // device clock even seconds fast would fail every transfer with
+        // deadline-not-exceeded. requestedAt is descriptive ("when the sender
+        // asked") and a minute early is harmless; executeBefore is a real
+        // deadline and stays on the raw clock.
+        requestedAt: Instant = Instant.now().minus(clockSkewAllowance),
         executeBefore: Instant = Instant.now().plus(Duration.ofHours(24)),
     ) {
         val registry = requireRegistry()
@@ -438,5 +443,11 @@ public class TokenStandardClient(
                 ?: return@mapNotNull null
             created.contractId to view.viewValue
         }
+    }
+
+    public companion object {
+        /** How far [createTransfer] backdates its default `requestedAt`, so
+         *  transfers survive a sender clock that runs ahead of ledger time. */
+        public val clockSkewAllowance: Duration = Duration.ofSeconds(60)
     }
 }
