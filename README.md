@@ -528,6 +528,12 @@ proven and where.
       element (`SecurityLevel.STRONGBOX`, no silent TEE fallback) and signs
       with Canton's encodings — device-held keys are now hardware-verified
       at every tier: Secure Enclave, StrongBox, and TEE
+- [x] Full wallet loop on StrongBox hardware, verified on a Pixel 11 Pro
+      Fold (Android 17): a fresh party onboarded with a StrongBox-resident
+      key, then the complete live flow against Splice LocalNet: faucet
+      funding, WalletConnect pairing with an AI agent (canton-agent-mcp),
+      per-request approval sheets, and a token-standard transfer signed in
+      the secure element
 - [x] CIP-0056 token standard client, first slice: holdings and the
       pending-instruction inbox (interface-filtered ACS reads), two-step
       transfers (create / accept / reject / withdraw) built from registry
