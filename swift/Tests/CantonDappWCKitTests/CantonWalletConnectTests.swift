@@ -73,6 +73,28 @@ import Testing
         #expect(ns.events == ["accountsChanged", "statusChanged"])
     }
 
+    @Test func sessionNamespacesApprovesRequestedMethodsTheEngineCanServe() {
+        // A CIP-0103-verbatim dApp proposes bare names; both WalletConnect
+        // clients refuse any request outside the approved set, so the bare
+        // names must be approved or the dApp can never call at all.
+        let requested = [
+            "connect", "listAccounts", "prepareExecuteAndWait",
+            "canton_signMessage",  // ecosystem name, already advertised
+            "eth_sendTransaction",  // foreign: refused
+            "txChanged",  // wallet-to-dApp event: never a callable request
+        ]
+        let ns = CantonWalletConnect.sessionNamespaces(
+            chainId: "canton:localnet", accounts: [account], requestedMethods: requested
+        )
+        #expect(ns.methods.contains("connect") && ns.methods.contains("listAccounts"))
+        #expect(ns.methods.contains("prepareExecuteAndWait"))
+        #expect(!ns.methods.contains("eth_sendTransaction"))
+        #expect(!ns.methods.contains("txChanged"))
+        #expect(ns.methods.filter { $0 == "canton_signMessage" }.count == 1)
+        // Without a proposal the namespaces stay exactly the advertised set.
+        #expect(CantonWalletConnect.sessionNamespaces(chainId: "canton:localnet", accounts: [account]).methods.count == 7)
+    }
+
     @Test func normalizeMapsTheCantonPrefixAndThePrepareSignExecuteRename() {
         #expect(WcMethod.normalize("canton_signMessage") == "signMessage")
         #expect(WcMethod.normalize("canton_prepareSignExecute") == "prepareExecuteAndWait")

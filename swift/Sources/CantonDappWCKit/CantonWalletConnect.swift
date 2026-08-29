@@ -62,11 +62,30 @@ public final class CantonWalletConnect: Sendable {
     /// that keeps one adapter (and one `DappSession`) per peer needs
     /// namespaces at proposal time, before any session for that peer exists;
     /// the namespaces depend only on the chain and the offered accounts.
-    public static func sessionNamespaces(chainId: String, accounts: [DappWallet]) -> WcSessionNamespaces {
-        WcSessionNamespaces(
+    ///
+    /// `requestedMethods` is the method list from the dApp's proposal.
+    /// WalletConnect clients on both ends refuse any request whose method is
+    /// not in the *approved* namespaces, so a wallet that approves only its
+    /// own advertised names silently strands a dApp that proposed the same
+    /// operations under different ones: the ecosystem speaks
+    /// `canton_`-prefixed names while CIP-0103-verbatim dApps use the bare
+    /// names, and ``handle(_:)`` already normalizes both into the engine. So
+    /// the approval is the advertised set plus every requested method the
+    /// engine can actually serve; unknown methods and wallet-to-dApp event
+    /// names stay refused.
+    public static func sessionNamespaces(
+        chainId: String,
+        accounts: [DappWallet],
+        requestedMethods: [String] = []
+    ) -> WcSessionNamespaces {
+        var methods = WcMethod.advertised
+        for method in requestedMethods where WcMethod.isServableRequest(method) && !methods.contains(method) {
+            methods.append(method)
+        }
+        return WcSessionNamespaces(
             chains: [chainId],
             accounts: accounts.map { Caip.account(chainId: chainId, partyId: $0.partyId) },
-            methods: WcMethod.advertised,
+            methods: methods,
             events: WcMethod.events
         )
     }
@@ -128,5 +147,13 @@ enum WcMethod {
         if method == prepareSignExecute { return DappMethod.prepareExecuteAndWait.rawValue }
         if method.hasPrefix(prefix) { return String(method.dropFirst(prefix.count)) }
         return method
+    }
+
+    /// Whether a dApp-proposed wire method (bare or `canton_`-prefixed) names
+    /// an operation the engine answers, so a wallet may approve it into the
+    /// session namespaces. Event names are wallet-to-dApp only, never callable.
+    static func isServableRequest(_ method: String) -> Bool {
+        guard let engineMethod = DappMethod(rawValue: normalize(method)) else { return false }
+        return !engineMethod.isEvent
     }
 }

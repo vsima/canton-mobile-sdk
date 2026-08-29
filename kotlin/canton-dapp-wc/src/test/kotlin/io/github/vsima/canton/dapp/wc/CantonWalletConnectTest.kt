@@ -77,6 +77,27 @@ class CantonWalletConnectTest {
     }
 
     @Test
+    fun `sessionNamespaces approves requested methods the engine can serve`() {
+        // A CIP-0103-verbatim dApp proposes bare names; both WalletConnect
+        // clients refuse any request outside the approved set, so the bare
+        // names must be approved or the dApp can never call at all.
+        val requested = listOf(
+            "connect", "listAccounts", "prepareExecuteAndWait",
+            "canton_signMessage", // ecosystem name, already advertised
+            "eth_sendTransaction", // foreign: refused
+            "txChanged", // wallet-to-dApp event: never a callable request
+        )
+        val ns = CantonWalletConnect.sessionNamespaces("canton:localnet", listOf(account), requested)
+        assertTrue("connect" in ns.methods && "listAccounts" in ns.methods)
+        assertTrue("prepareExecuteAndWait" in ns.methods)
+        assertTrue("eth_sendTransaction" !in ns.methods)
+        assertTrue("txChanged" !in ns.methods)
+        assertEquals(1, ns.methods.count { it == "canton_signMessage" })
+        // Without a proposal the namespaces stay exactly the advertised set.
+        assertEquals(7, CantonWalletConnect.sessionNamespaces("canton:localnet", listOf(account)).methods.size)
+    }
+
+    @Test
     fun `connect then signMessage returns a signature over the session`() = runBlocking {
         val wc = CantonWalletConnect(session(approveAll), "canton:localnet")
         assertIs<WcResponse.Success>(wc.handle(req(1, "connect")))
