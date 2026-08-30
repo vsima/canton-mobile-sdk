@@ -64,12 +64,38 @@ public class CantonWalletConnect(
      * only projects them into CAIP-10 form under the `canton` namespace.
      */
     public fun sessionNamespaces(accounts: List<DappWallet>): WcSessionNamespaces =
-        WcSessionNamespaces(
-            chains = listOf(chainId),
-            accounts = accounts.map { Caip.account(chainId, it.partyId) },
-            methods = WcMethod.ADVERTISED,
-            events = WcMethod.EVENTS,
-        )
+        sessionNamespaces(chainId, accounts)
+
+    public companion object {
+        /**
+         * [sessionNamespaces] without an adapter instance. A wallet that keeps
+         * one adapter (and one `DappSession`) per peer needs namespaces at
+         * proposal time, before any session for that peer exists; the
+         * namespaces depend only on the chain and the offered accounts.
+         *
+         * [requestedMethods] is the method list from the dApp's proposal.
+         * WalletConnect clients on both ends refuse any request whose method
+         * is not in the *approved* namespaces, so a wallet that approves only
+         * its own advertised names silently strands a dApp that proposed the
+         * same operations under different ones: the ecosystem speaks
+         * `canton_`-prefixed names while CIP-0103-verbatim dApps use the bare
+         * names, and [handle] already normalizes both into the engine. So the
+         * approval is ADVERTISED plus every requested method the engine can
+         * actually serve; unknown methods and wallet-to-dApp event names stay
+         * refused.
+         */
+        public fun sessionNamespaces(
+            chainId: String,
+            accounts: List<DappWallet>,
+            requestedMethods: Collection<String> = emptyList(),
+        ): WcSessionNamespaces =
+            WcSessionNamespaces(
+                chains = listOf(chainId),
+                accounts = accounts.map { Caip.account(chainId, it.partyId) },
+                methods = (WcMethod.ADVERTISED + requestedMethods.filter(WcMethod::isServableRequest)).distinct(),
+                events = WcMethod.EVENTS,
+            )
+    }
 
     /**
      * Routes one inbound `session_request` into the engine and maps the reply.
@@ -137,5 +163,22 @@ internal object WcMethod {
         method == PREPARE_SIGN_EXECUTE -> DappMethod.PREPARE_EXECUTE_AND_WAIT.wire
         method.startsWith(PREFIX) -> method.removePrefix(PREFIX)
         else -> method
+    }
+
+    /** The wallet-to-dApp event names, which are never callable requests. */
+    private val EVENT_METHODS = setOf(
+        DappMethod.ACCOUNTS_CHANGED,
+        DappMethod.TX_CHANGED,
+        DappMethod.MESSAGE_SIGNATURE,
+    )
+
+    /**
+     * Whether a dApp-proposed wire method (bare or `canton_`-prefixed) names
+     * an operation the engine answers, so a wallet may approve it into the
+     * session namespaces.
+     */
+    fun isServableRequest(method: String): Boolean {
+        val engineMethod = DappMethod.fromWire(normalize(method)) ?: return false
+        return engineMethod !in EVENT_METHODS
     }
 }

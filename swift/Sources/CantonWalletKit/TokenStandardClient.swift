@@ -20,6 +20,10 @@ public struct TokenStandardClient: Sendable {
     private let client: CantonClient
     private let registry: TransferRegistryClient?
 
+    /// How far `createTransfer` backdates its default `requestedAt` (seconds),
+    /// so transfers survive a sender clock that runs ahead of ledger time.
+    public static let clockSkewAllowance: TimeInterval = 60
+
     public init(client: CantonClient, registry: TransferRegistryClient? = nil) {
         self.client = client
         self.registry = registry
@@ -197,7 +201,12 @@ public struct TokenStandardClient: Sendable {
         synchronizerId: String,
         userId: String? = nil,
         meta: [String: String] = [:],
-        requestedAt: Date = Date(),
+        // Backdated: the registry enforces requestedAt <= ledger time, so a
+        // device clock even seconds fast would fail every transfer with
+        // deadline-not-exceeded. requestedAt is descriptive ("when the sender
+        // asked") and a minute early is harmless; executeBefore is a real
+        // deadline and stays on the raw clock.
+        requestedAt: Date = Date().addingTimeInterval(-TokenStandardClient.clockSkewAllowance),
         executeBefore: Date = Date().addingTimeInterval(24 * 60 * 60)
     ) async throws {
         let registry = try requireRegistry()
