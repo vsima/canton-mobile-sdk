@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Canton Mobile SDK: the native wallet stack for Canton</title>
-<meta name="description" content="Swift and Kotlin SDKs for the Canton Network: self-custody wallets with keys in the Secure Enclave or Android StrongBox, the CIP-0056 token standard, and CIP-0103 dApp connectivity over WalletConnect. Apache-2.0.">
+<meta name="description" content="Swift and Kotlin SDKs for the Canton Network: self-custody wallets with keys in the Secure Enclave or Android StrongBox, the CIP-0056 token standard, CIP-0103 dApp connectivity over WalletConnect, and AI agent payments approved on the phone. Apache-2.0.">
 <meta property="og:title" content="Canton Mobile SDK: the native wallet stack for Canton">
 <meta property="og:description" content="Swift and Kotlin SDKs for the Canton Network. Keys created in device hardware, transactions verified on the phone before signing, and one SDK family for both platforms.">
 <meta property="og:type" content="website">
@@ -247,6 +247,44 @@
   .app-card h3 { font-size: 18.5px; font-weight: 600; margin: 10px 0 8px; letter-spacing: -0.015em; }
   .app-card p { font-size: 15px; color: var(--graphite); }
 
+  /* ---- agents demo ---- */
+  .agent-panes { display: flex; gap: 26px; align-items: stretch; flex-wrap: wrap; }
+  .agent-term {
+    flex: 1 1 520px; min-width: 0;
+    display: flex; flex-direction: column;
+  }
+  .agent-term .term-body {
+    padding: 18px 20px 24px; flex: 1; overflow-y: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    color: var(--code-text); scrollbar-width: thin;
+    max-height: 560px;
+  }
+  .agent-term .line { white-space: pre-wrap; word-break: break-all; opacity: 0; }
+  .agent-term .line.show { opacity: 1; transition: opacity .25s ease; }
+  .agent-term .line + .line { margin-top: 2px; }
+  .agent-term .u { font-weight: 600; }
+  .agent-term .u::before { content: "❯ "; color: var(--swift); font-weight: 700; }
+  .agent-term .tool { color: var(--code-keyword); }
+  .agent-term .tool::before { content: "⚙ "; }
+  .agent-term .dim { color: var(--code-comment); }
+  .agent-term .ok { color: #7FC694; }
+  .agent-term .qr {
+    line-height: 1.0; letter-spacing: 0; font-size: 10px;
+    white-space: pre; word-break: normal; margin: 6px 0;
+  }
+  .agent-term .caret {
+    display: inline-block; width: 7px; height: 13px;
+    background: var(--swift); vertical-align: -2px;
+    animation: agent-blink 1s steps(1) infinite;
+  }
+  @keyframes agent-blink { 50% { opacity: 0; } }
+  .agent-phone {
+    flex: 0 0 auto; align-self: center;
+    background: var(--ink); border-radius: 30px; padding: 10px;
+    box-shadow: 0 18px 44px -18px rgba(22,24,29,0.45);
+  }
+  .agent-phone video { display: block; width: 258px; border-radius: 21px; }
+
   /* ---- footer ---- */
   footer { margin-top: 96px; border-top: 1px solid var(--line); padding: 40px 0 56px; }
   .foot-grid { display: flex; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
@@ -266,6 +304,7 @@
       <a href="#verified">Verified</a>
       <a href="#install">Install</a>
       <a href="#apps">Reference apps</a>
+      <a href="#agents">Agents</a>
       <a class="gh" href="https://github.com/vsima/canton-mobile-sdk">GitHub&nbsp;↗</a>
     </div>
   </div>
@@ -509,6 +548,35 @@ submission.signAndExecute(
   </div>
 </section>
 
+<section id="agents" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Agents</p>
+    <h2>The agent asks. The human approves. The secure element signs.</h2>
+    <p>A live run, both sides at once: an AI agent driving
+    <a href="https://github.com/vsima/canton-agent-mcp">canton-agent-mcp</a>
+    from its harness, and a Pixel 11 Pro Fold holding the keys in StrongBox.
+    Every request the agent makes lands as an approval sheet on the phone.</p>
+  </div>
+  <div class="agent-panes">
+    <div class="pane kotlin agent-term" aria-label="Agent terminal session">
+      <div class="pane-head">
+        <span class="lamp"></span> agent session
+        <span class="sub">canton-agent-mcp · MCP over stdio</span>
+      </div>
+      <div class="term-body" id="agentTermBody"></div>
+    </div>
+    <div class="agent-phone">
+      <video id="agentDemoVid" src="media/agent-demo.mp4" muted autoplay loop playsinline
+             aria-label="Phone screen recording of the wallet approving an agent payment"></video>
+    </div>
+  </div>
+  <p class="diptych-caption">Nothing to trust but the phone. The agent never
+  holds a key or a session token: it names the request, the wallet prepares it
+  on its own participant, re-verifies the transaction hash on device, and
+  StrongBox signs only what the human approved. The QR is real; scan it for
+  the source.</p>
+</section>
+
 <footer>
   <div class="wrap">
     <div class="foot-grid">
@@ -528,5 +596,103 @@ submission.signAndExecute(
   </div>
 </footer>
 
+<script>
+(function () {
+  var QR = [
+    "",
+    "    █▀▀▀▀▀█ █▀▄▄▄ ▀ ▀██▀▀ █▀▀▀▀▀█",
+    "    █ ███ █ ▄██▄ █ ▀ ▄▀█  █ ███ █",
+    "    █ ▀▀▀ █  █  ███▀▀▀ █▄ █ ▀▀▀ █",
+    "    ▀▀▀▀▀▀▀ █▄▀ ▀ ▀ █▄█▄█ ▀▀▀▀▀▀▀",
+    "    █▄▀▀ ▀▀▀▄▀▀▄█▄▀ ██▄██ █▄▄▀ ▀█",
+    "    █▄ ▀ █▀▄ ▀▀▄▀▄▄▄▀ █ ██▄▀▄ ▀▀▄",
+    "    █▄██ █▀█ █  ▀▀██▄█ ▄▀ ▄  ▀█▄▄",
+    "    ▀▄ █▄ ▀▀█▀▀ ▀ ▄▄ ▀ ██▄█▄▄ ▀█▀",
+    "    ▀▀██ ▄▀▀▀██ ▀█▄▄  ▀▀▀  ▄▀█▄█ ",
+    "    ▀ ▀▄▄▄▀▄▀  ▀█ ▄▀█▄█ ▀ ███ █  ",
+    "     ▀▀▀ ▀▀ ▄██▄ █ ▀▀██ █▀▀▀███▄▄",
+    "    █▀▀▀▀▀█ █▀▀▀▀▀ ▄  ▀▀█ ▀ ██ █▄",
+    "    █ ███ █ ▄▄██▄ █▄▄█▄▄▀█▀██▄▀▀█",
+    "    █ ▀▀▀ █ ▀█ █▀▀▀ ▄ █ █▄ █ ▄▀▄▀",
+    "    ▀▀▀▀▀▀▀ ▀ ▀  ▀ ▀  ▀▀▀▀▀    ▀ ",
+    ""
+  ].join("\n");
+
+  // One entry per terminal beat, t in seconds on the video's timeline.
+  var SCRIPT = [
+    { t: 0.4,  kind: "u",    text: "connect my canton wallet", type: true },
+    { t: 1.6,  kind: "tool", text: "canton_connect_wallet" },
+    { t: 2.2,  kind: "a",    text: "Scan this with the wallet's Connect tab, or paste the URI:" },
+    { t: 2.5,  kind: "qr",   text: QR },
+    { t: 2.7,  kind: "dim",  text: "URI: wc:e9b41f0a…@2?relay-protocol=irn&symKey=…" },
+    { t: 4.2,  kind: "dim",  text: "Waiting for the wallet to pair…" },
+    { t: 9.0,  kind: "tool", text: "canton_wallet_status" },
+    { t: 9.6,  kind: "ok",   text: "Connected to Canton Wallet · network canton:localnet" },
+    { t: 11.0, kind: "u",    text: "pay 998 CC to preapproved::1220b3d9…bac9be with memo \"agent demo\"", type: true },
+    { t: 12.45, kind: "tool", text: "canton_request_payment  to=preapproved::1220b3d9…  amount=998  memo=\"agent demo\"" },
+    { t: 13.55, kind: "dim",  text: "Pushed to the phone. The owner reviews and approves; the device key signs…" },
+    { t: 29.0, kind: "ok",   text: "Payment executed · update 1220a4c1… · sender wallet::12207b0e…" },
+    { t: 31.2, kind: "a",    text: "Done. 998 CC sent with memo \"agent demo\". New balance: 4000.0 CC." }
+  ];
+
+  var body = document.getElementById("agentTermBody");
+  var vid = document.getElementById("agentDemoVid");
+  if (!body || !vid) return;
+
+  // Muted autoplay is normally allowed, but some contexts still block it;
+  // nudge on load, when the section scrolls into view, and on first input.
+  function tryPlay() {
+    vid.muted = true;
+    var p = vid.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  tryPlay();
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      if (entries.some(function (e) { return e.isIntersecting; })) tryPlay();
+    }).observe(vid);
+  }
+  document.addEventListener("pointerdown", tryPlay, { once: true });
+  var nodes = SCRIPT.map(function (e) {
+    var el = document.createElement("div");
+    el.className = "line " + { u: "u", tool: "tool", a: "", dim: "dim", qr: "qr", ok: "ok" }[e.kind];
+    if (!e.type) el.textContent = e.text;
+    body.appendChild(el);
+    return el;
+  });
+  var caret = document.createElement("span");
+  caret.className = "caret";
+  body.appendChild(caret);
+
+  var lastT = 0;
+  function render() {
+    var t = vid.currentTime;
+    if (t < lastT - 1.5) {
+      nodes.forEach(function (el) { el.classList.remove("show"); el.dataset.done = ""; });
+    }
+    lastT = t;
+    SCRIPT.forEach(function (e, i) {
+      var el = nodes[i];
+      if (t >= e.t) {
+        if (!el.classList.contains("show")) {
+          el.classList.add("show");
+          body.scrollTop = body.scrollHeight;
+        }
+        if (e.type && el.dataset.done !== "1") {
+          var n = Math.min(e.text.length, Math.floor((t - e.t) / 0.025));
+          el.textContent = e.text.slice(0, n);
+          if (n >= e.text.length) el.dataset.done = "1";
+        }
+      } else if (el.classList.contains("show")) {
+        el.classList.remove("show");
+        el.dataset.done = "";
+        if (e.type) el.textContent = "";
+      }
+    });
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+})();
+</script>
 </body>
 </html>
