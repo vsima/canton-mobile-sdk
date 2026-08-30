@@ -284,6 +284,11 @@
     box-shadow: 0 18px 44px -18px rgba(22,24,29,0.45);
   }
   .agent-phone video { display: block; width: 258px; border-radius: 21px; }
+  .agent-install { margin-top: 30px; }
+  .agent-install-note {
+    margin-top: 14px; font-size: 14.5px; color: var(--graphite);
+    max-width: 66ch;
+  }
 
   /* ---- footer ---- */
   footer { margin-top: 96px; border-top: 1px solid var(--line); padding: 40px 0 56px; }
@@ -577,6 +582,19 @@ submission.signAndExecute(
   on its own participant, re-verifies the transaction hash on device, and
   StrongBox signs only what the human approved. The QR is real; scan it for
   the source.</p>
+  <div class="agent-install">
+    <div class="pane kotlin">
+      <div class="pane-head"><span class="lamp"></span>Add it to your agent<span class="sub">on npm · npx, nothing to clone</span></div>
+<pre><code><span class="c"># Claude Code</span>
+claude mcp add canton-agent --env WC_PROJECT_ID=&lt;your-project-id&gt; \
+  -- npx -y canton-agent-mcp</code></pre>
+    </div>
+    <p class="agent-install-note">Works with any MCP client. Ready-made
+    configs for Claude Desktop, Cursor, and Codex CLI are in the
+    <a href="https://github.com/vsima/canton-agent-mcp#install">install
+    guide</a>; the project id is a free, public WalletConnect client key from
+    <a href="https://dashboard.reown.com">dashboard.reown.com</a>.</p>
+  </div>
 </section>
 
 <footer>
