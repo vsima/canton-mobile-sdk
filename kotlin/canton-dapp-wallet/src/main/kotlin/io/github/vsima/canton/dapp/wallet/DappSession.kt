@@ -70,11 +70,31 @@ public class DappSession(
     /** Minimum gap between `signMessage` calls; see [DappApprovalRequest.Message]. */
     private val signMessageMinInterval: Duration = 1.seconds,
     private val timeSource: TimeSource = TimeSource.Monotonic,
+    /**
+     * The current [DappSpendPolicy] for this peer, read fresh on every
+     * transaction so the wallet's policy editor takes effect immediately.
+     * Null (the default) means no policy: every transaction asks the human.
+     */
+    private val spendPolicy: () -> DappSpendPolicy? = { null },
+    /** Where spends are recorded and the rolling daily cap is read from. */
+    private val spendLedger: SpendLedger = InMemorySpendLedger(),
+    /** Wall-clock for receipts and the rolling window; injectable for tests. */
+    private val wallClock: () -> java.time.Instant = java.time.Instant::now,
 ) : DappRequestHandler {
     private val lock = Mutex()
+
+    /**
+     * Serializes the whole transaction path: policy check, approval,
+     * execution, and the spend record happen under one lock, so concurrent
+     * frames cannot both pass a cap check that only one of them fits under
+     * (the R3 time-of-check/time-of-use race). One transaction at a time per
+     * session is also the honest UI: one sheet, not a stack.
+     */
+    private val submissionLock = Mutex()
     private var granted: List<DappWallet> = emptyList()
     private var connected: Boolean = false
     private var lastSignMessageAt: TimeMark? = null
+    private var lastTransactionAt: TimeMark? = null
 
     private val _events = MutableSharedFlow<DappEvent>(
         replay = 0,
@@ -315,33 +335,110 @@ public class DappSession(
         authorizeReadAs(submission)
         val commandId = submission.commandId ?: UUID.randomUUID().toString()
 
-        _events.emit(DappEvent.TxChanged(TxChangedEvent.Pending(commandId)))
-        val decision = approver.approve(
-            DappApprovalRequest.Transaction(peer, account, network.toDappNetwork(), submission),
-        )
-        if (decision is DappApproval.Rejected) {
-            _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
-            throw DappException(DappErrorCode.USER_REJECTED, decision.reason)
-        }
+        // See [submissionLock]: everything from the policy read to the spend
+        // record is one critical section per session.
+        return submissionLock.withLock {
+            val policy = spendPolicy()
+            if (policy != null) rateLimitTransaction(policy)
+            val summary = DappCommandSummary.transferOf(submission)
+            val spendDecision = policy?.decide(summary, spentLast24h(summary)) ?: SpendDecision.AskHuman
 
-        return try {
-            pipeline.execute(
-                PrepareExecuteContext(
-                    commandId = commandId,
-                    actAs = account,
-                    submission = submission,
-                    network = network,
-                    emitEvent = { _events.emit(DappEvent.TxChanged(it)) },
-                ),
-            ).also { _events.emit(DappEvent.TxChanged(it)) }
-        } catch (e: DappException) {
-            _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
-            throw e
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
-            throw DappException(DappErrorCode.INTERNAL, e.message ?: "submission failed", cause = e)
+            _events.emit(DappEvent.TxChanged(TxChangedEvent.Pending(commandId)))
+            if (spendDecision is SpendDecision.Refuse) {
+                _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                throw DappException(DappErrorCode.USER_REJECTED, "spend policy: ${spendDecision.reason}")
+            }
+            if (spendDecision !is SpendDecision.AutoApprove) {
+                val decision = approver.approve(
+                    DappApprovalRequest.Transaction(peer, account, network.toDappNetwork(), submission),
+                )
+                if (decision is DappApproval.Rejected) {
+                    _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                    throw DappException(DappErrorCode.USER_REJECTED, decision.reason)
+                }
+            }
+
+            val executed = try {
+                pipeline.execute(
+                    PrepareExecuteContext(
+                        commandId = commandId,
+                        actAs = account,
+                        submission = submission,
+                        network = network,
+                        emitEvent = { _events.emit(DappEvent.TxChanged(it)) },
+                    ),
+                ).also { _events.emit(DappEvent.TxChanged(it)) }
+            } catch (e: DappException) {
+                _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                throw e
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                throw DappException(DappErrorCode.INTERNAL, e.message ?: "submission failed", cause = e)
+            }
+            recordSpend(summary, spendDecision is SpendDecision.AutoApprove, commandId)
+            executed
+        }
+    }
+
+    /**
+     * The trailing-24h receipt total for the submission's instrument, the
+     * input to [DappSpendPolicy.decide]'s daily cap. Zero when the submission
+     * is not a parsed transfer: an unparsed submission is never refused by
+     * amount, so the total is irrelevant to its decision.
+     */
+    private suspend fun spentLast24h(summary: DappTransferSummary?): java.math.BigDecimal {
+        if (summary == null) return java.math.BigDecimal.ZERO
+        val since = wallClock().minusSeconds(24 * 60 * 60)
+        return spendLedger.receiptsSince(peer.id, since)
+            .filter { it.instrumentId == summary.instrumentId }
+            .fold(java.math.BigDecimal.ZERO) { total, receipt -> total + receipt.amount }
+    }
+
+    /**
+     * Executed spends become receipts, the source of truth for the rolling
+     * cap and the app's receipts UI. Written only after execution succeeds,
+     * and only for parsed transfers: an unparsed submission has no amount to
+     * record, and the human explicitly approved whatever it was.
+     */
+    private suspend fun recordSpend(summary: DappTransferSummary?, autoApproved: Boolean, commandId: String) {
+        val amount = summary?.amount?.let { text ->
+            try {
+                java.math.BigDecimal(text)
+            } catch (_: NumberFormatException) {
+                null
+            }
+        } ?: return
+        spendLedger.append(
+            SpendReceipt(
+                peerId = peer.id,
+                at = wallClock(),
+                instrumentId = summary.instrumentId,
+                amount = amount,
+                receiver = summary.receiver,
+                autoApproved = autoApproved,
+                commandId = commandId,
+            ),
+        )
+    }
+
+    /**
+     * The transaction counterpart of [rateLimitSignMessage], driven by the
+     * policy's [DappSpendPolicy.minRequestInterval]: an unthrottled peer can
+     * spray sheets until reflex confirms one.
+     */
+    private suspend fun rateLimitTransaction(policy: DappSpendPolicy) {
+        if (policy.minRequestInterval <= Duration.ZERO) return
+        lock.withLock {
+            val last = lastTransactionAt
+            if (last != null && last.elapsedNow() < policy.minRequestInterval) {
+                throw DappException(
+                    DappErrorCode.INVALID_INPUT,
+                    "spend policy: transaction requests are rate-limited to one per ${policy.minRequestInterval}",
+                )
+            }
+            lastTransactionAt = timeSource.markNow()
         }
     }
 

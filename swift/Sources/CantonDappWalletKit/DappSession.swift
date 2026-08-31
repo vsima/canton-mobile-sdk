@@ -29,10 +29,19 @@ public actor DappSession: DappRequestHandler {
     private let ledgerApiProxy: LedgerApiProxy?
     private let ledgerApiPolicy: LedgerApiPolicy
     private let signMessageMinInterval: TimeInterval
+    private let spendPolicy: @Sendable () -> DappSpendPolicy?
+    private let spendLedger: any SpendLedger
+    private let wallClock: @Sendable () -> Date
 
     private var granted: [DappWallet] = []
     private var connected = false
     private var lastSignMessageAt: Date?
+    private var lastTransactionAt: Date?
+
+    /// Serializes the whole transaction path (see `withSubmissionLock`): the
+    /// actor alone cannot, because every `await` is a reentrancy point.
+    private var submissionInFlight = false
+    private var submissionWaiters: [CheckedContinuation<Void, Never>] = []
 
     private let eventStream: AsyncStream<DappEvent>
     private let eventContinuation: AsyncStream<DappEvent>.Continuation
@@ -53,7 +62,16 @@ public actor DappSession: DappRequestHandler {
         prepareExecute: PrepareExecutePipeline? = nil,
         ledgerApi: LedgerApiProxy? = nil,
         ledgerApiPolicy: LedgerApiPolicy = .readOnly,
-        signMessageMinInterval: TimeInterval = 1
+        signMessageMinInterval: TimeInterval = 1,
+        /// The current ``DappSpendPolicy`` for this peer, read fresh on every
+        /// transaction so the wallet's policy editor takes effect
+        /// immediately. Nil (the default) means no policy: every transaction
+        /// asks the human.
+        spendPolicy: @escaping @Sendable () -> DappSpendPolicy? = { nil },
+        /// Where spends are recorded and the rolling daily cap is read from.
+        spendLedger: any SpendLedger = InMemorySpendLedger(),
+        /// Wall-clock for receipts and the rolling window; injectable for tests.
+        wallClock: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.peer = peer
         self.accounts = accounts
@@ -65,6 +83,9 @@ public actor DappSession: DappRequestHandler {
         self.ledgerApiProxy = ledgerApi
         self.ledgerApiPolicy = ledgerApiPolicy
         self.signMessageMinInterval = signMessageMinInterval
+        self.spendPolicy = spendPolicy
+        self.spendLedger = spendLedger
+        self.wallClock = wallClock
 
         var continuation: AsyncStream<DappEvent>.Continuation!
         // Unbounded: dropping an event would silently desynchronise a dApp's
@@ -280,6 +301,24 @@ public actor DappSession: DappRequestHandler {
 
     // ── prepareExecute ─────────────────────────────────────────────────
 
+    /// One transaction at a time per session: the policy check, the
+    /// approval, the execution, and the spend record happen inside one
+    /// critical section, so concurrent frames cannot both pass a cap check
+    /// that only one of them fits under (the R3 time-of-check/time-of-use
+    /// race). The actor's isolation is not enough: every `await` in the path
+    /// (the sheet, the pipeline) is a reentrancy point.
+    private func withSubmissionLock<T: Sendable>(_ body: () async throws -> T) async rethrows -> T {
+        while submissionInFlight {
+            await withCheckedContinuation { submissionWaiters.append($0) }
+        }
+        submissionInFlight = true
+        defer {
+            submissionInFlight = false
+            if !submissionWaiters.isEmpty { submissionWaiters.removeFirst().resume() }
+        }
+        return try await body()
+    }
+
     private func runPrepareExecute(_ submission: PrepareSubmission) async throws -> TxChangedEvent {
         guard let pipeline = prepareExecutePipeline else {
             throw DappError(code: .unsupportedMethod, message: "this wallet does not implement prepareExecute")
@@ -287,14 +326,40 @@ public actor DappSession: DappRequestHandler {
         let account = try actAsAccount(submission)
         try authorizeReadAs(submission)
         let commandId = submission.commandId ?? UUID().uuidString
+        return try await withSubmissionLock {
+            try await executeGated(submission, account: account, commandId: commandId, with: pipeline)
+        }
+    }
+
+    private func executeGated(
+        _ submission: PrepareSubmission,
+        account: DappWallet,
+        commandId: String,
+        with pipeline: PrepareExecutePipeline
+    ) async throws -> TxChangedEvent {
+        let policy = spendPolicy()
+        if let policy { try rateLimitTransaction(policy) }
+        let summary = DappCommandSummary.transferOf(submission)
+        let spendDecision: SpendDecision
+        if let policy {
+            spendDecision = policy.decide(summary: summary, spentLast24h: try await spentLast24h(summary))
+        } else {
+            spendDecision = .askHuman
+        }
 
         eventContinuation.yield(.txChanged(.pending(commandId: commandId)))
-        let decision = await approver.approve(
-            .transaction(peer: peer, actAs: account, network: network.dappNetwork, submission: submission)
-        )
-        if case .rejected(let reason) = decision {
+        if case .refuse(let reason) = spendDecision {
             eventContinuation.yield(.txChanged(.failed(commandId: commandId)))
-            throw DappError(code: .userRejected, message: reason)
+            throw DappError(code: .userRejected, message: "spend policy: \(reason)")
+        }
+        if spendDecision != .autoApprove {
+            let decision = await approver.approve(
+                .transaction(peer: peer, actAs: account, network: network.dappNetwork, submission: submission)
+            )
+            if case .rejected(let reason) = decision {
+                eventContinuation.yield(.txChanged(.failed(commandId: commandId)))
+                throw DappError(code: .userRejected, message: reason)
+            }
         }
 
         let continuation = eventContinuation
@@ -315,12 +380,60 @@ public actor DappSession: DappRequestHandler {
                 )
             }
             eventContinuation.yield(.txChanged(executed))
+            try await recordSpend(summary, autoApproved: spendDecision == .autoApprove, commandId: commandId)
             return executed
         } catch {
             eventContinuation.yield(.txChanged(.failed(commandId: commandId)))
             if let dappError = error as? DappError { throw dappError }
             throw DappError(code: .internalError, message: "\(error)")
         }
+    }
+
+    /// The trailing-24h receipt total for the submission's instrument, the
+    /// input to ``DappSpendPolicy/decide(summary:spentLast24h:)``'s daily
+    /// cap. Zero when the submission is not a parsed transfer: an unparsed
+    /// submission is never refused by amount, so the total is irrelevant.
+    private func spentLast24h(_ summary: DappTransferSummary?) async throws -> Decimal {
+        guard let summary else { return 0 }
+        let since = wallClock().addingTimeInterval(-24 * 60 * 60)
+        return try await spendLedger.receiptsSince(peerId: peer.id, since: since)
+            .filter { $0.instrumentId == summary.instrumentId }
+            .reduce(Decimal(0)) { $0 + $1.amount }
+    }
+
+    /// Executed spends become receipts, the source of truth for the rolling
+    /// cap and the app's receipts UI. Written only after execution succeeds,
+    /// and only for parsed transfers: an unparsed submission has no amount
+    /// to record, and the human explicitly approved whatever it was.
+    private func recordSpend(_ summary: DappTransferSummary?, autoApproved: Bool, commandId: String) async throws {
+        guard let summary, let amount = DappSpendPolicy.strictDecimal(summary.amount) else { return }
+        try await spendLedger.append(
+            SpendReceipt(
+                peerId: peer.id,
+                at: wallClock(),
+                instrumentId: summary.instrumentId,
+                amount: amount,
+                receiver: summary.receiver,
+                autoApproved: autoApproved,
+                commandId: commandId
+            )
+        )
+    }
+
+    /// The transaction counterpart of `rateLimitSignMessage`, driven by the
+    /// policy's ``DappSpendPolicy/minRequestInterval``: an unthrottled peer
+    /// can spray sheets until reflex confirms one.
+    private func rateLimitTransaction(_ policy: DappSpendPolicy) throws {
+        guard policy.minRequestInterval > 0 else { return }
+        if let last = lastTransactionAt,
+           wallClock().timeIntervalSince(last) < policy.minRequestInterval {
+            throw DappError(
+                code: .invalidInput,
+                message: "spend policy: transaction requests are rate-limited to "
+                    + "one per \(policy.minRequestInterval)s"
+            )
+        }
+        lastTransactionAt = wallClock()
     }
 
     /// Resolves which account acts, enforcing the rule that makes the whole
