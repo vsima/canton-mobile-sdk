@@ -156,13 +156,26 @@ import Testing
         )
     }
 
+    /// Collects the session's activity feed synchronously, preserving order.
+    final class ActivityLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var collected: [DappActivity] = []
+        var entries: [DappActivity] { lock.withLock { collected } }
+        func add(_ activity: DappActivity) { lock.withLock { collected.append(activity) } }
+    }
+
     private func makeSession(
         approver: DappApprovalDelegate,
         policy: DappSpendPolicy?,
         ledger: any SpendLedger = InMemorySpendLedger(),
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        activity: ActivityLog? = nil
     ) -> DappSession {
-        DappSession(
+        var observer: DappActivityObserver?
+        if let log = activity {
+            observer = { entry in log.add(entry) }
+        }
+        return DappSession(
             peer: DappPeer(id: "agent-1", name: "Agent"),
             accounts: Accounts(available: [alice]),
             approver: approver,
@@ -170,7 +183,8 @@ import Testing
             prepareExecute: Pipeline(),
             spendPolicy: { policy },
             spendLedger: ledger,
-            wallClock: now
+            wallClock: now,
+            activityObserver: observer
         )
     }
 
@@ -276,6 +290,35 @@ import Testing
         #expect(r1.error == nil)
         #expect(r2.error?.code == DappErrorCode.userRejected.rawValue)
         #expect(r2.error?.message.contains("daily cap") == true)
+    }
+
+    @Test func everyOutcomeReachesTheActivityFeedSheetOrNoSheet() async throws {
+        let log = ActivityLog()
+        let session = makeSession(
+            approver: CountingApprover(),
+            policy: DappSpendPolicy(maxPerTransaction: 10, autoApproveBelow: 2),
+            activity: log
+        )
+        _ = await session.handle(req(.connect))
+        // Auto-approved (no sheet), human-approved (sheet), refused (no sheet).
+        _ = await session.handle(req(.prepareExecuteAndWait, try transferSubmission("1"), id: 2))
+        _ = await session.handle(req(.prepareExecuteAndWait, try transferSubmission("5"), id: 3))
+        _ = await session.handle(req(.prepareExecuteAndWait, try transferSubmission("50"), id: 4))
+
+        #expect(
+            log.entries.map(\.kind) == [
+                .connected,
+                .transactionAutoApproved,
+                .transactionExecuted,
+                .transactionRequested,
+                .transactionExecuted,
+                .transactionRefused,
+            ]
+        )
+        let refused = log.entries.last
+        #expect(refused?.peerName == "Agent")
+        #expect(refused?.transfer?.amount == "50")
+        #expect(refused?.detail?.contains("per-transaction cap") == true)
     }
 
     @Test func thePolicyRateLimitRefusesRapidFireRequests() async throws {

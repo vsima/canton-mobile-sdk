@@ -32,6 +32,26 @@ public actor DappSession: DappRequestHandler {
     private let spendPolicy: @Sendable () -> DappSpendPolicy?
     private let spendLedger: any SpendLedger
     private let wallClock: @Sendable () -> Date
+    private let activityObserver: DappActivityObserver?
+
+    /// Reports to the host's activity feed. The observer cannot throw, so a
+    /// broken log can never break a request; see ``DappActivityObserver``.
+    private func report(
+        _ kind: DappActivity.Kind,
+        transfer: DappTransferSummary? = nil,
+        detail: String? = nil
+    ) {
+        activityObserver?(
+            DappActivity(
+                peerId: peer.id,
+                peerName: peer.name,
+                at: wallClock(),
+                kind: kind,
+                transfer: transfer,
+                detail: detail
+            )
+        )
+    }
 
     private var granted: [DappWallet] = []
     private var connected = false
@@ -71,7 +91,9 @@ public actor DappSession: DappRequestHandler {
         /// Where spends are recorded and the rolling daily cap is read from.
         spendLedger: any SpendLedger = InMemorySpendLedger(),
         /// Wall-clock for receipts and the rolling window; injectable for tests.
-        wallClock: @escaping @Sendable () -> Date = { Date() }
+        wallClock: @escaping @Sendable () -> Date = { Date() },
+        /// The wallet-facing activity feed; see ``DappActivityObserver``.
+        activityObserver: DappActivityObserver? = nil
     ) {
         self.peer = peer
         self.accounts = accounts
@@ -86,6 +108,7 @@ public actor DappSession: DappRequestHandler {
         self.spendPolicy = spendPolicy
         self.spendLedger = spendLedger
         self.wallClock = wallClock
+        self.activityObserver = activityObserver
 
         var continuation: AsyncStream<DappEvent>.Continuation!
         // Unbounded: dropping an event would silently desynchronise a dApp's
@@ -180,11 +203,13 @@ public actor DappSession: DappRequestHandler {
             guard case .rejected(let reason) = decision else {
                 throw DappError(code: .internalError, message: "unreachable approval case")
             }
+            report(.connectionDeclined, detail: reason)
             return ConnectResult(isConnected: false, isNetworkConnected: false, reason: reason)
         }
         // Approving zero accounts is a rejection wearing a different hat.
         // Treating it as success would leave a dApp "connected" to nothing.
         if approved.isEmpty {
+            report(.connectionDeclined, detail: "No accounts were shared")
             return ConnectResult(
                 isConnected: false,
                 isNetworkConnected: false,
@@ -204,6 +229,7 @@ public actor DappSession: DappRequestHandler {
         }
         granted = approved
         connected = true
+        report(.connected, detail: approved.map(\.partyId).joined(separator: ", "))
         eventContinuation.yield(.accountsChanged(approved))
         return connectResult()
     }
@@ -270,12 +296,14 @@ public actor DappSession: DappRequestHandler {
 
         let decision = await approver.approve(.message(peer: peer, signWith: account, message: message))
         if case .rejected(let reason) = decision {
+            report(.messageDeclined, detail: reason)
             eventContinuation.yield(.messageSignature(.failed(messageId: messageId)))
             throw DappError(code: .userRejected, message: reason)
         }
 
         do {
             let signature = try await signer.sign(account: account, message: message)
+            report(.messageSigned)
             eventContinuation.yield(.messageSignature(.signed(messageId: messageId, signature: signature)))
             return SignMessageResult(signature: signature)
         } catch {
@@ -349,14 +377,19 @@ public actor DappSession: DappRequestHandler {
 
         eventContinuation.yield(.txChanged(.pending(commandId: commandId)))
         if case .refuse(let reason) = spendDecision {
+            report(.transactionRefused, transfer: summary, detail: reason)
             eventContinuation.yield(.txChanged(.failed(commandId: commandId)))
             throw DappError(code: .userRejected, message: "spend policy: \(reason)")
         }
-        if spendDecision != .autoApprove {
+        if spendDecision == .autoApprove {
+            report(.transactionAutoApproved, transfer: summary)
+        } else {
+            report(.transactionRequested, transfer: summary)
             let decision = await approver.approve(
                 .transaction(peer: peer, actAs: account, network: network.dappNetwork, submission: submission)
             )
             if case .rejected(let reason) = decision {
+                report(.transactionDeclined, transfer: summary, detail: reason)
                 eventContinuation.yield(.txChanged(.failed(commandId: commandId)))
                 throw DappError(code: .userRejected, message: reason)
             }
@@ -381,8 +414,14 @@ public actor DappSession: DappRequestHandler {
             }
             eventContinuation.yield(.txChanged(executed))
             try await recordSpend(summary, autoApproved: spendDecision == .autoApprove, commandId: commandId)
+            if case .executed(_, let updateId, _) = executed {
+                report(.transactionExecuted, transfer: summary, detail: updateId)
+            } else {
+                report(.transactionExecuted, transfer: summary)
+            }
             return executed
         } catch {
+            report(.transactionFailed, transfer: summary, detail: "\(error)")
             eventContinuation.yield(.txChanged(.failed(commandId: commandId)))
             if let dappError = error as? DappError { throw dappError }
             throw DappError(code: .internalError, message: "\(error)")
@@ -427,6 +466,10 @@ public actor DappSession: DappRequestHandler {
         guard policy.minRequestInterval > 0 else { return }
         if let last = lastTransactionAt,
            wallClock().timeIntervalSince(last) < policy.minRequestInterval {
+            report(
+                .transactionRateLimited,
+                detail: "more than one request per \(policy.minRequestInterval)s"
+            )
             throw DappError(
                 code: .invalidInput,
                 message: "spend policy: transaction requests are rate-limited to "

@@ -87,6 +87,7 @@ class DappSpendEnforcementTest {
         policy: DappSpendPolicy?,
         ledger: SpendLedger = InMemorySpendLedger(),
         now: () -> Instant = Instant::now,
+        activity: MutableList<DappActivity> = mutableListOf(),
     ) = DappSession(
         peer = DappPeer(id = "agent-1", name = "Agent"),
         accounts = { listOf(alice) },
@@ -98,6 +99,7 @@ class DappSpendEnforcementTest {
         spendPolicy = { policy },
         spendLedger = ledger,
         wallClock = now,
+        activityObserver = { activity.add(it) },
     )
 
     private fun request(method: DappMethod, params: JsonElement? = null, id: Int = 1) =
@@ -226,6 +228,54 @@ class DappSpendEnforcementTest {
         assertNotNull(r1.result, "the first request should execute")
         assertEquals(DappErrorCode.USER_REJECTED.code, r2.errorCode())
         assertTrue("daily cap" in (r2.error?.message ?: ""))
+    }
+
+    @Test
+    fun `every outcome reaches the activity feed, sheet or no sheet`(): Unit = runBlocking {
+        val activity = mutableListOf<DappActivity>()
+        val session = session(
+            policy = DappSpendPolicy(maxPerTransaction = BigDecimal("10"), autoApproveBelow = BigDecimal("2")),
+            activity = activity,
+        )
+        connect(session)
+        // Auto-approved (no sheet), human-approved (sheet), refused (no sheet).
+        session.handle(request(DappMethod.PREPARE_EXECUTE_AND_WAIT, paySubmission("1"), id = 2))
+        session.handle(request(DappMethod.PREPARE_EXECUTE_AND_WAIT, paySubmission("5"), id = 3))
+        session.handle(request(DappMethod.PREPARE_EXECUTE_AND_WAIT, paySubmission("50"), id = 4))
+
+        assertEquals(
+            listOf(
+                DappActivity.Kind.CONNECTED,
+                DappActivity.Kind.TRANSACTION_AUTO_APPROVED,
+                DappActivity.Kind.TRANSACTION_EXECUTED,
+                DappActivity.Kind.TRANSACTION_REQUESTED,
+                DappActivity.Kind.TRANSACTION_EXECUTED,
+                DappActivity.Kind.TRANSACTION_REFUSED,
+            ),
+            activity.map { it.kind },
+        )
+        val refused = activity.last()
+        assertEquals("Agent", refused.peerName)
+        assertEquals("50", refused.transfer?.amount)
+        assertTrue("per-transaction cap" in (refused.detail ?: ""))
+    }
+
+    @Test
+    fun `a throwing observer never breaks the payment`(): Unit = runBlocking {
+        val session = DappSession(
+            peer = DappPeer(id = "agent-1", name = "Agent"),
+            accounts = { listOf(alice) },
+            approver = Approver { DappApproval.Approved(listOf(alice)) },
+            network = DappNetworkConfig(networkId = "canton:localnet"),
+            prepareExecute = { ctx ->
+                TxChangedEvent.Executed(ctx.commandId, updateId = "upd", completionOffset = 1)
+            },
+            spendPolicy = { DappSpendPolicy(autoApproveBelow = BigDecimal("5")) },
+            activityObserver = { throw IllegalStateException("broken log") },
+        )
+        connect(session)
+        val response = session.handle(request(DappMethod.PREPARE_EXECUTE_AND_WAIT, paySubmission("2"), id = 2))
+        assertNotNull(response.result)
     }
 
     @Test

@@ -80,6 +80,8 @@ public class DappSession(
     private val spendLedger: SpendLedger = InMemorySpendLedger(),
     /** Wall-clock for receipts and the rolling window; injectable for tests. */
     private val wallClock: () -> java.time.Instant = java.time.Instant::now,
+    /** The wallet-facing activity feed; see [DappActivityObserver]. */
+    private val activityObserver: DappActivityObserver? = null,
 ) : DappRequestHandler {
     private val lock = Mutex()
 
@@ -106,6 +108,29 @@ public class DappSession(
 
     /** The accounts this peer may currently see. Empty until [DappMethod.CONNECT] is approved. */
     public suspend fun grantedAccounts(): List<DappWallet> = lock.withLock { granted }
+
+    /** Reports to the host's activity feed; never lets a broken log break a request. */
+    private fun report(
+        kind: DappActivity.Kind,
+        transfer: DappTransferSummary? = null,
+        detail: String? = null,
+    ) {
+        val observer = activityObserver ?: return
+        try {
+            observer.onActivity(
+                DappActivity(
+                    peerId = peer.id,
+                    peerName = peer.name,
+                    at = wallClock(),
+                    kind = kind,
+                    transfer = transfer,
+                    detail = detail,
+                ),
+            )
+        } catch (_: Throwable) {
+            // The feed is a record, not a control; see DappActivityObserver.
+        }
+    }
 
     /**
      * Dispatches one JSON-RPC frame.
@@ -182,16 +207,20 @@ public class DappSession(
             DappApprovalRequest.Connection(peer, network.toDappNetwork(), available),
         )
         val approved = when (decision) {
-            is DappApproval.Rejected -> return ConnectResult(
-                isConnected = false,
-                isNetworkConnected = false,
-                reason = decision.reason,
-            )
+            is DappApproval.Rejected -> {
+                report(DappActivity.Kind.CONNECTION_DECLINED, detail = decision.reason)
+                return ConnectResult(
+                    isConnected = false,
+                    isNetworkConnected = false,
+                    reason = decision.reason,
+                )
+            }
             is DappApproval.Approved -> decision.accounts
         }
         // Approving zero accounts is a rejection wearing a different hat.
         // Treating it as success would leave a dApp "connected" to nothing.
         if (approved.isEmpty()) {
+            report(DappActivity.Kind.CONNECTION_DECLINED, detail = "No accounts were shared")
             return ConnectResult(
                 isConnected = false,
                 isNetworkConnected = false,
@@ -213,6 +242,10 @@ public class DappSession(
             granted = approved
             connected = true
         }
+        report(
+            DappActivity.Kind.CONNECTED,
+            detail = approved.joinToString(", ") { it.partyId },
+        )
         _events.emit(DappEvent.AccountsChanged(approved))
         return connectResult()
     }
@@ -285,6 +318,7 @@ public class DappSession(
 
         val decision = approver.approve(DappApprovalRequest.Message(peer, account, message))
         if (decision is DappApproval.Rejected) {
+            report(DappActivity.Kind.MESSAGE_DECLINED, detail = decision.reason)
             _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Failed(messageId)))
             throw DappException(DappErrorCode.USER_REJECTED, decision.reason)
         }
@@ -300,6 +334,7 @@ public class DappSession(
             _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Failed(messageId)))
             throw DappException(DappErrorCode.INTERNAL, e.message ?: "signing failed", cause = e)
         }
+        report(DappActivity.Kind.MESSAGE_SIGNED)
         _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Signed(messageId, signature)))
         return SignMessageResult(signature)
     }
@@ -345,14 +380,19 @@ public class DappSession(
 
             _events.emit(DappEvent.TxChanged(TxChangedEvent.Pending(commandId)))
             if (spendDecision is SpendDecision.Refuse) {
+                report(DappActivity.Kind.TRANSACTION_REFUSED, summary, spendDecision.reason)
                 _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
                 throw DappException(DappErrorCode.USER_REJECTED, "spend policy: ${spendDecision.reason}")
             }
-            if (spendDecision !is SpendDecision.AutoApprove) {
+            if (spendDecision is SpendDecision.AutoApprove) {
+                report(DappActivity.Kind.TRANSACTION_AUTO_APPROVED, summary)
+            } else {
+                report(DappActivity.Kind.TRANSACTION_REQUESTED, summary)
                 val decision = approver.approve(
                     DappApprovalRequest.Transaction(peer, account, network.toDappNetwork(), submission),
                 )
                 if (decision is DappApproval.Rejected) {
+                    report(DappActivity.Kind.TRANSACTION_DECLINED, summary, decision.reason)
                     _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
                     throw DappException(DappErrorCode.USER_REJECTED, decision.reason)
                 }
@@ -369,15 +409,18 @@ public class DappSession(
                     ),
                 ).also { _events.emit(DappEvent.TxChanged(it)) }
             } catch (e: DappException) {
+                report(DappActivity.Kind.TRANSACTION_FAILED, summary, e.message)
                 _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
                 throw e
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
+                report(DappActivity.Kind.TRANSACTION_FAILED, summary, e.message)
                 _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
                 throw DappException(DappErrorCode.INTERNAL, e.message ?: "submission failed", cause = e)
             }
             recordSpend(summary, spendDecision is SpendDecision.AutoApprove, commandId)
+            report(DappActivity.Kind.TRANSACTION_EXECUTED, summary, executed.updateId)
             executed
         }
     }
@@ -433,6 +476,10 @@ public class DappSession(
         lock.withLock {
             val last = lastTransactionAt
             if (last != null && last.elapsedNow() < policy.minRequestInterval) {
+                report(
+                    DappActivity.Kind.TRANSACTION_RATE_LIMITED,
+                    detail = "more than one request per ${policy.minRequestInterval}",
+                )
                 throw DappException(
                     DappErrorCode.INVALID_INPUT,
                     "spend policy: transaction requests are rate-limited to one per ${policy.minRequestInterval}",
