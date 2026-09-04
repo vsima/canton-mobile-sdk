@@ -195,6 +195,10 @@ public actor DappSession: DappRequestHandler {
     // ── Connection ─────────────────────────────────────────────────────
 
     private func connect() async throws -> ConnectResult {
+        // Idempotent: agents call connect before each request to ensure they
+        // have accounts, so a peer that is already connected and granted must
+        // not re-raise the account-share sheet. Return the existing grant.
+        if connected, !granted.isEmpty { return connectResult() }
         let available = try await accounts.accounts()
         let decision = await approver.approve(
             .connection(peer: peer, network: network.dappNetwork, available: available)

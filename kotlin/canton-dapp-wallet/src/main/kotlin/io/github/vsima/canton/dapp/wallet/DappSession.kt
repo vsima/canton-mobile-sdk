@@ -202,6 +202,11 @@ public class DappSession(
     // ── Connection ─────────────────────────────────────────────────────
 
     private suspend fun connect(): ConnectResult {
+        // Idempotent: agents call connect before each request to ensure they
+        // have accounts, so a peer that is already connected and granted must
+        // not re-raise the account-share sheet. Return the existing grant.
+        val alreadyGranted = lock.withLock { connected && granted.isNotEmpty() }
+        if (alreadyGranted) return connectResult()
         val available = accounts.accounts()
         val decision = approver.approve(
             DappApprovalRequest.Connection(peer, network.toDappNetwork(), available),

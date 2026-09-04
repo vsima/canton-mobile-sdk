@@ -162,6 +162,24 @@ class DappSessionTest {
     }
 
     @Test
+    fun `connect is idempotent, a re-connect on a live grant raises no sheet`(): Unit = runBlocking {
+        // Agents call connect before each request; an already-granted peer
+        // must not re-prompt.
+        val approver = Approver { DappApproval.Approved(listOf(alice)) }
+        val session = session(approver = approver)
+        session.handle(request(DappMethod.CONNECT))
+        assertEquals(1, approver.seen.count { it is DappApprovalRequest.Connection })
+
+        val again = DappJson.decodeConnectResult(
+            session.handle(request(DappMethod.CONNECT)).resultOrThrow(),
+        )
+        assertTrue(again.isConnected)
+        assertEquals(listOf(alice), session.grantedAccounts())
+        // Still one: the second connect returned the existing grant silently.
+        assertEquals(1, approver.seen.count { it is DappApprovalRequest.Connection })
+    }
+
+    @Test
     fun `a rejected connect reports the reason instead of erroring`(): Unit = runBlocking {
         val session = session(approver = Approver { DappApproval.Rejected("Not now") })
 

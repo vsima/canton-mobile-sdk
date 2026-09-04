@@ -135,6 +135,35 @@ import Testing
         #expect(events == [.accountsChanged([alice])])
     }
 
+    @Test func connectIsIdempotentARepeatConnectOnALiveGrantRaisesNoSheet() async throws {
+        // Agents call connect before each request; an already-granted peer
+        // must not re-prompt.
+        final class Counter: @unchecked Sendable {
+            private let lock = NSLock()
+            private var n = 0
+            func bump() { lock.withLock { n += 1 } }
+            var value: Int { lock.withLock { n } }
+        }
+        let counter = Counter()
+        let alice = self.alice
+        let session = makeSession(approver: Approver { request in
+            if case .connection = request {
+                counter.bump()
+                return .approved(accounts: [alice])
+            }
+            return .approved()
+        })
+
+        _ = await session.handle(request(.connect))
+        let again = try DappJSON.decodeConnectResult(
+            try await session.handle(request(.connect)).resultOrThrow()
+        )
+
+        #expect(again.isConnected)
+        #expect(await session.grantedAccounts == [alice])
+        #expect(counter.value == 1)
+    }
+
     @Test func aRejectedConnectReportsTheReasonInsteadOfErroring() async throws {
         let session = makeSession(approver: Approver { _ in .rejected(reason: "Not now") })
 
