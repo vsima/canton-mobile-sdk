@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import CantonDappKit
+import Foundation
 
 /// The wallet side of the WalletConnect transport for CIP-0103.
 ///
@@ -35,6 +36,7 @@ import CantonDappKit
 /// See ``WcMethod``.
 public final class CantonWalletConnect: Sendable {
     private let handler: any DappRequestHandler
+    private let answers = WcRequestLedger()
 
     /// The CAIP-2 chain this session advertises (validated from `networkId`).
     public let chainId: String
@@ -96,17 +98,27 @@ public final class CantonWalletConnect: Sendable {
     /// error — so this maps error responses to ``WcResponse/error(code:message:)``
     /// (carrying the CIP-0103 / EIP-1193 code) and everything else to
     /// ``WcResponse/success(result:)``.
+    ///
+    /// Answered exactly once per `(topic, requestId)`. WalletConnect clients
+    /// re-emit a still-pending request (on reconnect, on foreground, after a
+    /// respond) and the relay can redeliver one; a duplicate waits for, or
+    /// reuses, the first answer instead of reaching the engine, and the user,
+    /// a second time. For a payment that is the difference between one
+    /// approval sheet and two.
     public func handle(_ request: WcRequest) async -> WcResponse {
-        let frame = JSONRPCRequest(
-            method: WcMethod.normalize(request.method),
-            params: request.params,
-            id: .int(request.requestId)
-        )
-        let response = await handler.handle(frame)
-        if let error = response.error {
-            return .error(code: error.code, message: error.message)
+        let handler = self.handler
+        return await answers.answer(topic: request.topic, id: request.requestId) {
+            let frame = JSONRPCRequest(
+                method: WcMethod.normalize(request.method),
+                params: request.params,
+                id: .int(request.requestId)
+            )
+            let response = await handler.handle(frame)
+            if let error = response.error {
+                return .error(code: error.code, message: error.message)
+            }
+            return .success(result: response.result ?? .null)
         }
-        return .success(result: response.result ?? .null)
     }
 
 }
@@ -155,5 +167,43 @@ enum WcMethod {
     static func isServableRequest(_ method: String) -> Bool {
         guard let engineMethod = DappMethod(rawValue: normalize(method)) else { return false }
         return !engineMethod.isEvent
+    }
+}
+
+/// Exactly-once answering keyed by `(topic, request id)`, bounded to the most
+/// recent entries. The first caller for a key runs `body`; every caller for
+/// that key, concurrent or later, gets that same answer.
+final class WcRequestLedger: @unchecked Sendable {
+    private struct Key: Hashable {
+        let topic: String
+        let id: Int64
+    }
+
+    private let lock = NSLock()
+    private var tasks: [Key: Task<WcResponse, Never>] = [:]
+    private var order: [Key] = []
+    private let capacity: Int
+
+    init(capacity: Int = 64) {
+        self.capacity = capacity
+    }
+
+    func answer(
+        topic: String,
+        id: Int64,
+        _ body: @escaping @Sendable () async -> WcResponse
+    ) async -> WcResponse {
+        let key = Key(topic: topic, id: id)
+        let task: Task<WcResponse, Never> = lock.withLock {
+            if let existing = tasks[key] { return existing }
+            let created = Task { await body() }
+            tasks[key] = created
+            order.append(key)
+            if order.count > capacity {
+                tasks.removeValue(forKey: order.removeFirst())
+            }
+            return created
+        }
+        return await task.value
     }
 }
