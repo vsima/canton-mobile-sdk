@@ -144,6 +144,33 @@ class CantonWalletConnectTest {
     }
 
     @Test
+    fun `the envelope expiry reaches the approver`() = runBlocking {
+        val seen = mutableListOf<io.github.vsima.canton.dapp.DappRequestContext>()
+        val approver = object : DappApprovalDelegate {
+            override suspend fun approve(request: DappApprovalRequest): DappApproval =
+                approve(request, io.github.vsima.canton.dapp.DappRequestContext.NONE)
+            override suspend fun approve(
+                request: DappApprovalRequest,
+                context: io.github.vsima.canton.dapp.DappRequestContext,
+            ): DappApproval {
+                seen += context
+                return when (request) {
+                    is DappApprovalRequest.Connection -> DappApproval.Approved(request.available)
+                    else -> DappApproval.Approved()
+                }
+            }
+        }
+        val wc = CantonWalletConnect(session(approver), "canton:localnet")
+        val deadline = java.time.Instant.ofEpochSecond(1_800_000_000)
+        assertIs<WcResponse.Success>(wc.handle(req(1, "connect").copy(expiresAt = deadline)))
+        assertEquals(listOf(io.github.vsima.canton.dapp.DappRequestContext(deadline)), seen)
+
+        // No expiry on the wire is no expiry in the context, not a made-up one.
+        wc.handle(req(2, "signMessage", buildJsonObject { put("message", "hi") }))
+        assertEquals(io.github.vsima.canton.dapp.DappRequestContext(null), seen.last())
+    }
+
+    @Test
     fun `an unknown method maps to unsupported-method`() = runBlocking {
         val wc = CantonWalletConnect(session(approveAll), "canton:localnet")
         val err = assertIs<WcResponse.Error>(wc.handle(req(1, "bogus")))

@@ -156,6 +156,32 @@ import Testing
         guard case .error = fresh else { Issue.record("a back-to-back signMessage is rate-limited"); return }
     }
 
+    /// Answers like `approveAll` and remembers the context it was handed.
+    final class ContextApprover: DappApprovalDelegate, @unchecked Sendable {
+        private let lock = NSLock()
+        private var seen: [DappRequestContext] = []
+        var contexts: [DappRequestContext] { lock.withLock { seen } }
+        func approve(_ request: DappApprovalRequest, context: DappRequestContext) async -> DappApproval {
+            lock.withLock { seen.append(context) }
+            if case .connection(_, _, let available) = request { return .approved(accounts: available) }
+            return .approved()
+        }
+    }
+
+    @Test func theEnvelopeExpiryReachesTheApprover() async throws {
+        let approver = ContextApprover()
+        let wc = try CantonWalletConnect(handler: session(approver: approver), networkId: "canton:localnet")
+        let deadline = Date(timeIntervalSince1970: 1_800_000_000)
+        var connect = req(1, "connect")
+        connect.expiresAt = deadline
+        guard case .success = await wc.handle(connect) else { Issue.record("connect should succeed"); return }
+        #expect(approver.contexts == [DappRequestContext(expiresAt: deadline)])
+
+        // No expiry on the wire is no expiry in the context, not a made-up one.
+        _ = await wc.handle(req(2, "signMessage", .object(["message": .string("hi")])))
+        #expect(approver.contexts.last == DappRequestContext(expiresAt: nil))
+    }
+
     @Test func connectThenSignMessageReturnsASignatureOverTheSession() async throws {
         let wc = try CantonWalletConnect(handler: session(approver: approveAll), networkId: "canton:localnet")
         guard case .success = await wc.handle(req(1, "connect")) else {

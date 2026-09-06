@@ -11,6 +11,7 @@ import io.github.vsima.canton.dapp.DappJson
 import io.github.vsima.canton.dapp.DappMethod
 import io.github.vsima.canton.dapp.DappProvider
 import io.github.vsima.canton.dapp.DappProviderType
+import io.github.vsima.canton.dapp.DappRequestContext
 import io.github.vsima.canton.dapp.DappRequestHandler
 import io.github.vsima.canton.dapp.DappStatus
 import io.github.vsima.canton.dapp.DappWallet
@@ -139,8 +140,11 @@ public class DappSession(
      * id, which callers should drop; returning null instead would make the
      * signature awkward for every transport that only ever sends requests.
      */
-    override suspend fun handle(request: JsonRpcRequest): JsonRpcResponse = try {
-        JsonRpcResponse.success(request.id, dispatch(request))
+    override suspend fun handle(request: JsonRpcRequest): JsonRpcResponse =
+        handle(request, DappRequestContext.NONE)
+
+    override suspend fun handle(request: JsonRpcRequest, context: DappRequestContext): JsonRpcResponse = try {
+        JsonRpcResponse.success(request.id, dispatch(request, context))
     } catch (e: DappException) {
         JsonRpcResponse.failure(request.id, e)
     } catch (e: CancellationException) {
@@ -154,14 +158,14 @@ public class DappSession(
         )
     }
 
-    private suspend fun dispatch(request: JsonRpcRequest): JsonElement {
+    private suspend fun dispatch(request: JsonRpcRequest, context: DappRequestContext): JsonElement {
         val method = DappMethod.fromWire(request.method)
             ?: throw DappException(
                 DappErrorCode.UNSUPPORTED_METHOD,
                 "unknown method '${request.method}'",
             )
         return when (method) {
-            DappMethod.CONNECT -> DappJson.encode(connect())
+            DappMethod.CONNECT -> DappJson.encode(connect(context))
             DappMethod.DISCONNECT -> {
                 disconnect()
                 JsonNull
@@ -175,14 +179,14 @@ public class DappSession(
             DappMethod.LIST_ACCOUNTS -> DappJson.encodeAccounts(requireGrant())
             DappMethod.GET_PRIMARY_ACCOUNT -> DappJson.encode(primaryAccount())
             DappMethod.SIGN_MESSAGE -> DappJson.encode(
-                signMessage(DappJson.decodeSignMessageRequest(request.paramsOrThrow()).message),
+                signMessage(DappJson.decodeSignMessageRequest(request.paramsOrThrow()).message, context),
             )
             DappMethod.PREPARE_EXECUTE -> {
-                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow()))
+                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow()), context)
                 JsonNull
             }
             DappMethod.PREPARE_EXECUTE_AND_WAIT -> DappJson.encodeExecutedResult(
-                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow())),
+                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow()), context),
             )
             DappMethod.LEDGER_API -> runLedgerApi(
                 DappJson.decodeLedgerApiRequest(request.paramsOrThrow()),
@@ -201,7 +205,7 @@ public class DappSession(
 
     // ── Connection ─────────────────────────────────────────────────────
 
-    private suspend fun connect(): ConnectResult {
+    private suspend fun connect(context: DappRequestContext): ConnectResult {
         // Idempotent: agents call connect before each request to ensure they
         // have accounts, so a peer that is already connected and granted must
         // not re-raise the account-share sheet. Return the existing grant.
@@ -210,6 +214,7 @@ public class DappSession(
         val available = accounts.accounts()
         val decision = approver.approve(
             DappApprovalRequest.Connection(peer, network.toDappNetwork(), available),
+            context,
         )
         val approved = when (decision) {
             is DappApproval.Rejected -> {
@@ -310,7 +315,7 @@ public class DappSession(
 
     // ── signMessage ────────────────────────────────────────────────────
 
-    private suspend fun signMessage(message: String): SignMessageResult {
+    private suspend fun signMessage(message: String, context: DappRequestContext): SignMessageResult {
         val signer = messageSigner ?: throw DappException(
             DappErrorCode.UNSUPPORTED_METHOD,
             "this wallet does not implement signMessage",
@@ -321,7 +326,7 @@ public class DappSession(
         val messageId = UUID.randomUUID().toString()
         _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Pending(messageId)))
 
-        val decision = approver.approve(DappApprovalRequest.Message(peer, account, message))
+        val decision = approver.approve(DappApprovalRequest.Message(peer, account, message), context)
         if (decision is DappApproval.Rejected) {
             report(DappActivity.Kind.MESSAGE_DECLINED, detail = decision.reason)
             _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Failed(messageId)))
@@ -366,7 +371,10 @@ public class DappSession(
 
     // ── prepareExecute ─────────────────────────────────────────────────
 
-    private suspend fun runPrepareExecute(submission: PrepareSubmission): TxChangedEvent.Executed {
+    private suspend fun runPrepareExecute(
+        submission: PrepareSubmission,
+        context: DappRequestContext,
+    ): TxChangedEvent.Executed {
         val pipeline = prepareExecute ?: throw DappException(
             DappErrorCode.UNSUPPORTED_METHOD,
             "this wallet does not implement prepareExecute",
@@ -395,6 +403,7 @@ public class DappSession(
                 report(DappActivity.Kind.TRANSACTION_REQUESTED, summary)
                 val decision = approver.approve(
                     DappApprovalRequest.Transaction(peer, account, network.toDappNetwork(), submission),
+                    context,
                 )
                 if (decision is DappApproval.Rejected) {
                     report(DappActivity.Kind.TRANSACTION_DECLINED, summary, decision.reason)

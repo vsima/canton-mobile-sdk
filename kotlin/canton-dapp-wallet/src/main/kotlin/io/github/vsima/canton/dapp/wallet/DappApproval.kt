@@ -99,6 +99,14 @@ public sealed interface DappApproval {
  */
 public fun interface DappApprovalDelegate {
     public suspend fun approve(request: DappApprovalRequest): DappApproval
+
+    /** [approve] with what the transport knew, such as the dApp's deadline.
+     *  The default drops the context; a wallet that keeps the dApp's clock
+     *  overrides this one. */
+    public suspend fun approve(
+        request: DappApprovalRequest,
+        context: io.github.vsima.canton.dapp.DappRequestContext,
+    ): DappApproval = approve(request)
 }
 
 /**

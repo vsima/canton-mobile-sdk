@@ -126,8 +126,12 @@ public actor DappSession: DappRequestHandler {
 
     /// Dispatches one JSON-RPC frame.
     public func handle(_ request: JSONRPCRequest) async -> JSONRPCResponse {
+        await handle(request, context: .none)
+    }
+
+    public func handle(_ request: JSONRPCRequest, context: DappRequestContext) async -> JSONRPCResponse {
         do {
-            return .success(id: request.id, result: try await dispatch(request))
+            return .success(id: request.id, result: try await dispatch(request, context: context))
         } catch let error as DappError {
             return .failure(id: request.id, error: error)
         } catch {
@@ -140,7 +144,7 @@ public actor DappSession: DappRequestHandler {
         }
     }
 
-    private func dispatch(_ request: JSONRPCRequest) async throws -> JSONValue {
+    private func dispatch(_ request: JSONRPCRequest, context: DappRequestContext) async throws -> JSONValue {
         guard let method = DappMethod(rawValue: request.method) else {
             throw DappError(code: .unsupportedMethod, message: "unknown method '\(request.method)'")
         }
@@ -155,7 +159,7 @@ public actor DappSession: DappRequestHandler {
 
         switch method {
         case .connect:
-            return DappJSON.encode(try await connect())
+            return DappJSON.encode(try await connect(context: context))
         case .disconnect:
             await disconnect()
             return .null
@@ -172,15 +176,17 @@ public actor DappSession: DappRequestHandler {
             return DappJSON.encode(try primaryAccount())
         case .signMessage:
             let params = try DappJSON.decodeSignMessageRequest(try request.requireParams())
-            return DappJSON.encode(try await signMessage(params.message))
+            return DappJSON.encode(try await signMessage(params.message, context: context))
         case .prepareExecute:
             _ = try await runPrepareExecute(
-                try DappJSON.decodePrepareSubmission(try request.requireParams())
+                try DappJSON.decodePrepareSubmission(try request.requireParams()),
+                context: context
             )
             return .null
         case .prepareExecuteAndWait:
             let executed = try await runPrepareExecute(
-                try DappJSON.decodePrepareSubmission(try request.requireParams())
+                try DappJSON.decodePrepareSubmission(try request.requireParams()),
+                context: context
             )
             return DappJSON.encodeExecutedResult(executed)
         case .ledgerApi:
@@ -194,14 +200,15 @@ public actor DappSession: DappRequestHandler {
 
     // ── Connection ─────────────────────────────────────────────────────
 
-    private func connect() async throws -> ConnectResult {
+    private func connect(context: DappRequestContext) async throws -> ConnectResult {
         // Idempotent: agents call connect before each request to ensure they
         // have accounts, so a peer that is already connected and granted must
         // not re-raise the account-share sheet. Return the existing grant.
         if connected, !granted.isEmpty { return connectResult() }
         let available = try await accounts.accounts()
         let decision = await approver.approve(
-            .connection(peer: peer, network: network.dappNetwork, available: available)
+            .connection(peer: peer, network: network.dappNetwork, available: available),
+            context: context
         )
         guard case .approved(let approved) = decision else {
             guard case .rejected(let reason) = decision else {
@@ -288,7 +295,7 @@ public actor DappSession: DappRequestHandler {
 
     // ── signMessage ────────────────────────────────────────────────────
 
-    private func signMessage(_ message: String) async throws -> SignMessageResult {
+    private func signMessage(_ message: String, context: DappRequestContext) async throws -> SignMessageResult {
         guard let signer = messageSigner else {
             throw DappError(code: .unsupportedMethod, message: "this wallet does not implement signMessage")
         }
@@ -298,7 +305,10 @@ public actor DappSession: DappRequestHandler {
         let messageId = UUID().uuidString
         eventContinuation.yield(.messageSignature(.pending(messageId: messageId)))
 
-        let decision = await approver.approve(.message(peer: peer, signWith: account, message: message))
+        let decision = await approver.approve(
+            .message(peer: peer, signWith: account, message: message),
+            context: context
+        )
         if case .rejected(let reason) = decision {
             report(.messageDeclined, detail: reason)
             eventContinuation.yield(.messageSignature(.failed(messageId: messageId)))
@@ -351,7 +361,10 @@ public actor DappSession: DappRequestHandler {
         return try await body()
     }
 
-    private func runPrepareExecute(_ submission: PrepareSubmission) async throws -> TxChangedEvent {
+    private func runPrepareExecute(
+        _ submission: PrepareSubmission,
+        context: DappRequestContext
+    ) async throws -> TxChangedEvent {
         guard let pipeline = prepareExecutePipeline else {
             throw DappError(code: .unsupportedMethod, message: "this wallet does not implement prepareExecute")
         }
@@ -359,7 +372,7 @@ public actor DappSession: DappRequestHandler {
         try authorizeReadAs(submission)
         let commandId = submission.commandId ?? UUID().uuidString
         return try await withSubmissionLock {
-            try await executeGated(submission, account: account, commandId: commandId, with: pipeline)
+            try await executeGated(submission, account: account, commandId: commandId, context: context, with: pipeline)
         }
     }
 
@@ -367,6 +380,7 @@ public actor DappSession: DappRequestHandler {
         _ submission: PrepareSubmission,
         account: DappWallet,
         commandId: String,
+        context: DappRequestContext,
         with pipeline: PrepareExecutePipeline
     ) async throws -> TxChangedEvent {
         let policy = spendPolicy()
@@ -390,7 +404,8 @@ public actor DappSession: DappRequestHandler {
         } else {
             report(.transactionRequested, transfer: summary)
             let decision = await approver.approve(
-                .transaction(peer: peer, actAs: account, network: network.dappNetwork, submission: submission)
+                .transaction(peer: peer, actAs: account, network: network.dappNetwork, submission: submission),
+                context: context
             )
             if case .rejected(let reason) = decision {
                 report(.transactionDeclined, transfer: summary, detail: reason)

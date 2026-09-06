@@ -28,6 +28,8 @@ public data class WcRequest(
     val chainId: String,
     val method: String,
     val params: JsonElement? = null,
+    /** The envelope's expiry: when the dApp stops waiting for an answer. */
+    val expiresAt: java.time.Instant? = null,
 )
 
 /** The adapter's answer to a [WcRequest] — exactly one of success or error. */

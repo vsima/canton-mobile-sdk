@@ -64,6 +64,31 @@ public interface DappRequestHandler {
      *  protocol-level failures — return a JSON-RPC error response instead. */
     public suspend fun handle(request: JsonRpcRequest): JsonRpcResponse
 
+    /** [handle] with what the transport knew about the request. A transport
+     *  that carries a deadline calls this; the default ignores the context,
+     *  so a handler with no use for it implements only the other. */
+    public suspend fun handle(request: JsonRpcRequest, context: DappRequestContext): JsonRpcResponse =
+        handle(request)
+
     /** Events to forward to the connected dApp as JSON-RPC notifications. */
     public val events: Flow<DappEvent>
+}
+
+/**
+ * What a transport knows about an inbound request beyond the frame itself.
+ *
+ * A JSON-RPC frame carries no deadline, but the envelope around it often
+ * does: a WalletConnect `session_request` names when the dApp stops waiting
+ * for an answer. The wallet needs that to run the same clock the dApp runs,
+ * so a request it parks for later is declined when the dApp gives up, not on
+ * a guess.
+ *
+ * @property expiresAt when the dApp stops waiting for an answer, if the
+ *   transport carries it.
+ */
+public data class DappRequestContext(val expiresAt: java.time.Instant? = null) {
+    public companion object {
+        /** A transport that knows nothing extra. */
+        public val NONE: DappRequestContext = DappRequestContext()
+    }
 }

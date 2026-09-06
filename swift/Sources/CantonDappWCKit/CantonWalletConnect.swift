@@ -113,7 +113,7 @@ public final class CantonWalletConnect: Sendable {
                 params: request.params,
                 id: .int(request.requestId)
             )
-            let response = await handler.handle(frame)
+            let response = await handler.handle(frame, context: DappRequestContext(expiresAt: request.expiresAt))
             if let error = response.error {
                 return .error(code: error.code, message: error.message)
             }

@@ -4,6 +4,7 @@
 package io.github.vsima.canton.dapp.wc
 
 import io.github.vsima.canton.dapp.DappMethod
+import io.github.vsima.canton.dapp.DappRequestContext
 import io.github.vsima.canton.dapp.DappRequestHandler
 import io.github.vsima.canton.dapp.DappWallet
 import io.github.vsima.canton.dapp.JsonRpcRequest
@@ -122,7 +123,7 @@ public class CantonWalletConnect(
                 params = request.params,
                 id = JsonPrimitive(request.requestId),
             )
-            val response = handler.handle(frame)
+            val response = handler.handle(frame, DappRequestContext(request.expiresAt))
             val error = response.error
             if (error != null) {
                 WcResponse.Error(error.code, error.message)
