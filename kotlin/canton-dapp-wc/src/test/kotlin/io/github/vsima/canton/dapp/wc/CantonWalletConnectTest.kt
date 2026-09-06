@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
@@ -104,6 +105,69 @@ class CantonWalletConnectTest {
         val signed = wc.handle(req(2, "signMessage", buildJsonObject { put("message", "hello canton") }))
         val ok = assertIs<WcResponse.Success>(signed)
         assertEquals("sig:hello canton", ok.result.jsonObject["signature"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `a redelivered request reaches the engine once and gets the same answer`() = runBlocking {
+        val asked = java.util.concurrent.atomic.AtomicInteger()
+        val approver = DappApprovalDelegate { request ->
+            asked.incrementAndGet()
+            when (request) {
+                is DappApprovalRequest.Connection -> DappApproval.Approved(request.available)
+                else -> DappApproval.Approved()
+            }
+        }
+        val wc = CantonWalletConnect(session(approver), "canton:localnet")
+        assertIs<WcResponse.Success>(wc.handle(req(1, "connect")))
+        val sign = req(2, "signMessage", buildJsonObject { put("message", "once") })
+
+        // The relay redelivers while the first copy is still in flight...
+        val first = async { wc.handle(sign) }
+        val second = async { wc.handle(sign) }
+        val a = first.await()
+        assertEquals(a, second.await())
+        val ok = assertIs<WcResponse.Success>(a)
+        assertEquals("sig:once", ok.result.jsonObject["signature"]?.jsonPrimitive?.content)
+
+        // ...and again after it was answered: still the same answer, no new prompt.
+        assertEquals(a, wc.handle(sign))
+        assertEquals(2, asked.get(), "connect once, sign once")
+
+        // A different id on the same topic is a new request: it reaches the
+        // engine (which rate-limits a second signMessage this soon) instead of
+        // being served the first id's signature.
+        val fresh = wc.handle(req(3, "signMessage", buildJsonObject { put("message", "twice") }))
+        assertTrue(fresh != a)
+        // Ends in Unit on purpose: JUnit silently skips a test whose body
+        // (the runBlocking value) is anything else.
+        assertTrue(fresh is WcResponse.Error, "a back-to-back signMessage is rate-limited")
+    }
+
+    @Test
+    fun `the envelope expiry reaches the approver`() = runBlocking {
+        val seen = mutableListOf<io.github.vsima.canton.dapp.DappRequestContext>()
+        val approver = object : DappApprovalDelegate {
+            override suspend fun approve(request: DappApprovalRequest): DappApproval =
+                approve(request, io.github.vsima.canton.dapp.DappRequestContext.NONE)
+            override suspend fun approve(
+                request: DappApprovalRequest,
+                context: io.github.vsima.canton.dapp.DappRequestContext,
+            ): DappApproval {
+                seen += context
+                return when (request) {
+                    is DappApprovalRequest.Connection -> DappApproval.Approved(request.available)
+                    else -> DappApproval.Approved()
+                }
+            }
+        }
+        val wc = CantonWalletConnect(session(approver), "canton:localnet")
+        val deadline = java.time.Instant.ofEpochSecond(1_800_000_000)
+        assertIs<WcResponse.Success>(wc.handle(req(1, "connect").copy(expiresAt = deadline)))
+        assertEquals(listOf(io.github.vsima.canton.dapp.DappRequestContext(deadline)), seen)
+
+        // No expiry on the wire is no expiry in the context, not a made-up one.
+        wc.handle(req(2, "signMessage", buildJsonObject { put("message", "hi") }))
+        assertEquals(io.github.vsima.canton.dapp.DappRequestContext(null), seen.last())
     }
 
     @Test

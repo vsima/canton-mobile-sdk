@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import CantonDappKit
+import Foundation
 
 // The transport-neutral shapes the WalletConnect adapter exchanges with its
 // client binding.
@@ -15,26 +16,30 @@ import CantonDappKit
 /// One inbound WalletConnect `session_request`, normalised.
 ///
 /// `requestId` is the WalletConnect envelope id the client responds against;
-/// `method`/`params` are the CIP-0103 JSON-RPC call it carries.
+/// `method`/`params` are the CIP-0103 JSON-RPC call it carries; `expiresAt`
+/// is the envelope's expiry, when the dApp stops waiting for an answer.
 public struct WcRequest: Sendable, Equatable {
     public var topic: String
     public var requestId: Int64
     public var chainId: String
     public var method: String
     public var params: JSONValue?
+    public var expiresAt: Date?
 
     public init(
         topic: String,
         requestId: Int64,
         chainId: String,
         method: String,
-        params: JSONValue? = nil
+        params: JSONValue? = nil,
+        expiresAt: Date? = nil
     ) {
         self.topic = topic
         self.requestId = requestId
         self.chainId = chainId
         self.method = method
         self.params = params
+        self.expiresAt = expiresAt
     }
 }
 

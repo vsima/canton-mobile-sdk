@@ -4,9 +4,13 @@
 package io.github.vsima.canton.dapp.wc
 
 import io.github.vsima.canton.dapp.DappMethod
+import io.github.vsima.canton.dapp.DappRequestContext
 import io.github.vsima.canton.dapp.DappRequestHandler
 import io.github.vsima.canton.dapp.DappWallet
 import io.github.vsima.canton.dapp.JsonRpcRequest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -103,21 +107,32 @@ public class CantonWalletConnect(
      * The engine never throws for protocol failures — it returns a JSON-RPC
      * error — so this maps error responses to [WcResponse.Error] (carrying the
      * CIP-0103 / EIP-1193 code) and everything else to [WcResponse.Success].
+     *
+     * Answered exactly once per `(topic, requestId)`. WalletConnect clients
+     * re-emit a still-pending request (on reconnect, on foreground, after a
+     * respond) and the relay can redeliver one; a duplicate waits for, or
+     * reuses, the first answer instead of reaching the engine, and the user,
+     * a second time. For a payment that is the difference between one
+     * approval sheet and two.
+
      */
-    public suspend fun handle(request: WcRequest): WcResponse {
-        val frame = JsonRpcRequest(
-            method = WcMethod.normalize(request.method),
-            params = request.params,
-            id = JsonPrimitive(request.requestId),
-        )
-        val response = handler.handle(frame)
-        val error = response.error
-        return if (error != null) {
-            WcResponse.Error(error.code, error.message)
-        } else {
-            WcResponse.Success(response.result ?: JsonNull)
+    public suspend fun handle(request: WcRequest): WcResponse =
+        answers.answer(request.topic, request.requestId) {
+            val frame = JsonRpcRequest(
+                method = WcMethod.normalize(request.method),
+                params = request.params,
+                id = JsonPrimitive(request.requestId),
+            )
+            val response = handler.handle(frame, DappRequestContext(request.expiresAt))
+            val error = response.error
+            if (error != null) {
+                WcResponse.Error(error.code, error.message)
+            } else {
+                WcResponse.Success(response.result ?: JsonNull)
+            }
         }
-    }
+
+    private val answers = WcRequestLedger()
 
 }
 
@@ -180,5 +195,38 @@ internal object WcMethod {
     fun isServableRequest(method: String): Boolean {
         val engineMethod = DappMethod.fromWire(normalize(method)) ?: return false
         return engineMethod !in EVENT_METHODS
+    }
+}
+
+/**
+ * Exactly-once answering keyed by `(topic, request id)`, bounded to the most
+ * recent entries. The first caller for a key runs [body]; every caller for
+ * that key, concurrent or later, gets that same answer.
+ */
+internal class WcRequestLedger(private val capacity: Int = 64) {
+    private data class Key(val topic: String, val id: Long)
+
+    private val mutex = Mutex()
+    private val answers = LinkedHashMap<Key, CompletableDeferred<WcResponse>>()
+
+    suspend fun answer(topic: String, id: Long, body: suspend () -> WcResponse): WcResponse {
+        val key = Key(topic, id)
+        var owner = false
+        val deferred = mutex.withLock {
+            answers[key] ?: CompletableDeferred<WcResponse>().also {
+                answers[key] = it
+                owner = true
+                while (answers.size > capacity) answers.remove(answers.keys.first())
+            }
+        }
+        if (owner) {
+            try {
+                deferred.complete(body())
+            } catch (t: Throwable) {
+                deferred.completeExceptionally(t)
+                throw t
+            }
+        }
+        return deferred.await()
     }
 }

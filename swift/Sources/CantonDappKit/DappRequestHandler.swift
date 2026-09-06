@@ -1,6 +1,27 @@
 // Copyright (c) 2026 Victor Sima
 // SPDX-License-Identifier: Apache-2.0
 
+import Foundation
+
+/// What a transport knows about an inbound request beyond the frame itself.
+///
+/// A JSON-RPC frame carries no deadline, but the envelope around it often
+/// does: a WalletConnect `session_request` names when the dApp stops waiting
+/// for an answer. The wallet needs that to run the same clock the dApp runs,
+/// so a request it parks for later is declined when the dApp gives up, not
+/// on a guess.
+public struct DappRequestContext: Sendable, Equatable {
+    /// When the dApp stops waiting for an answer, if the transport carries it.
+    public var expiresAt: Date?
+
+    public init(expiresAt: Date? = nil) {
+        self.expiresAt = expiresAt
+    }
+
+    /// A transport that knows nothing extra.
+    public static let none = DappRequestContext()
+}
+
 /// The wallet-side counterpart of ``DappTransport``: something that answers
 /// JSON-RPC frames and emits events.
 ///
@@ -17,6 +38,17 @@ public protocol DappRequestHandler: Sendable {
     /// protocol-level failures — return a JSON-RPC error response instead.
     func handle(_ request: JSONRPCRequest) async -> JSONRPCResponse
 
+    /// ``handle(_:)`` with what the transport knew about the request. A
+    /// transport that carries a deadline calls this; the default ignores the
+    /// context, so a handler that has no use for it implements only the other.
+    func handle(_ request: JSONRPCRequest, context: DappRequestContext) async -> JSONRPCResponse
+
     /// Events to forward to the connected dApp as JSON-RPC notifications.
     var events: AsyncStream<DappEvent> { get }
+}
+
+public extension DappRequestHandler {
+    func handle(_ request: JSONRPCRequest, context: DappRequestContext) async -> JSONRPCResponse {
+        await handle(request)
+    }
 }

@@ -87,8 +87,23 @@ public enum DappApproval: Sendable, Equatable {
 /// without asking turns the wallet into a custodial signer for whoever holds
 /// the transport, which is a different product with a different security
 /// review.
+///
+/// Implement one of the two methods. ``approve(_:context:)`` also receives
+/// what the transport knew, such as the dApp's deadline; each has a default
+/// that forwards to the other, so implementing neither recurses.
 public protocol DappApprovalDelegate: Sendable {
     func approve(_ request: DappApprovalRequest) async -> DappApproval
+    func approve(_ request: DappApprovalRequest, context: DappRequestContext) async -> DappApproval
+}
+
+public extension DappApprovalDelegate {
+    func approve(_ request: DappApprovalRequest) async -> DappApproval {
+        await approve(request, context: .none)
+    }
+
+    func approve(_ request: DappApprovalRequest, context: DappRequestContext) async -> DappApproval {
+        await approve(request)
+    }
 }
 
 /// The accounts a wallet could offer a dApp.

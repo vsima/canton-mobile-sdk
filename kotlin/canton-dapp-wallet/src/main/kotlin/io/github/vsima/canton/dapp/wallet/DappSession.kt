@@ -11,6 +11,7 @@ import io.github.vsima.canton.dapp.DappJson
 import io.github.vsima.canton.dapp.DappMethod
 import io.github.vsima.canton.dapp.DappProvider
 import io.github.vsima.canton.dapp.DappProviderType
+import io.github.vsima.canton.dapp.DappRequestContext
 import io.github.vsima.canton.dapp.DappRequestHandler
 import io.github.vsima.canton.dapp.DappStatus
 import io.github.vsima.canton.dapp.DappWallet
@@ -70,11 +71,33 @@ public class DappSession(
     /** Minimum gap between `signMessage` calls; see [DappApprovalRequest.Message]. */
     private val signMessageMinInterval: Duration = 1.seconds,
     private val timeSource: TimeSource = TimeSource.Monotonic,
+    /**
+     * The current [DappSpendPolicy] for this peer, read fresh on every
+     * transaction so the wallet's policy editor takes effect immediately.
+     * Null (the default) means no policy: every transaction asks the human.
+     */
+    private val spendPolicy: () -> DappSpendPolicy? = { null },
+    /** Where spends are recorded and the rolling daily cap is read from. */
+    private val spendLedger: SpendLedger = InMemorySpendLedger(),
+    /** Wall-clock for receipts and the rolling window; injectable for tests. */
+    private val wallClock: () -> java.time.Instant = java.time.Instant::now,
+    /** The wallet-facing activity feed; see [DappActivityObserver]. */
+    private val activityObserver: DappActivityObserver? = null,
 ) : DappRequestHandler {
     private val lock = Mutex()
+
+    /**
+     * Serializes the whole transaction path: policy check, approval,
+     * execution, and the spend record happen under one lock, so concurrent
+     * frames cannot both pass a cap check that only one of them fits under
+     * (the R3 time-of-check/time-of-use race). One transaction at a time per
+     * session is also the honest UI: one sheet, not a stack.
+     */
+    private val submissionLock = Mutex()
     private var granted: List<DappWallet> = emptyList()
     private var connected: Boolean = false
     private var lastSignMessageAt: TimeMark? = null
+    private var lastTransactionAt: TimeMark? = null
 
     private val _events = MutableSharedFlow<DappEvent>(
         replay = 0,
@@ -87,6 +110,29 @@ public class DappSession(
     /** The accounts this peer may currently see. Empty until [DappMethod.CONNECT] is approved. */
     public suspend fun grantedAccounts(): List<DappWallet> = lock.withLock { granted }
 
+    /** Reports to the host's activity feed; never lets a broken log break a request. */
+    private fun report(
+        kind: DappActivity.Kind,
+        transfer: DappTransferSummary? = null,
+        detail: String? = null,
+    ) {
+        val observer = activityObserver ?: return
+        try {
+            observer.onActivity(
+                DappActivity(
+                    peerId = peer.id,
+                    peerName = peer.name,
+                    at = wallClock(),
+                    kind = kind,
+                    transfer = transfer,
+                    detail = detail,
+                ),
+            )
+        } catch (_: Throwable) {
+            // The feed is a record, not a control; see DappActivityObserver.
+        }
+    }
+
     /**
      * Dispatches one JSON-RPC frame.
      *
@@ -94,8 +140,11 @@ public class DappSession(
      * id, which callers should drop; returning null instead would make the
      * signature awkward for every transport that only ever sends requests.
      */
-    override suspend fun handle(request: JsonRpcRequest): JsonRpcResponse = try {
-        JsonRpcResponse.success(request.id, dispatch(request))
+    override suspend fun handle(request: JsonRpcRequest): JsonRpcResponse =
+        handle(request, DappRequestContext.NONE)
+
+    override suspend fun handle(request: JsonRpcRequest, context: DappRequestContext): JsonRpcResponse = try {
+        JsonRpcResponse.success(request.id, dispatch(request, context))
     } catch (e: DappException) {
         JsonRpcResponse.failure(request.id, e)
     } catch (e: CancellationException) {
@@ -109,14 +158,14 @@ public class DappSession(
         )
     }
 
-    private suspend fun dispatch(request: JsonRpcRequest): JsonElement {
+    private suspend fun dispatch(request: JsonRpcRequest, context: DappRequestContext): JsonElement {
         val method = DappMethod.fromWire(request.method)
             ?: throw DappException(
                 DappErrorCode.UNSUPPORTED_METHOD,
                 "unknown method '${request.method}'",
             )
         return when (method) {
-            DappMethod.CONNECT -> DappJson.encode(connect())
+            DappMethod.CONNECT -> DappJson.encode(connect(context))
             DappMethod.DISCONNECT -> {
                 disconnect()
                 JsonNull
@@ -130,14 +179,14 @@ public class DappSession(
             DappMethod.LIST_ACCOUNTS -> DappJson.encodeAccounts(requireGrant())
             DappMethod.GET_PRIMARY_ACCOUNT -> DappJson.encode(primaryAccount())
             DappMethod.SIGN_MESSAGE -> DappJson.encode(
-                signMessage(DappJson.decodeSignMessageRequest(request.paramsOrThrow()).message),
+                signMessage(DappJson.decodeSignMessageRequest(request.paramsOrThrow()).message, context),
             )
             DappMethod.PREPARE_EXECUTE -> {
-                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow()))
+                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow()), context)
                 JsonNull
             }
             DappMethod.PREPARE_EXECUTE_AND_WAIT -> DappJson.encodeExecutedResult(
-                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow())),
+                runPrepareExecute(DappJson.decodePrepareSubmission(request.paramsOrThrow()), context),
             )
             DappMethod.LEDGER_API -> runLedgerApi(
                 DappJson.decodeLedgerApiRequest(request.paramsOrThrow()),
@@ -156,22 +205,32 @@ public class DappSession(
 
     // ── Connection ─────────────────────────────────────────────────────
 
-    private suspend fun connect(): ConnectResult {
+    private suspend fun connect(context: DappRequestContext): ConnectResult {
+        // Idempotent: agents call connect before each request to ensure they
+        // have accounts, so a peer that is already connected and granted must
+        // not re-raise the account-share sheet. Return the existing grant.
+        val alreadyGranted = lock.withLock { connected && granted.isNotEmpty() }
+        if (alreadyGranted) return connectResult()
         val available = accounts.accounts()
         val decision = approver.approve(
             DappApprovalRequest.Connection(peer, network.toDappNetwork(), available),
+            context,
         )
         val approved = when (decision) {
-            is DappApproval.Rejected -> return ConnectResult(
-                isConnected = false,
-                isNetworkConnected = false,
-                reason = decision.reason,
-            )
+            is DappApproval.Rejected -> {
+                report(DappActivity.Kind.CONNECTION_DECLINED, detail = decision.reason)
+                return ConnectResult(
+                    isConnected = false,
+                    isNetworkConnected = false,
+                    reason = decision.reason,
+                )
+            }
             is DappApproval.Approved -> decision.accounts
         }
         // Approving zero accounts is a rejection wearing a different hat.
         // Treating it as success would leave a dApp "connected" to nothing.
         if (approved.isEmpty()) {
+            report(DappActivity.Kind.CONNECTION_DECLINED, detail = "No accounts were shared")
             return ConnectResult(
                 isConnected = false,
                 isNetworkConnected = false,
@@ -193,6 +252,10 @@ public class DappSession(
             granted = approved
             connected = true
         }
+        report(
+            DappActivity.Kind.CONNECTED,
+            detail = approved.joinToString(", ") { it.partyId },
+        )
         _events.emit(DappEvent.AccountsChanged(approved))
         return connectResult()
     }
@@ -252,7 +315,7 @@ public class DappSession(
 
     // ── signMessage ────────────────────────────────────────────────────
 
-    private suspend fun signMessage(message: String): SignMessageResult {
+    private suspend fun signMessage(message: String, context: DappRequestContext): SignMessageResult {
         val signer = messageSigner ?: throw DappException(
             DappErrorCode.UNSUPPORTED_METHOD,
             "this wallet does not implement signMessage",
@@ -263,8 +326,9 @@ public class DappSession(
         val messageId = UUID.randomUUID().toString()
         _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Pending(messageId)))
 
-        val decision = approver.approve(DappApprovalRequest.Message(peer, account, message))
+        val decision = approver.approve(DappApprovalRequest.Message(peer, account, message), context)
         if (decision is DappApproval.Rejected) {
+            report(DappActivity.Kind.MESSAGE_DECLINED, detail = decision.reason)
             _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Failed(messageId)))
             throw DappException(DappErrorCode.USER_REJECTED, decision.reason)
         }
@@ -280,6 +344,7 @@ public class DappSession(
             _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Failed(messageId)))
             throw DappException(DappErrorCode.INTERNAL, e.message ?: "signing failed", cause = e)
         }
+        report(DappActivity.Kind.MESSAGE_SIGNED)
         _events.emit(DappEvent.MessageSignature(MessageSignatureEvent.Signed(messageId, signature)))
         return SignMessageResult(signature)
     }
@@ -306,7 +371,10 @@ public class DappSession(
 
     // ── prepareExecute ─────────────────────────────────────────────────
 
-    private suspend fun runPrepareExecute(submission: PrepareSubmission): TxChangedEvent.Executed {
+    private suspend fun runPrepareExecute(
+        submission: PrepareSubmission,
+        context: DappRequestContext,
+    ): TxChangedEvent.Executed {
         val pipeline = prepareExecute ?: throw DappException(
             DappErrorCode.UNSUPPORTED_METHOD,
             "this wallet does not implement prepareExecute",
@@ -315,33 +383,123 @@ public class DappSession(
         authorizeReadAs(submission)
         val commandId = submission.commandId ?: UUID.randomUUID().toString()
 
-        _events.emit(DappEvent.TxChanged(TxChangedEvent.Pending(commandId)))
-        val decision = approver.approve(
-            DappApprovalRequest.Transaction(peer, account, network.toDappNetwork(), submission),
-        )
-        if (decision is DappApproval.Rejected) {
-            _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
-            throw DappException(DappErrorCode.USER_REJECTED, decision.reason)
-        }
+        // See [submissionLock]: everything from the policy read to the spend
+        // record is one critical section per session.
+        return submissionLock.withLock {
+            val policy = spendPolicy()
+            if (policy != null) rateLimitTransaction(policy)
+            val summary = DappCommandSummary.transferOf(submission)
+            val spendDecision = policy?.decide(summary, spentLast24h(summary)) ?: SpendDecision.AskHuman
 
-        return try {
-            pipeline.execute(
-                PrepareExecuteContext(
-                    commandId = commandId,
-                    actAs = account,
-                    submission = submission,
-                    network = network,
-                    emitEvent = { _events.emit(DappEvent.TxChanged(it)) },
-                ),
-            ).also { _events.emit(DappEvent.TxChanged(it)) }
-        } catch (e: DappException) {
-            _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
-            throw e
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
-            throw DappException(DappErrorCode.INTERNAL, e.message ?: "submission failed", cause = e)
+            _events.emit(DappEvent.TxChanged(TxChangedEvent.Pending(commandId)))
+            if (spendDecision is SpendDecision.Refuse) {
+                report(DappActivity.Kind.TRANSACTION_REFUSED, summary, spendDecision.reason)
+                _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                throw DappException(DappErrorCode.USER_REJECTED, "spend policy: ${spendDecision.reason}")
+            }
+            if (spendDecision is SpendDecision.AutoApprove) {
+                report(DappActivity.Kind.TRANSACTION_AUTO_APPROVED, summary)
+            } else {
+                report(DappActivity.Kind.TRANSACTION_REQUESTED, summary)
+                val decision = approver.approve(
+                    DappApprovalRequest.Transaction(peer, account, network.toDappNetwork(), submission),
+                    context,
+                )
+                if (decision is DappApproval.Rejected) {
+                    report(DappActivity.Kind.TRANSACTION_DECLINED, summary, decision.reason)
+                    _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                    throw DappException(DappErrorCode.USER_REJECTED, decision.reason)
+                }
+            }
+
+            val executed = try {
+                pipeline.execute(
+                    PrepareExecuteContext(
+                        commandId = commandId,
+                        actAs = account,
+                        submission = submission,
+                        network = network,
+                        emitEvent = { _events.emit(DappEvent.TxChanged(it)) },
+                    ),
+                ).also { _events.emit(DappEvent.TxChanged(it)) }
+            } catch (e: DappException) {
+                report(DappActivity.Kind.TRANSACTION_FAILED, summary, e.message)
+                _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                throw e
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                report(DappActivity.Kind.TRANSACTION_FAILED, summary, e.message)
+                _events.emit(DappEvent.TxChanged(TxChangedEvent.Failed(commandId)))
+                throw DappException(DappErrorCode.INTERNAL, e.message ?: "submission failed", cause = e)
+            }
+            recordSpend(summary, spendDecision is SpendDecision.AutoApprove, commandId)
+            report(DappActivity.Kind.TRANSACTION_EXECUTED, summary, executed.updateId)
+            executed
+        }
+    }
+
+    /**
+     * The trailing-24h receipt total for the submission's instrument, the
+     * input to [DappSpendPolicy.decide]'s daily cap. Zero when the submission
+     * is not a parsed transfer: an unparsed submission is never refused by
+     * amount, so the total is irrelevant to its decision.
+     */
+    private suspend fun spentLast24h(summary: DappTransferSummary?): java.math.BigDecimal {
+        if (summary == null) return java.math.BigDecimal.ZERO
+        val since = wallClock().minusSeconds(24 * 60 * 60)
+        return spendLedger.receiptsSince(peer.id, since)
+            .filter { it.instrumentId == summary.instrumentId }
+            .fold(java.math.BigDecimal.ZERO) { total, receipt -> total + receipt.amount }
+    }
+
+    /**
+     * Executed spends become receipts, the source of truth for the rolling
+     * cap and the app's receipts UI. Written only after execution succeeds,
+     * and only for parsed transfers: an unparsed submission has no amount to
+     * record, and the human explicitly approved whatever it was.
+     */
+    private suspend fun recordSpend(summary: DappTransferSummary?, autoApproved: Boolean, commandId: String) {
+        val amount = summary?.amount?.let { text ->
+            try {
+                java.math.BigDecimal(text)
+            } catch (_: NumberFormatException) {
+                null
+            }
+        } ?: return
+        spendLedger.append(
+            SpendReceipt(
+                peerId = peer.id,
+                at = wallClock(),
+                instrumentId = summary.instrumentId,
+                amount = amount,
+                receiver = summary.receiver,
+                autoApproved = autoApproved,
+                commandId = commandId,
+            ),
+        )
+    }
+
+    /**
+     * The transaction counterpart of [rateLimitSignMessage], driven by the
+     * policy's [DappSpendPolicy.minRequestInterval]: an unthrottled peer can
+     * spray sheets until reflex confirms one.
+     */
+    private suspend fun rateLimitTransaction(policy: DappSpendPolicy) {
+        if (policy.minRequestInterval <= Duration.ZERO) return
+        lock.withLock {
+            val last = lastTransactionAt
+            if (last != null && last.elapsedNow() < policy.minRequestInterval) {
+                report(
+                    DappActivity.Kind.TRANSACTION_RATE_LIMITED,
+                    detail = "more than one request per ${policy.minRequestInterval}",
+                )
+                throw DappException(
+                    DappErrorCode.INVALID_INPUT,
+                    "spend policy: transaction requests are rate-limited to one per ${policy.minRequestInterval}",
+                )
+            }
+            lastTransactionAt = timeSource.markNow()
         }
     }
 

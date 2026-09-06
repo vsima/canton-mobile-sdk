@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import CantonDappKit
+import Foundation
 import CantonDappWalletKit
 import Testing
 
@@ -113,6 +114,72 @@ import Testing
             Issue.record("canton_signMessage should succeed"); return
         }
         #expect(result.objectValue?["signature"]?.stringValue == "sig:hi")
+    }
+
+    /// Counts approver calls across threads; `Approver.answer` is synchronous.
+    final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var n = 0
+        func bump() { lock.withLock { n += 1 } }
+        var value: Int { lock.withLock { n } }
+    }
+
+    @Test func aRedeliveredRequestReachesTheEngineOnceAndGetsTheSameAnswer() async throws {
+        let asked = Counter()
+        let approver = Approver { request in
+            asked.bump()
+            if case .connection(_, _, let available) = request { return .approved(accounts: available) }
+            return .approved()
+        }
+        let wc = try CantonWalletConnect(handler: session(approver: approver), networkId: "canton:localnet")
+        _ = await wc.handle(req(1, "connect"))
+        let sign = req(2, "signMessage", .object(["message": .string("once")]))
+
+        // The relay redelivers while the first copy is still in flight...
+        async let first = wc.handle(sign)
+        async let second = wc.handle(sign)
+        let (a, b) = await (first, second)
+        #expect(a == b)
+        guard case .success(let result) = a else { Issue.record("signMessage should succeed"); return }
+        #expect(result.objectValue?["signature"]?.stringValue == "sig:once")
+
+        // ...and again after it was answered: still the same answer, no new prompt.
+        let third = await wc.handle(sign)
+        #expect(third == a)
+        #expect(asked.value == 2, "connect once, sign once")
+
+        // A different id on the same topic is a new request: it reaches the
+        // engine (which rate-limits a second signMessage this soon) instead of
+        // being served the first id's signature.
+        let fresh = await wc.handle(req(3, "signMessage", .object(["message": .string("twice")])))
+        #expect(fresh != a)
+        guard case .error = fresh else { Issue.record("a back-to-back signMessage is rate-limited"); return }
+    }
+
+    /// Answers like `approveAll` and remembers the context it was handed.
+    final class ContextApprover: DappApprovalDelegate, @unchecked Sendable {
+        private let lock = NSLock()
+        private var seen: [DappRequestContext] = []
+        var contexts: [DappRequestContext] { lock.withLock { seen } }
+        func approve(_ request: DappApprovalRequest, context: DappRequestContext) async -> DappApproval {
+            lock.withLock { seen.append(context) }
+            if case .connection(_, _, let available) = request { return .approved(accounts: available) }
+            return .approved()
+        }
+    }
+
+    @Test func theEnvelopeExpiryReachesTheApprover() async throws {
+        let approver = ContextApprover()
+        let wc = try CantonWalletConnect(handler: session(approver: approver), networkId: "canton:localnet")
+        let deadline = Date(timeIntervalSince1970: 1_800_000_000)
+        var connect = req(1, "connect")
+        connect.expiresAt = deadline
+        guard case .success = await wc.handle(connect) else { Issue.record("connect should succeed"); return }
+        #expect(approver.contexts == [DappRequestContext(expiresAt: deadline)])
+
+        // No expiry on the wire is no expiry in the context, not a made-up one.
+        _ = await wc.handle(req(2, "signMessage", .object(["message": .string("hi")])))
+        #expect(approver.contexts.last == DappRequestContext(expiresAt: nil))
     }
 
     @Test func connectThenSignMessageReturnsASignatureOverTheSession() async throws {
