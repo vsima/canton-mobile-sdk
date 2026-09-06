@@ -58,6 +58,7 @@ Capability-level comparison with Digital Asset's TypeScript
 | Traffic purchase | ✅ | ✅ | ✅ | `ValidatorClient.buyTraffic` + `buyTrafficStatus` (validator wallet API), traffic status via `ScanClient.memberTrafficStatus` — full buy → completed → status-reflects loop live-verified on LocalNet |
 | Transfer fee preview | — | ✅ | ✅ | Typed AmuletRules + open-round reads plus a pure `TransferFeeEstimator` (Splice's stepped-rate semantics); on current networks fees are zero by governance (CIP-0078), which the LocalNet run verifies against a real transfer. JS exposes the raw config only |
 | dApp connectivity (CIP-0103) | ✅ | ✅ | ✅ | The dApp client, the wallet-side provider engine, an in-process transport, a **LAN gRPC transport** (`canton-dapp-lan` / `CantonDappLanKit`), a **WalletConnect transport adapter** (`canton-dapp-wc` / `CantonDappWCKit`), the prepare → verify → sign → execute pipeline, and **`signMessage` domain separation** have shipped — held to golden vectors from OpenRPC 0.5.0 that both platforms satisfy, and live-verified end-to-end on LocalNet. The **WalletConnect native binding** (the Reown WalletKit relay I/O and wallet approval UI that drive the adapter) is built in the reference wallets and live-verified on both — Android on-device, iOS on the simulator — the path an *unmodified web* dApp has to a mobile wallet. The LAN and in-process transports carry no relay by design (same device or same network); WalletConnect reaches a wallet over its public relay. JS ships dApp connectivity as a separate, browser-only `@canton-network/dapp-sdk` |
+| Agent spend policy (wallet-side) | — | ✅ | ✅ | `DappSpendPolicy` per peer: hard caps the wallet refuses on its own (per-transaction, rolling daily from receipts, instrument and receiver allowlists, request rate), plus an optional auto-approve line under which a transfer is approved without asking the approver; every outcome reported as `DappActivity`; the dApp's request deadline carried to the approver; redelivered WalletConnect requests answered exactly once. Live-verified in the example wallets (canton-mobile-app). See [docs/agent-spend-policy.md](docs/agent-spend-policy.md). JS has no wallet-side equivalent (its dApp SDK is the asking side) |
 | TLS trust / certificate pinning | — | ✅ | ✅ | `TlsTrust` pins the Ledger API connection to an operator's CA (and the REST clients with it); JS leaves trust to the runtime, which a browser cannot configure at all. Leaf/SPKI pinning is deliberately not offered — see [docs/tls-trust.md](docs/tls-trust.md) |
 | Transport | JSON | gRPC | gRPC | JS speaks the JSON Ledger API; the native SDKs speak the canonical gRPC Ledger API every participant serves |
 
@@ -666,6 +667,25 @@ proven and where.
       sign-in signature can never also be a valid transaction signature —
       byte-exact across platforms via a shared golden vector, checked with
       real crypto over both Ed25519 and P-256
+- [x] **Bounded autonomy for agents** (`DappSpendPolicy`, `SpendLedger`,
+      `DappActivity`): per-peer hard caps decided by the wallet before any
+      sheet (per-transaction, rolling 24h per instrument from receipts,
+      instrument and receiver allowlists, request rate), an optional
+      auto-approve line (off by default; anything unparseable or not a plain
+      token-standard transfer always goes to the approver), the check and
+      the receipt under one per-session lock, and every outcome, approver
+      asked or not, reported to the wallet. Live-verified in the example
+      wallets: 1 CC auto-approved, 5 CC sent to the approver, 100 CC
+      refused. [docs/agent-spend-policy.md](docs/agent-spend-policy.md)
+- [x] **The dApp's deadline reaches the approver**: `DappRequestContext`
+      carries the WalletConnect envelope's expiry through the handler to
+      `approve(request, context)`, so an approver that defers its answer
+      can run on the dApp's own deadline; defaults keep existing handlers
+      and approvers compiling
+- [x] **Exactly-once WalletConnect requests**: clients re-emit a pending
+      request and the relay can redeliver one; the adapter answers each
+      `(topic, requestId)` once, so a redelivered payment never reaches the
+      approver twice. `connect` is idempotent for an already-granted peer
 
 ### Next
 
