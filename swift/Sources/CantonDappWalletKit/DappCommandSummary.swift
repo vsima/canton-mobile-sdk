@@ -3,7 +3,7 @@
 
 import CantonDappKit
 
-/// A dApp-authored transaction, summarised for an approval sheet.
+/// A dApp-authored transaction, summarised for the approver.
 ///
 /// Everything here is parsed from `PrepareSubmission.commands`, which is the
 /// dApp's *intent*: it is what the wallet prepares, and the pipeline verifies
@@ -43,15 +43,15 @@ public struct DappTransferSummary: Sendable, Equatable {
 }
 
 /// Recognises the Canton Token Standard transfer inside a dApp submission so
-/// an approval sheet can show *what moves where* instead of an opaque
+/// an approver can show *what moves where* instead of an opaque
 /// "a transaction".
 ///
 /// The recognition is deliberately strict: ``transferOf(_:)`` returns a
 /// summary only for a submission whose commands are exactly one
 /// `TransferFactory_Transfer` exercise with the standard argument shape.
-/// Anything else is not an error, it is simply not a transfer the sheet can
+/// Anything else is not an error, it is simply not a transfer the approver can
 /// vouch for, and the UI should fall back to ``describe(_:)`` plus the raw
-/// payload. A sheet that guessed at half-parsed commands would show the user
+/// payload. An approver that guessed at half-parsed commands would show the user
 /// a summary the signed transaction is not obliged to match.
 public enum DappCommandSummary {
     /// CIP token-standard metadata key that carries a transfer's memo.
@@ -89,7 +89,7 @@ public enum DappCommandSummary {
     /// choice and template entity, e.g.
     /// `Exercise AmuletRules_DevNet_Tap on AmuletRules`. Unknown shapes
     /// degrade to a labelled placeholder rather than being dropped, so the
-    /// sheet never under-reports how many commands are being approved.
+    /// approver never under-reports how many commands are being approved.
     public static func describe(_ submission: PrepareSubmission) -> [String] {
         submission.commands.map { element in
             guard let command = element.objectValue else { return "Unrecognised command" }

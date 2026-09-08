@@ -4,11 +4,11 @@
 import Foundation
 
 /// Per-peer limits a wallet enforces on a dApp's transactions, checked before
-/// anything reaches the approval sheet.
+/// anything reaches the approver.
 ///
 /// Every field is off by default, so a session with no policy behaves exactly
 /// as before: each transaction asks the human. The caps are *hard*: a request
-/// outside them is refused without raising the sheet, which is what makes a
+/// outside them is refused without asking the approver, which is what makes a
 /// policy a pre-commitment ("this dApp can never move more than X") and what
 /// stops an agent from farming approvals until reflex taps one through.
 /// The wallet's owner can always widen the policy in the app.
@@ -21,7 +21,7 @@ import Foundation
 /// is never refused by amount and never auto-approved. It goes to the human,
 /// flagged, and the human is the gate.
 ///
-/// ``autoApproveBelow`` is the one field that *removes* a sheet: a parsed
+/// ``autoApproveBelow`` is the one field that skips the approver: a parsed
 /// transfer at or under it (and inside every other limit) is approved without
 /// asking, and the receipt records that it was. Off by default; a wallet UI
 /// should treat enabling it as an explicit, per-peer opt-in.
@@ -36,9 +36,9 @@ public struct DappSpendPolicy: Sendable, Equatable {
     public var allowedReceivers: Set<String>?
     /// Minimum gap between transaction requests, seconds. 0 = no rate limit.
     public var minRequestInterval: TimeInterval
-    /// Auto-approve parsed transfers at or below this amount, without the
-    /// sheet. Nil = off: every transaction asks the human. Always bounded by
-    /// the caps above.
+    /// Auto-approve parsed transfers at or below this amount, without asking
+    /// the approver. Nil = off: every transaction goes to the approver. Always
+    /// bounded by the caps above.
     public var autoApproveBelow: Decimal?
 
     /// Creates a policy; every limit is off unless set.
@@ -102,9 +102,9 @@ public struct DappSpendPolicy: Sendable, Equatable {
 
 /// The policy's verdict on one transaction request.
 public enum SpendDecision: Sendable, Equatable {
-    /// Within policy; raise the approval sheet as usual.
+    /// Within policy; ask the approver as usual.
     case askHuman
-    /// Within policy and under the auto-approve bound; skip the sheet.
+    /// Within policy and under the auto-approve bound; skip the approver.
     case autoApprove
     /// Outside policy; refuse without asking. The reason goes back to the dApp.
     case refuse(reason: String)
@@ -124,7 +124,7 @@ public struct SpendReceipt: Sendable, Equatable {
     public var amount: Decimal
     /// The receiving party.
     public var receiver: String
-    /// True when the policy approved without a sheet.
+    /// True when the policy approved without asking the approver.
     public var autoApproved: Bool
     /// The submission's command id, for matching against the ledger.
     public var commandId: String

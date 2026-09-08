@@ -8,10 +8,10 @@ import java.time.Instant
 /**
  * One thing a dApp did or tried to do, as the wallet's owner should see it.
  *
- * The spend policy's hard caps refuse without a sheet, and auto-approval
+ * The spend policy's hard caps refuse without asking the approver, and auto-approval
  * executes without one; both are invisible at the moment they happen. This
  * feed is the counterweight: the session reports *every* notable event to
- * the host, sheet or no sheet, so the app can render an activity log and
+ * the host, approver asked or not, so the app can render an activity log and
  * notify on the silent outcomes. Nothing here feeds back into what gets
  * signed; it is a record, not a control.
  */
@@ -28,7 +28,7 @@ public data class DappActivity(
     val detail: String? = null,
 ) {
     /**
-     * What happened. The sheetless kinds — [TRANSACTION_AUTO_APPROVED],
+     * What happened. The kinds that never reach the approver — [TRANSACTION_AUTO_APPROVED],
      * [TRANSACTION_REFUSED], [TRANSACTION_RATE_LIMITED] — are the ones a host
      * should notify on.
      */
@@ -45,19 +45,19 @@ public data class DappActivity(
         /** The human declined a message signature. */
         MESSAGE_DECLINED,
 
-        /** A transaction raised the approval sheet. */
+        /** A transaction was sent to the approver. */
         TRANSACTION_REQUESTED,
 
-        /** The spend policy approved without a sheet. */
+        /** The spend policy approved without asking the approver. */
         TRANSACTION_AUTO_APPROVED,
 
-        /** The spend policy refused without a sheet. [detail] says why. */
+        /** The spend policy refused without asking the approver. [detail] says why. */
         TRANSACTION_REFUSED,
 
-        /** The policy's rate limit refused a request without a sheet. */
+        /** The policy's rate limit refused a request without asking the approver. */
         TRANSACTION_RATE_LIMITED,
 
-        /** The human declined the transaction on the sheet. */
+        /** The approver declined the transaction. */
         TRANSACTION_DECLINED,
 
         /** The transaction executed. [detail] carries the update id. */
@@ -73,7 +73,7 @@ public data class DappActivity(
  * session's path. Implementations must be quick and must not throw; the
  * session swallows observer exceptions, because a broken log must never
  * break a payment. Hosts persist and render; a local notification for the
- * sheetless kinds (auto-approved, refused, rate-limited) is what keeps the
+ * kinds that never reach the approver (auto-approved, refused, rate-limited) is what keeps the
  * policy honest.
  */
 public fun interface DappActivityObserver {

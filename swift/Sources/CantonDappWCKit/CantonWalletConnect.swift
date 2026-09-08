@@ -106,7 +106,7 @@ public final class CantonWalletConnect: Sendable {
     /// respond) and the relay can redeliver one; a duplicate waits for, or
     /// reuses, the first answer instead of reaching the engine, and the user,
     /// a second time. For a payment that is the difference between one
-    /// approval sheet and two.
+    /// approver and two.
     public func handle(_ request: WcRequest) async -> WcResponse {
         let handler = self.handler
         return await answers.answer(topic: request.topic, id: request.requestId) {

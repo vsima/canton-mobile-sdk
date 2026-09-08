@@ -74,7 +74,7 @@ public class DappSession(
     /**
      * The current [DappSpendPolicy] for this peer, read fresh on every
      * transaction so the wallet's policy editor takes effect immediately.
-     * Null (the default) means no policy: every transaction asks the human.
+     * Null (the default) means no policy: every transaction goes to the approver.
      */
     private val spendPolicy: () -> DappSpendPolicy? = { null },
     /** Where spends are recorded and the rolling daily cap is read from. */
@@ -91,7 +91,7 @@ public class DappSession(
      * execution, and the spend record happen under one lock, so concurrent
      * frames cannot both pass a cap check that only one of them fits under
      * (the R3 time-of-check/time-of-use race). One transaction at a time per
-     * session is also the honest UI: one sheet, not a stack.
+     * session is also the honest UI: one request to the approver at a time, not a stack.
      */
     private val submissionLock = Mutex()
     private var granted: List<DappWallet> = emptyList()
@@ -208,7 +208,7 @@ public class DappSession(
     private suspend fun connect(context: DappRequestContext): ConnectResult {
         // Idempotent: agents call connect before each request to ensure they
         // have accounts, so a peer that is already connected and granted must
-        // not re-raise the account-share sheet. Return the existing grant.
+        // not ask the approver again to share accounts. Return the existing grant.
         val alreadyGranted = lock.withLock { connected && granted.isNotEmpty() }
         if (alreadyGranted) return connectResult()
         val available = accounts.accounts()
@@ -483,7 +483,7 @@ public class DappSession(
     /**
      * The transaction counterpart of [rateLimitSignMessage], driven by the
      * policy's [DappSpendPolicy.minRequestInterval]: an unthrottled peer can
-     * spray sheets until reflex confirms one.
+     * spray requests at the approver until reflex confirms one.
      */
     private suspend fun rateLimitTransaction(policy: DappSpendPolicy) {
         if (policy.minRequestInterval <= Duration.ZERO) return
