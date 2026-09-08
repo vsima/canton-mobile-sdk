@@ -1,0 +1,29 @@
+# canton-mobile-sdk
+
+> Swift and Kotlin SDKs for the Canton Network: self-custody wallets with keys in the Secure Enclave or Android StrongBox, the CIP-0056 token standard, CIP-0103 dApp connectivity over in-process, LAN gRPC, and WalletConnect transports, and a wallet-side spend policy for AI agents. Apache-2.0. Speaks the gRPC Ledger API.
+
+Same type names on both platforms; a page for one maps to the other. Pre-1.0: the README states what is stable.
+
+## Start here
+
+- [README](https://github.com/vsima/canton-mobile-sdk#readme): feature matrix, installation (Swift PM, Gradle), quickstart, layout
+- [Site](https://vsima.github.io/canton-mobile-sdk/): what it is, where it is verified, install, reference apps, agents
+- [API reference](https://vsima.github.io/canton-mobile-sdk/api/): DocC per Swift package, Dokka for the Kotlin modules
+
+## Guides
+
+- [Bounded autonomy for agents](https://github.com/vsima/canton-mobile-sdk/blob/main/docs/agent-spend-policy.md): the wallet-side spend policy, receipts, activity, the dApp's deadline, exactly-once requests
+- [Migrating from @canton-network/wallet-sdk](https://github.com/vsima/canton-mobile-sdk/blob/main/docs/migrating-from-wallet-sdk.md): method-level map from the TypeScript SDK
+- [Prepared-transaction hash](https://github.com/vsima/canton-mobile-sdk/blob/main/docs/prepared-tx-hash.md): what the device verifies before signing
+- [TLS trust](https://github.com/vsima/canton-mobile-sdk/blob/main/docs/tls-trust.md): pinning the Ledger API connection to an operator's CA
+- [Roadmap](https://github.com/vsima/canton-mobile-sdk/blob/main/docs/roadmap.md): shipped (with where each piece is proven), next, exploring
+
+## Reference implementations
+
+- [canton-mobile-app](https://github.com/vsima/canton-mobile-app#readme): an iOS and an Android wallet built only through these SDKs, a dApp shop on the official JS SDKs, a minimal dApp client
+- [canton-agent-mcp](https://github.com/vsima/canton-agent-mcp#readme): an MCP server that lets an AI agent ask that wallet to pay; the human approves on the phone, hardware signs
+
+## Policies
+
+- [Security](https://github.com/vsima/canton-mobile-sdk/blob/main/SECURITY.md): private vulnerability reporting, scope, audit status
+- [License](https://github.com/vsima/canton-mobile-sdk/blob/main/LICENSE): Apache-2.0

@@ -297,6 +297,24 @@
   .foot-links a { font-size: 14.5px; color: var(--graphite); text-decoration: none; }
   .foot-links a:hover { color: var(--ink); }
   .disclaimer { margin-top: 26px; font-size: 13.5px; color: var(--graphite); max-width: 78ch; }
+  /* Stat strip under the hero: the numbers a reviewer looks for first. */
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 26px; }
+  .stat { border-top: 1px solid var(--line); padding-top: 12px; }
+  .stat b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat span { display: block; margin-top: 4px; font-size: 13.5px; color: var(--graphite); line-height: 1.35; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 18px; }
+  .badges img { height: 20px; display: block; }
+  @media (max-width: 860px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  /* Compatibility table */
+  .compat-scroll { overflow-x: auto; }
+  .compat { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+  .compat td { padding: 13px 0; border-top: 1px solid var(--line); vertical-align: top; line-height: 1.45; }
+  .compat tr:last-child td { border-bottom: 1px solid var(--line); }
+  .compat td:first-child { color: var(--graphite); font-weight: 500; width: 26%; padding-right: 20px; white-space: nowrap; }
+  .compat code { font-family: var(--mono); font-size: 0.9em; }
+  .compat-note, .audit { margin-top: 18px; font-size: 14.5px; color: var(--graphite); max-width: 70ch; }
+  .audit a { color: inherit; }
 </style>
 </head>
 <body>
@@ -307,6 +325,7 @@
     <div class="nav-links">
       <a href="#why">Why native</a>
       <a href="#verified">Verified</a>
+      <a href="#security">Security</a>
       <a href="#install">Install</a>
       <a href="#apps">Reference apps</a>
       <a href="#agents">Agents</a>
@@ -333,6 +352,20 @@
     <span class="chip">Canton 3.5.11 – 3.5.12</span>
     <span class="chip">Maven Central + Swift PM</span>
     <span class="chip">gRPC Ledger API</span>
+  </div>
+  <div class="stats" aria-label="By the numbers">
+    <div class="stat"><b>2</b><span>platforms, one API: Swift and Kotlin, the same type names on both</span></div>
+    <div class="stat"><b>397</b><span>unit tests (Swift 197, Kotlin 200) plus shared golden vectors both must satisfy</span></div>
+    <div class="stat"><b>4</b><span>hardware tiers verified on named devices: Secure Enclave, StrongBox, TEE, macOS enclave</span></div>
+    <div class="stat"><b>11 + 3</b><span>CIP-0103 methods and events, the whole OpenRPC 0.5.0 surface, dApp and wallet sides</span></div>
+    <div class="stat"><b>3.5.12</b><span>Canton, with both integration suites run live against Splice LocalNet 0.7.1</span></div>
+  </div>
+  <div class="badges" aria-label="Continuous integration">
+    <a href="https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml"><img alt="swift CI" src="https://github.com/vsima/canton-mobile-sdk/actions/workflows/swift.yml/badge.svg"></a>
+    <a href="https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml"><img alt="kotlin CI" src="https://github.com/vsima/canton-mobile-sdk/actions/workflows/kotlin.yml/badge.svg"></a>
+    <a href="https://github.com/vsima/canton-mobile-sdk/actions/workflows/ios.yml"><img alt="ios sample app CI" src="https://github.com/vsima/canton-mobile-sdk/actions/workflows/ios.yml/badge.svg"></a>
+    <a href="https://github.com/vsima/canton-mobile-sdk/actions/workflows/android.yml"><img alt="android sample app CI" src="https://github.com/vsima/canton-mobile-sdk/actions/workflows/android.yml/badge.svg"></a>
+    <a href="https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml"><img alt="generated stubs CI" src="https://github.com/vsima/canton-mobile-sdk/actions/workflows/protos.yml/badge.svg"></a>
   </div>
 </header>
 
@@ -480,6 +513,66 @@ submission.signAndExecute(
   </div>
 </section>
 
+<section id="compat" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Compatibility</p>
+    <h2>What it runs against, and on.</h2>
+    <p>The combinations below are the ones CI and the live suites exercise.
+    Other Canton 3.5 minors are expected to work and are not claimed.</p>
+  </div>
+  <div class="compat-scroll">
+  <table class="compat">
+    <tr><td>SDK</td><td>0.6.x on Maven Central (<code>io.github.vsima.canton:*</code>) and Swift Package Manager</td></tr>
+    <tr><td>Canton</td><td>3.5.11 to 3.5.12 over the gRPC Ledger API; stubs generated from the 3.5.12 protobuf definitions and checked fresh on every CI run</td></tr>
+    <tr><td>Token standard</td><td>CIP-0056 holdings, transfers, and preapprovals, verified against the Amulet registry on Splice LocalNet 0.7.1</td></tr>
+    <tr><td>dApp protocol</td><td>CIP-0103 as published in OpenRPC 0.5.0, both sides, held to shared golden vectors</td></tr>
+    <tr><td>Apple</td><td>iOS 18 and macOS 15 or later; Swift tools 6.0</td></tr>
+    <tr><td>Android</td><td>Android 8.0 (API 26) or later, compileSdk 36; Kotlin 2.4, Java 21 to build</td></tr>
+    <tr><td>WalletConnect</td><td>The adapter depends on no client library; the reference wallets drive it through a Reown WalletKit binding</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="security" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Security</p>
+    <h2>What the phone will sign, and what it never will.</h2>
+    <p>Self-custody is only as good as the rules around the key. These are the
+    ones the SDK enforces, on by default, with tests you can run.</p>
+  </div>
+  <div class="props">
+    <div class="prop">
+      <h3>Keys never leave hardware</h3>
+      <p>Created in the Secure Enclave, StrongBox, or the TEE keystore and
+      never exportable, backed up, or synced. The achieved tier is reported
+      truthfully, including "software" in a simulator, so an app cannot claim
+      more than the device delivered.</p>
+    </div>
+    <div class="prop">
+      <h3>Verified before signing</h3>
+      <p>Every externally signed transaction has its prepared-transaction
+      hash recomputed on the device first; the hardware key only signs a hash
+      the phone derived from what it was shown. Sign-in signatures are
+      domain-separated, so one can never double as a transaction signature.
+      The Ledger API connection can be pinned to your operator's CA.</p>
+    </div>
+    <div class="prop">
+      <h3>A dApp may ask, never choose</h3>
+      <p>A dApp can request an <code>actAs</code> party and cannot pick one
+      outside its grant. Grants are per session, ledger tokens are never
+      handed out, and <code>ledgerApi</code> is read-only by default. The
+      wallet, not the agent, sets the spending limits an AI agent lives
+      under.</p>
+    </div>
+  </div>
+  <p class="audit"><strong>Audit status.</strong> No third-party audit yet. A
+  scoped audit of the signing drivers, hash verification, and the
+  WalletConnect transport is planned, and its report will be linked here.
+  Found something? <a href="https://github.com/vsima/canton-mobile-sdk/security/advisories/new">Report it privately</a>;
+  the <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/SECURITY.md">security policy</a>
+  says what is in scope and how fast to expect an answer.</p>
+</section>
+
 <section id="install" class="wrap">
   <div class="section-head">
     <p class="eyebrow">Install</p>
@@ -597,6 +690,38 @@ claude mcp add canton-agent --env WC_PROJECT_ID=&lt;your-project-id&gt; \
   </div>
 </section>
 
+<section id="project" class="wrap">
+  <div class="section-head">
+    <p class="eyebrow">Project</p>
+    <h2>Built in the open, versioned honestly.</h2>
+  </div>
+  <div class="props">
+    <div class="prop">
+      <h3>Versioning</h3>
+      <p>Pre-1.0. A 0.x minor release may change an API and says so in its
+      release notes; a patch release never does. Every release is built into
+      the reference wallets before it is tagged, so the apps are the
+      stability test.</p>
+      <p><a href="https://github.com/vsima/canton-mobile-sdk/releases">Releases and notes on GitHub</a>.</p>
+    </div>
+    <div class="prop">
+      <h3>Where things stand</h3>
+      <p>The <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/docs/roadmap.md">roadmap</a>
+      lists what has shipped with where each piece was proven, what is next,
+      and what is being explored. The README's feature matrix sets it
+      against the official TypeScript SDK, capability by capability.</p>
+    </div>
+    <div class="prop">
+      <h3>Maintainer and contact</h3>
+      <p>Maintained by <a href="https://github.com/vsima">Victor Sima</a>.
+      Bugs and proposals go to <a href="https://github.com/vsima/canton-mobile-sdk/issues">GitHub issues</a>,
+      security reports to <a href="https://github.com/vsima/canton-mobile-sdk/security/advisories/new">private reporting</a>,
+      and everything else to the <a href="https://forum.canton.network/">Canton forum</a>.
+      Contributions are welcome; the README says how.</p>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <div class="foot-grid">
@@ -607,7 +732,11 @@ claude mcp add canton-agent --env WC_PROJECT_ID=&lt;your-project-id&gt; \
         <a href="https://github.com/vsima/canton-mobile-sdk#feature-matrix">Feature matrix</a>
         <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/docs/migrating-from-wallet-sdk.md">Migrate from the TS SDK</a>
         <a href="https://github.com/vsima/canton-mobile-app">Reference apps</a>
+        <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/docs/roadmap.md">Roadmap</a>
+        <a href="https://github.com/vsima/canton-mobile-sdk/releases">Releases</a>
+        <a href="https://github.com/vsima/canton-mobile-sdk/blob/main/SECURITY.md">Security</a>
         <a href="https://github.com/vsima/canton-mobile-sdk/issues">Issues</a>
+        <a href="https://forum.canton.network/">Canton forum</a>
       </div>
     </div>
     <p class="disclaimer">An independent, community-built open-source project,
