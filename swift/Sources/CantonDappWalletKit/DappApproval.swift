@@ -10,16 +10,16 @@ import Foundation
 ///
 /// **Never construct this from a request payload.** A peer that names itself
 /// in its own request is a peer that can name itself anything, and this is
-/// what gets rendered on the approval sheet.
+/// what the approver shows.
 public struct DappPeer: Sendable, Equatable {
     /// Stable identifier of the peer — the key its spend policy and receipts
     /// are filed under.
     public var id: String
-    /// Display name, as rendered on the approval sheet.
+    /// Display name, for the approver to show.
     public var name: String
     /// The peer's URL, when the transport knows it.
     public var url: String?
-    /// Icon URL for the sheet, when the transport knows it.
+    /// Icon URL, for the approver to show, when the transport knows it.
     public var iconUrl: String?
     /// Whether the transport could verify `name`/`url` cryptographically or
     /// out of band. False means the UI must say so: an unverified peer name is
@@ -68,7 +68,7 @@ public enum DappApprovalRequest: Sendable {
     /// Sign an arbitrary message with the account's key.
     case message(peer: DappPeer, signWith: DappWallet, message: String)
 
-    /// The peer behind any request, for a sheet that renders the header
+    /// The peer behind any request, for an approver that shows who is asking
     /// before switching on the case.
     public var peer: DappPeer {
         switch self {

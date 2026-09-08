@@ -15,7 +15,7 @@ import io.github.vsima.canton.dapp.PrepareSubmission
  *
  * **Never construct this from a request payload.** A peer that names itself
  * in its own request is a peer that can name itself anything, and this
- * struct is what gets rendered on the approval sheet.
+ * struct is what the approver shows.
  */
 public data class DappPeer(
     val id: String,
@@ -32,7 +32,7 @@ public data class DappPeer(
 
 /** What the user is being asked to approve. */
 public sealed interface DappApprovalRequest {
-    /** Who is asking, as attested by the transport — what the sheet shows. */
+    /** Who is asking, as attested by the transport — what the approver shows. */
     public val peer: DappPeer
 
     /**

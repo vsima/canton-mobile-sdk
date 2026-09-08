@@ -155,7 +155,7 @@ public actor DappSession: DappRequestHandler {
     }
 
     /// ``handle(_:)`` with what the transport knew about the request — the
-    /// dApp's deadline — which is passed on to the approver so the sheet can
+    /// dApp's deadline — which is passed on to the approver so the approver can
     /// run the dApp's clock.
     public func handle(_ request: JSONRPCRequest, context: DappRequestContext) async -> JSONRPCResponse {
         do {
@@ -231,7 +231,7 @@ public actor DappSession: DappRequestHandler {
     private func connect(context: DappRequestContext) async throws -> ConnectResult {
         // Idempotent: agents call connect before each request to ensure they
         // have accounts, so a peer that is already connected and granted must
-        // not re-raise the account-share sheet. Return the existing grant.
+        // not ask the approver again to share accounts. Return the existing grant.
         if connected, !granted.isEmpty { return connectResult() }
         let available = try await accounts.accounts()
         let decision = await approver.approve(
@@ -376,7 +376,7 @@ public actor DappSession: DappRequestHandler {
     /// critical section, so concurrent frames cannot both pass a cap check
     /// that only one of them fits under (the R3 time-of-check/time-of-use
     /// race). The actor's isolation is not enough: every `await` in the path
-    /// (the sheet, the pipeline) is a reentrancy point.
+    /// (the approver, the pipeline) is a reentrancy point.
     private func withSubmissionLock<T: Sendable>(_ body: () async throws -> T) async rethrows -> T {
         while submissionInFlight {
             await withCheckedContinuation { submissionWaiters.append($0) }
@@ -508,7 +508,7 @@ public actor DappSession: DappRequestHandler {
 
     /// The transaction counterpart of `rateLimitSignMessage`, driven by the
     /// policy's ``DappSpendPolicy/minRequestInterval``: an unthrottled peer
-    /// can spray sheets until reflex confirms one.
+    /// can spray requests at the approver until reflex confirms one.
     private func rateLimitTransaction(_ policy: DappSpendPolicy) throws {
         guard policy.minRequestInterval > 0 else { return }
         if let last = lastTransactionAt,

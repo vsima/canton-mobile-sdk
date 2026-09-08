@@ -5,14 +5,14 @@ import Foundation
 
 /// One thing a dApp did or tried to do, as the wallet's owner should see it.
 ///
-/// The spend policy's hard caps refuse without a sheet, and auto-approval
+/// The spend policy's hard caps refuse without asking the approver, and auto-approval
 /// executes without one; both are invisible at the moment they happen. This
 /// feed is the counterweight: the session reports *every* notable event to
-/// the host, sheet or no sheet, so the app can render an activity log and
+/// the host, approver asked or not, so the app can render an activity log and
 /// notify on the silent outcomes. Nothing here feeds back into what gets
 /// signed; it is a record, not a control.
 public struct DappActivity: Sendable, Equatable {
-    /// What happened. The sheetless kinds — ``transactionAutoApproved``,
+    /// What happened. The kinds that never reach the approver — ``transactionAutoApproved``,
     /// ``transactionRefused``, ``transactionRateLimited`` — are the ones a
     /// host should surface unprompted.
     public enum Kind: Sendable, Equatable {
@@ -24,15 +24,15 @@ public struct DappActivity: Sendable, Equatable {
         case messageSigned
         /// The human declined a message signature.
         case messageDeclined
-        /// A transaction raised the approval sheet.
+        /// A transaction was sent to the approver.
         case transactionRequested
-        /// The spend policy approved without a sheet.
+        /// The spend policy approved without asking the approver.
         case transactionAutoApproved
-        /// The spend policy refused without a sheet. `detail` says why.
+        /// The spend policy refused without asking the approver. `detail` says why.
         case transactionRefused
-        /// The policy's rate limit refused a request without a sheet.
+        /// The policy's rate limit refused a request without asking the approver.
         case transactionRateLimited
-        /// The human declined the transaction on the sheet.
+        /// The approver declined the transaction.
         case transactionDeclined
         /// The transaction executed. `detail` carries the update id.
         case transactionExecuted
@@ -74,6 +74,6 @@ public struct DappActivity: Sendable, Equatable {
 /// Receives every ``DappActivity`` a session produces, synchronously on the
 /// session's path. Implementations must be quick; the closure cannot throw,
 /// because a broken log must never break a payment. Hosts persist and
-/// render; a local notification for the sheetless kinds (auto-approved,
+/// render; surfacing the kinds that never reach the approver (auto-approved,
 /// refused, rate-limited) is what keeps the policy honest.
 public typealias DappActivityObserver = @Sendable (DappActivity) -> Void
