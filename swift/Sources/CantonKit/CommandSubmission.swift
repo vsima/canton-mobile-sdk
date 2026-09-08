@@ -29,6 +29,7 @@ public struct CommandSubmission: Sendable {
     /// Unique id for deduplication; keep stable across retries of the same action.
     public var commandId: String
 
+    /// Optional workflow id, carried through to the ledger; empty if unused.
     public var workflowId: String
 
     /// How far back the participant rejects duplicate ``commandId``s;
@@ -38,6 +39,8 @@ public struct CommandSubmission: Sendable {
     /// Pin execution to a synchronizer; participant chooses if empty.
     public var synchronizerId: String
 
+    /// Creates a submission; `commands` and `actAs` must be non-empty
+    /// (checked with `precondition`).
     public init(
         commands: [Com_Daml_Ledger_Api_V2_Command],
         actAs: [String],

@@ -41,6 +41,7 @@ public struct DappSpendPolicy: Sendable, Equatable {
     /// the caps above.
     public var autoApproveBelow: Decimal?
 
+    /// Creates a policy; every limit is off unless set.
     public init(
         maxPerTransaction: Decimal? = nil,
         dailyCap: Decimal? = nil,
@@ -115,14 +116,20 @@ public enum SpendDecision: Sendable, Equatable {
 public struct SpendReceipt: Sendable, Equatable {
     /// ``DappPeer/id`` of the session that spent.
     public var peerId: String
+    /// When the spend executed, on the session's wall clock.
     public var at: Date
+    /// The instrument moved, as the dApp named it (e.g. `Amulet`).
     public var instrumentId: String
+    /// The amount moved, parsed strictly from the command.
     public var amount: Decimal
+    /// The receiving party.
     public var receiver: String
     /// True when the policy approved without a sheet.
     public var autoApproved: Bool
+    /// The submission's command id, for matching against the ledger.
     public var commandId: String
 
+    /// Creates a receipt.
     public init(
         peerId: String,
         at: Date,
@@ -149,6 +156,7 @@ public struct SpendReceipt: Sendable, Equatable {
 /// implementations: an unreadable store must throw, never return an empty
 /// list, because an empty list resets every cap.
 public protocol SpendLedger: Sendable {
+    /// Records an executed spend.
     func append(_ receipt: SpendReceipt) async throws
     /// Receipts for `peerId` with `at >= since`, oldest first.
     func receiptsSince(peerId: String, since: Date) async throws -> [SpendReceipt]
@@ -160,12 +168,16 @@ public protocol SpendLedger: Sendable {
 public actor InMemorySpendLedger: SpendLedger {
     private var receipts: [SpendReceipt] = []
 
+    /// An empty ledger.
     public init() {}
 
+    /// Appends in memory.
     public func append(_ receipt: SpendReceipt) {
         receipts.append(receipt)
     }
 
+    /// The in-memory receipts for `peerId` with `at >= since`, in insertion
+    /// order.
     public func receiptsSince(peerId: String, since: Date) -> [SpendReceipt] {
         receipts.filter { $0.peerId == peerId && $0.at >= since }
     }

@@ -27,6 +27,8 @@ public struct UpdateSubscription: Sendable {
     /// Include field labels in values.
     public var verbose: Bool
 
+    /// Creates a subscription; `parties` must be non-empty (checked with
+    /// `precondition`).
     public init(
         parties: [String],
         beginExclusive: Int64,

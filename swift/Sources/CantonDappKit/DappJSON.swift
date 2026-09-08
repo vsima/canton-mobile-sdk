@@ -15,6 +15,7 @@ public enum DappJSON {
 
     // ── Provider / status ──────────────────────────────────────────────
 
+    /// Encodes a ``DappProvider``; absent optionals are omitted.
     public static func encode(_ value: DappProvider) -> JSONValue {
         var object: [String: JSONValue] = ["id": .string(value.id)]
         object.put("version", value.version)
@@ -24,6 +25,8 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes OpenRPC `Provider`. Throws ``DappError`` (`invalidParams`)
+    /// naming the missing or mistyped field.
     public static func decodeProvider(_ json: JSONValue) throws -> DappProvider {
         let object = try json.requireObject("Provider")
         return DappProvider(
@@ -35,6 +38,7 @@ public enum DappJSON {
         )
     }
 
+    /// Encodes a ``ConnectResult``; absent optionals are omitted.
     public static func encode(_ value: ConnectResult) -> JSONValue {
         var object: [String: JSONValue] = ["isConnected": .bool(value.isConnected)]
         object.put("reason", value.reason)
@@ -44,6 +48,7 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes OpenRPC `ConnectResult`; both booleans are required.
     public static func decodeConnectResult(_ json: JSONValue) throws -> ConnectResult {
         let object = try json.requireObject("ConnectResult")
         return ConnectResult(
@@ -55,6 +60,7 @@ public enum DappJSON {
         )
     }
 
+    /// Encodes a ``DappNetwork``; absent optionals are omitted.
     public static func encode(_ value: DappNetwork) -> JSONValue {
         var object: [String: JSONValue] = ["networkId": .string(value.networkId)]
         object.put("ledgerApi", value.ledgerApi)
@@ -62,6 +68,7 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes OpenRPC `Network`; `networkId` is required.
     public static func decodeNetwork(_ json: JSONValue) throws -> DappNetwork {
         let object = try json.requireObject("Network")
         return DappNetwork(
@@ -71,10 +78,12 @@ public enum DappJSON {
         )
     }
 
+    /// Encodes a ``DappSessionInfo``.
     public static func encode(_ value: DappSessionInfo) -> JSONValue {
         .object(["accessToken": .string(value.accessToken), "userId": .string(value.userId)])
     }
 
+    /// Decodes OpenRPC `Session`; both fields are required.
     public static func decodeSessionInfo(_ json: JSONValue) throws -> DappSessionInfo {
         let object = try json.requireObject("Session")
         return DappSessionInfo(
@@ -83,6 +92,7 @@ public enum DappJSON {
         )
     }
 
+    /// Encodes a ``DappStatus``; `network` and `session` are omitted when nil.
     public static func encode(_ value: DappStatus) -> JSONValue {
         var object: [String: JSONValue] = [
             "provider": encode(value.provider),
@@ -93,6 +103,8 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes OpenRPC `StatusEvent`, including its nested provider,
+    /// connection, network and session.
     public static func decodeStatus(_ json: JSONValue) throws -> DappStatus {
         let object = try json.requireObject("StatusEvent")
         return DappStatus(
@@ -105,6 +117,7 @@ public enum DappJSON {
 
     // ── Accounts ───────────────────────────────────────────────────────
 
+    /// Encodes a ``DappWallet``; absent optionals are omitted.
     public static func encode(_ value: DappWallet) -> JSONValue {
         var object: [String: JSONValue] = [
             "primary": .bool(value.primary),
@@ -123,6 +136,8 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes OpenRPC `Wallet`. Throws ``DappError`` (`invalidParams`) for a
+    /// missing field or an unknown `status`.
     public static func decodeWallet(_ json: JSONValue) throws -> DappWallet {
         let object = try json.requireObject("Wallet")
         guard let status = try object.enumOrNil("status", DappWalletStatus.self) else {
@@ -144,10 +159,13 @@ public enum DappJSON {
         )
     }
 
+    /// Encodes `ListAccountsResult`: a JSON array of wallets.
     public static func encodeAccounts(_ value: [DappWallet]) -> JSONValue {
         .array(value.map { encode($0) })
     }
 
+    /// Decodes `ListAccountsResult`; throws unless `json` is an array of
+    /// well-formed wallets.
     public static func decodeAccounts(_ json: JSONValue) throws -> [DappWallet] {
         guard let array = json.arrayValue else {
             throw DappError(code: .invalidParams, message: "ListAccountsResult must be a JSON array")
@@ -157,24 +175,30 @@ public enum DappJSON {
 
     // ── signMessage ────────────────────────────────────────────────────
 
+    /// Encodes `signMessage` params.
     public static func encode(_ value: SignMessageRequest) -> JSONValue {
         .object(["message": .string(value.message)])
     }
 
+    /// Decodes `signMessage` params; `message` is required.
     public static func decodeSignMessageRequest(_ json: JSONValue) throws -> SignMessageRequest {
         SignMessageRequest(message: try json.requireObject("SignMessageRequest").string("message"))
     }
 
+    /// Encodes a `signMessage` result.
     public static func encode(_ value: SignMessageResult) -> JSONValue {
         .object(["signature": .string(value.signature)])
     }
 
+    /// Decodes a `signMessage` result; `signature` is required.
     public static func decodeSignMessageResult(_ json: JSONValue) throws -> SignMessageResult {
         SignMessageResult(signature: try json.requireObject("SignMessageResult").string("signature"))
     }
 
     // ── ledgerApi ──────────────────────────────────────────────────────
 
+    /// Encodes `ledgerApi` params; `body`, `query` and `path` are omitted
+    /// when nil.
     public static func encode(_ value: LedgerApiRequest) -> JSONValue {
         var object: [String: JSONValue] = [
             "requestMethod": .string(value.requestMethod.rawValue),
@@ -186,6 +210,8 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes `ledgerApi` params. Throws ``DappError`` (`invalidParams`) for
+    /// a missing `requestMethod`/`resource` or an unknown method.
     public static func decodeLedgerApiRequest(_ json: JSONValue) throws -> LedgerApiRequest {
         let object = try json.requireObject("LedgerApiRequest")
         guard let method = try object.enumOrNil("requestMethod", LedgerApiMethod.self) else {
@@ -202,6 +228,8 @@ public enum DappJSON {
 
     // ── prepareExecute ─────────────────────────────────────────────────
 
+    /// Encodes `JsPrepareSubmissionRequest`. Empty `actAs`, `readAs` and
+    /// `packageIdSelectionPreference` are omitted rather than sent as `[]`.
     public static func encode(_ value: PrepareSubmission) -> JSONValue {
         var object: [String: JSONValue] = [:]
         object.put("commandId", value.commandId)
@@ -217,6 +245,8 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes `JsPrepareSubmissionRequest`; `commands` must be an array,
+    /// the party lists must contain only strings.
     public static func decodePrepareSubmission(_ json: JSONValue) throws -> PrepareSubmission {
         let object = try json.requireObject("JsPrepareSubmissionRequest")
         guard let commands = try object.required("commands").arrayValue else {
@@ -233,6 +263,7 @@ public enum DappJSON {
         )
     }
 
+    /// Encodes `JsPrepareSubmissionResponse`; absent fields are omitted.
     public static func encode(_ value: PrepareSubmissionResult) -> JSONValue {
         var object: [String: JSONValue] = [:]
         object.put("preparedTransaction", value.preparedTransaction)
@@ -240,6 +271,7 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes `JsPrepareSubmissionResponse`; both fields optional.
     public static func decodePrepareSubmissionResult(_ json: JSONValue) throws -> PrepareSubmissionResult {
         let object = try json.requireObject("JsPrepareSubmissionResponse")
         return PrepareSubmissionResult(
@@ -253,6 +285,9 @@ public enum DappJSON {
         .object(["tx": encode(value)])
     }
 
+    /// Decodes `prepareExecuteAndWaitResult` and requires the `tx` to be
+    /// `executed` — any other status is an ``DappError`` (`invalidParams`),
+    /// because the method promises a committed transaction.
     public static func decodeExecutedResult(_ json: JSONValue) throws -> TxChangedEvent {
         let object = try json.requireObject("prepareExecuteAndWaitResult")
         let tx = try decodeTxChanged(try object.required("tx"))
@@ -267,6 +302,8 @@ public enum DappJSON {
 
     // ── Events ─────────────────────────────────────────────────────────
 
+    /// Encodes a `txChanged` event: `status`, `commandId`, and a `payload`
+    /// for the `signed` and `executed` cases.
     public static func encode(_ value: TxChangedEvent) -> JSONValue {
         var object: [String: JSONValue] = [
             "status": .string(value.statusWire),
@@ -290,6 +327,8 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes a `txChanged` event by its `status`; `signed` and `executed`
+    /// require their payload.
     public static func decodeTxChanged(_ json: JSONValue) throws -> TxChangedEvent {
         let object = try json.requireObject("TxChangedEvent")
         let commandId = try object.string("commandId")
@@ -318,6 +357,8 @@ public enum DappJSON {
         }
     }
 
+    /// Encodes a `messageSignature` event: `status`, `messageId`, and
+    /// `signature` when signed.
     public static func encode(_ value: MessageSignatureEvent) -> JSONValue {
         var object: [String: JSONValue] = [
             "status": .string(value.statusWire),
@@ -327,6 +368,7 @@ public enum DappJSON {
         return .object(object)
     }
 
+    /// Decodes a `messageSignature` event by its `status`.
     public static func decodeMessageSignature(_ json: JSONValue) throws -> MessageSignatureEvent {
         let object = try json.requireObject("MessageSignatureEvent")
         let messageId = try object.string("messageId")

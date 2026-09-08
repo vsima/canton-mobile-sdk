@@ -12,6 +12,9 @@ import Foundation
 /// notify on the silent outcomes. Nothing here feeds back into what gets
 /// signed; it is a record, not a control.
 public struct DappActivity: Sendable, Equatable {
+    /// What happened. The sheetless kinds — ``transactionAutoApproved``,
+    /// ``transactionRefused``, ``transactionRateLimited`` — are the ones a
+    /// host should surface unprompted.
     public enum Kind: Sendable, Equatable {
         /// The human shared accounts with this peer.
         case connected
@@ -41,13 +44,16 @@ public struct DappActivity: Sendable, Equatable {
     public var peerId: String
     /// ``DappPeer/name``, for display without a lookup.
     public var peerName: String
+    /// When it happened, on the session's wall clock.
     public var at: Date
+    /// What happened.
     public var kind: Kind
     /// The parsed transfer, when the activity concerns one.
     public var transfer: DappTransferSummary?
     /// Refusal reason, decline reason, update id, or error detail.
     public var detail: String?
 
+    /// Creates an activity record; `transfer` and `detail` are optional.
     public init(
         peerId: String,
         peerName: String,

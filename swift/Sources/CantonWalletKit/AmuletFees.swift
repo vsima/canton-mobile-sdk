@@ -16,8 +16,10 @@ public struct SteppedRate: Sendable, Equatable {
     public struct Step: Sendable, Equatable {
         /// Absolute amount at which `rate` takes over from the previous tranche's rate.
         public let boundary: Decimal
+        /// The rate charged on the tranche that starts at ``boundary``.
         public let rate: Decimal
 
+        /// Creates a step.
         public init(boundary: Decimal, rate: Decimal) {
             self.boundary = boundary
             self.rate = rate
@@ -29,6 +31,7 @@ public struct SteppedRate: Sendable, Equatable {
     /// Steps in ascending boundary order (validated on-ledger).
     public let steps: [Step]
 
+    /// Creates a schedule; `steps` must be in ascending boundary order.
     public init(initialRate: Decimal, steps: [Step]) {
         self.initialRate = initialRate
         self.steps = steps
@@ -83,6 +86,7 @@ public struct TransferFeeSchedule: Sendable, Equatable {
     /// Fixed USD fee per lock holder of a locked output (`lockHolderFee.fee`).
     public let lockHolderFeeUsd: Decimal
 
+    /// Creates a schedule from its four USD-denominated fields.
     public init(
         createFeeUsd: Decimal,
         transferFee: SteppedRate,
@@ -114,6 +118,7 @@ public struct SynchronizerFeeConfig: Sendable, Equatable {
     /// delivering a message to one recipient costs 4/10000 of writing it).
     public let readVsWriteScalingFactor: Int64
 
+    /// Creates a config from the AmuletRules synchronizer-fee fields.
     public init(
         extraTrafficPriceUsdPerMB: Decimal,
         minTopupAmountBytes: Int64,
@@ -141,6 +146,7 @@ public struct AmuletRulesConfig: Sendable, Equatable {
     /// `synchronizerId` to buy traffic on and read traffic status for.
     public let activeSynchronizerId: String
 
+    /// Creates a config from its decoded parts.
     public init(
         transferFees: TransferFeeSchedule,
         synchronizerFees: SynchronizerFeeConfig,
@@ -165,6 +171,7 @@ public struct OpenMiningRound: Sendable, Equatable {
     /// When the round is expected to stop accepting submissions.
     public let targetClosesAt: Date
 
+    /// Creates a round record.
     public init(roundNumber: Int64, amuletPriceUsd: Decimal, opensAt: Date, targetClosesAt: Date) {
         self.roundNumber = roundNumber
         self.amuletPriceUsd = amuletPriceUsd

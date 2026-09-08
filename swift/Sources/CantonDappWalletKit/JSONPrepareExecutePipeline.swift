@@ -58,6 +58,13 @@ public struct JSONPrepareExecutePipeline: PrepareExecutePipeline {
         self.userId = userId
     }
 
+    /// Prepares over JSON, verifies the hash, signs with the driver, executes
+    /// over gRPC and awaits the ledger completion.
+    ///
+    /// - Throws: ``DappError`` — `transactionRejected` when the prepared bytes
+    ///   fail hash verification (nothing is signed), `internalError` when the
+    ///   network config has no `synchronizerId` or the prepare response does
+    ///   not decode.
     public func execute(_ context: PrepareExecuteContext) async throws -> TxChangedEvent {
         guard let synchronizerId = context.network.synchronizerId else {
             throw DappError(
@@ -224,10 +231,13 @@ public struct JSONPrepareExecutePipeline: PrepareExecutePipeline {
 public struct SigningDriverMessageSigner: DappMessageSigner {
     private let signer: any SigningDriver
 
+    /// Wraps `signer`.
     public init(signer: any SigningDriver) {
         self.signer = signer
     }
 
+    /// Signs ``DappSignMessage/signingBytes(_:)`` of `message` and returns
+    /// the signature base64-encoded.
     public func sign(account: DappWallet, message: String) async throws -> String {
         // Domain-separated, not the raw message — see DappSignMessage. A dApp
         // verifying this signature must apply DappSignMessage.signingBytes too.

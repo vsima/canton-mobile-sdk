@@ -31,9 +31,17 @@ public protocol DappMessageSigner: Sendable {
 /// build the ledger envelope from this field, which is the point at which a
 /// dApp is prevented from acting as a party it merely named.
 public struct PrepareExecuteContext: Sendable {
+    /// The command id the session assigned — the dApp's, or a fresh UUID.
+    /// Every `txChanged` for this submission carries it.
     public var commandId: String
+    /// The account that acts: resolved by the session and approved by the
+    /// user, never taken from the dApp's request.
     public var actAs: DappWallet
+    /// The dApp's request, with `commands`, `readAs` and `disclosedContracts`
+    /// as authored.
     public var submission: PrepareSubmission
+    /// The wallet's network config: JSON API base URL, synchronizer, token
+    /// provider.
     public var network: DappNetworkConfig
     /// Publishes intermediate lifecycle events — in practice the `signed`
     /// step. `pending` and the terminal states are emitted by ``DappSession``
@@ -41,6 +49,7 @@ public struct PrepareExecuteContext: Sendable {
     /// event stream, just a coarser one.
     public var emitEvent: @Sendable (TxChangedEvent) async -> Void
 
+    /// Creates a context; `emitEvent` defaults to a no-op.
     public init(
         commandId: String,
         actAs: DappWallet,
@@ -70,6 +79,8 @@ public protocol PrepareExecutePipeline: Sendable {
 
 /// Performs an authenticated call against the JSON Ledger API.
 public protocol LedgerApiProxy: Sendable {
+    /// Performs `request` with the wallet's credentials and returns the
+    /// response body.
     func call(_ request: LedgerApiRequest) async throws -> JSONValue
 }
 
@@ -82,9 +93,13 @@ public protocol LedgerApiProxy: Sendable {
 public struct LedgerApiPolicy: Sendable {
     /// One allowlist entry: an HTTP method plus a path prefix.
     public struct Rule: Sendable, Equatable {
+        /// The HTTP method the rule matches.
         public let method: LedgerApiMethod
+        /// Lower-cased path prefix the canonical resource path must start with.
         public let pathPrefix: String
 
+        /// Creates a rule; `pathPrefix` is lower-cased so matching is
+        /// case-insensitive.
         public init(_ method: LedgerApiMethod, _ pathPrefix: String) {
             self.method = method
             self.pathPrefix = pathPrefix.lowercased()
@@ -93,10 +108,14 @@ public struct LedgerApiPolicy: Sendable {
 
     private let predicate: @Sendable (LedgerApiRequest) -> Bool
 
+    /// A policy from an arbitrary predicate. Prefer ``allowing(_:)``, which
+    /// also canonicalises the path; a raw predicate sees the resource exactly
+    /// as the dApp sent it.
     public init(_ predicate: @escaping @Sendable (LedgerApiRequest) -> Bool) {
         self.predicate = predicate
     }
 
+    /// Whether the policy lets `request` through to the proxy.
     public func allows(_ request: LedgerApiRequest) -> Bool { predicate(request) }
 
     /// The rules ``readOnly`` is built from, exposed so a host can compose a

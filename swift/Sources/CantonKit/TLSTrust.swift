@@ -32,6 +32,7 @@ import Foundation
 /// ```
 public struct TLSTrust: Sendable, Equatable {
 
+    /// The anchors a server certificate must chain to.
     public enum TrustRoots: Sendable, Equatable {
         /// The platform trust store.
         case systemDefault
@@ -50,6 +51,8 @@ public struct TLSTrust: Sendable, Equatable {
     /// certificates issued without a matching SAN.
     public var verifyHostname: Bool
 
+    /// Creates a trust setting; defaults to the platform store with hostname
+    /// verification on.
     public init(trustRoots: TrustRoots = .systemDefault, verifyHostname: Bool = true) {
         self.trustRoots = trustRoots
         self.verifyHostname = verifyHostname

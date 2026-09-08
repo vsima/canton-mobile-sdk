@@ -57,8 +57,12 @@ public final class LanGrpcDappTransport: DappTransport, @unchecked Sendable {
     private let eventContinuation: AsyncStream<DappEvent>.Continuation
     private let runner: Task<Void, Never>
 
+    /// Wallet notifications decoded off the stream. Finishes when the stream
+    /// closes.
     public nonisolated var events: AsyncStream<DappEvent> { eventStream }
 
+    /// Dials `host:port` and opens the bidi stream immediately; it stays open
+    /// until ``close()`` or the peer hangs up.
     public init(
         host: String,
         port: Int,
@@ -116,6 +120,9 @@ public final class LanGrpcDappTransport: DappTransport, @unchecked Sendable {
         }
     }
 
+    /// Sends one frame and suspends until the response with the same id
+    /// arrives. Throws ``DappError`` (`invalidParams`) for a request without
+    /// an id, and the stream's error if it closes first.
     public func send(_ request: JSONRPCRequest) async throws -> JSONRPCResponse {
         guard let key = DappTunnel.idKey(request.id) else {
             throw DappError(code: .invalidParams, message: "a request sent over the tunnel must carry an id")

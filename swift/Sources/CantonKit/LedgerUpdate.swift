@@ -20,6 +20,8 @@ public enum LedgerUpdate: Sendable {
     /// A cursor keep-alive: no matching event, but the resume offset advanced.
     case checkpoint(offset: Int64)
 
+    /// The participant offset of this update, whatever its kind — the resume
+    /// cursor.
     public var offset: Int64 {
         switch self {
         case .transaction(let transaction): transaction.offset

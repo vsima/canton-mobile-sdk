@@ -72,6 +72,38 @@ public actor DappSession: DappRequestHandler {
         providerType: .mobile
     )
 
+    /// Creates a session for one peer.
+    ///
+    /// The three optional collaborators (`messageSigner`, `prepareExecute`,
+    /// `ledgerApi`) are independent: leave one nil and its method answers
+    /// `4200` (unsupported), which is the honest reply.
+    ///
+    /// - Parameters:
+    ///   - peer: Who is asking, as attested by the transport; see ``DappPeer``.
+    ///   - accounts: The accounts the wallet could offer on `connect`.
+    ///   - approver: The wallet UI that answers every approval.
+    ///   - network: The network and JSON Ledger API the session operates on.
+    ///   - provider: How the wallet identifies itself in `status`; defaults
+    ///     to ``defaultProvider``.
+    ///   - messageSigner: Implements `signMessage`.
+    ///   - prepareExecute: Implements `prepareExecute` and
+    ///     `prepareExecuteAndWait`.
+    ///   - ledgerApi: Implements the `ledgerApi` proxy.
+    ///   - ledgerApiPolicy: Which `ledgerApi` resources the peer may reach;
+    ///     ``LedgerApiPolicy/readOnly`` by default.
+    ///   - signMessageMinInterval: Minimum seconds between `signMessage`
+    ///     calls from this peer; a faster call is refused with `-32602`, so
+    ///     a peer cannot spray approval prompts.
+    ///   - spendPolicy: The current ``DappSpendPolicy`` for this peer, read
+    ///     fresh on every transaction so the wallet's policy editor takes
+    ///     effect immediately. Nil (the default) means no policy: every
+    ///     transaction asks the human.
+    ///   - spendLedger: Where spends are recorded and the rolling daily cap
+    ///     is read from.
+    ///   - wallClock: Wall-clock for receipts and the rolling window;
+    ///     injectable for tests.
+    ///   - activityObserver: The wallet-facing activity feed; see
+    ///     ``DappActivityObserver``.
     public init(
         peer: DappPeer,
         accounts: DappAccountsSource,
@@ -83,16 +115,9 @@ public actor DappSession: DappRequestHandler {
         ledgerApi: LedgerApiProxy? = nil,
         ledgerApiPolicy: LedgerApiPolicy = .readOnly,
         signMessageMinInterval: TimeInterval = 1,
-        /// The current ``DappSpendPolicy`` for this peer, read fresh on every
-        /// transaction so the wallet's policy editor takes effect
-        /// immediately. Nil (the default) means no policy: every transaction
-        /// asks the human.
         spendPolicy: @escaping @Sendable () -> DappSpendPolicy? = { nil },
-        /// Where spends are recorded and the rolling daily cap is read from.
         spendLedger: any SpendLedger = InMemorySpendLedger(),
-        /// Wall-clock for receipts and the rolling window; injectable for tests.
         wallClock: @escaping @Sendable () -> Date = { Date() },
-        /// The wallet-facing activity feed; see ``DappActivityObserver``.
         activityObserver: DappActivityObserver? = nil
     ) {
         self.peer = peer
@@ -129,6 +154,9 @@ public actor DappSession: DappRequestHandler {
         await handle(request, context: .none)
     }
 
+    /// ``handle(_:)`` with what the transport knew about the request — the
+    /// dApp's deadline — which is passed on to the approver so the sheet can
+    /// run the dApp's clock.
     public func handle(_ request: JSONRPCRequest, context: DappRequestContext) async -> JSONRPCResponse {
         do {
             return .success(id: request.id, result: try await dispatch(request, context: context))

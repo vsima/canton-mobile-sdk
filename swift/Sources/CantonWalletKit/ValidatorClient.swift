@@ -8,7 +8,10 @@ import Foundation
 /// 400/404 until the network has an open mining round, and 429/503 under
 /// load — all worth retrying.
 public struct ValidatorError: Error, CustomStringConvertible {
+    /// HTTP status of the failed call; nil when the failure was a malformed
+    /// payload rather than a rejection.
     public let statusCode: Int?
+    /// What failed: the status and body, or the malformed field.
     public let description: String
 }
 
@@ -26,10 +29,14 @@ public struct ValidatorError: Error, CustomStringConvertible {
 /// validator-local: it only answers for users of the validator behind
 /// `baseURL`.
 public struct ValidatorClient: Sendable {
+    /// The validator API root (`.../api/validator`); `v0/...` paths are
+    /// appended.
     public let baseURL: URL
     private let accessTokenProvider: @Sendable () async throws -> String
     private let session: URLSession
 
+    /// Creates a client. `accessTokenProvider` is called on every request to
+    /// mint the bearer token, so a rotating token is picked up automatically.
     public init(
         baseURL: URL,
         accessTokenProvider: @escaping @Sendable () async throws -> String,
@@ -44,7 +51,9 @@ public struct ValidatorClient: Sendable {
     public struct WalletUserStatus: Sendable, Equatable {
         /// The user's wallet party — empty until the user is onboarded.
         public let partyId: String
+        /// Whether the user has a ledger user and wallet party on this validator.
         public let userOnboarded: Bool
+        /// Whether the wallet contracts are installed for the user.
         public let userWalletInstalled: Bool
     }
 

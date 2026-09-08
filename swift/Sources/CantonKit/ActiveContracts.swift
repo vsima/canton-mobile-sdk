@@ -19,6 +19,8 @@ public struct ActiveContract: Sendable {
 /// sync: apply ``contracts`` to local state, then consume
 /// `updates(UpdateSubscription(beginExclusive: offset, ...))`.
 public struct ActiveContractsSnapshot: Sendable {
+    /// The ledger offset the snapshot is valid at.
     public let offset: Int64
+    /// Every contract active at ``offset`` for the queried parties.
     public let contracts: [ActiveContract]
 }

@@ -7,7 +7,10 @@ import Foundation
 
 /// An external party whose signing key never left the ``SigningDriver``.
 public struct AllocatedExternalParty: Sendable {
+    /// The allocated party id, `hint::fingerprint`.
     public let partyId: String
+    /// Canonical fingerprint of the signing key, as computed by the
+    /// participant; goes into `signedBy` on every signature.
     public let publicKeyFingerprint: String
 
     /// Reconstructs a persisted identity — the party is already allocated on
@@ -42,6 +45,7 @@ extension CantonClient.Services {
 public struct ExternalPartyClient: Sendable {
     private let client: CantonClient
 
+    /// Creates a client over `client`'s connection settings.
     public init(client: CantonClient) {
         self.client = client
     }
@@ -56,6 +60,10 @@ public struct ExternalPartyClient: Sendable {
         }
     }
 
+    /// Runs the three-step flow: generates the topology for `driver`'s public
+    /// key, signs the multi-hash with `driver`, and allocates. `partyHint`
+    /// becomes the party id's prefix; `userId`, when given, is passed as the
+    /// allocation request's user id.
     public func allocate(
         driver: any SigningDriver,
         synchronizerId: String,

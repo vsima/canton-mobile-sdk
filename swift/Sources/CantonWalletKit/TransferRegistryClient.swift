@@ -6,6 +6,7 @@ import Foundation
 
 /// A registry call failed (non-2xx status or malformed payload).
 public struct TransferRegistryError: Error, CustomStringConvertible {
+    /// What failed: the HTTP status and body, or the malformed field.
     public let description: String
 }
 
@@ -16,9 +17,13 @@ public struct TransferRegistryError: Error, CustomStringConvertible {
 /// factory contract to exercise for a new transfer, and per-choice contexts
 /// (referenced contracts + disclosed contracts) for accept/reject/withdraw.
 public struct TransferRegistryClient: Sendable {
+    /// Root of the registry vhost; `registry/transfer-instruction/v1/...`
+    /// paths are appended.
     public let baseURL: URL
     private let session: URLSession
 
+    /// Creates a client; pass a pinned `session` to match the ledger
+    /// channel's trust.
     public init(baseURL: URL, session: URLSession = .shared) {
         self.baseURL = baseURL
         self.session = session
@@ -26,9 +31,13 @@ public struct TransferRegistryClient: Sendable {
 
     /// A contract the registry asks us to disclose with the command.
     public struct RegistryDisclosedContract: Sendable {
+        /// Fully qualified template id as `package:module:entity`.
         public let templateId: String
+        /// The contract to disclose.
         public let contractId: String
+        /// The `createdEventBlob` the registry supplied, base64 as received.
         public let createdEventBlobBase64: String
+        /// The synchronizer the contract lives on.
         public let synchronizerId: String
 
         /// As the Ledger API `DisclosedContract` for command submission.
@@ -51,16 +60,24 @@ public struct TransferRegistryClient: Sendable {
         }
     }
 
+    /// What the registry returns for a choice: the `ChoiceContext` payload
+    /// to pass as `extraArgs`, plus the contracts to disclose alongside.
     public struct RegistryChoiceContext: @unchecked Sendable {
         /// Daml JSON encoding of the ChoiceContext, as parsed JSON (or nil).
         public let choiceContextData: Any?
+        /// Contracts to attach to the submission so the participant can
+        /// interpret the choice.
         public let disclosedContracts: [RegistryDisclosedContract]
     }
 
+    /// The registry's answer to `/transfer-factory`: which factory to
+    /// exercise and the context to exercise it with.
     public struct TransferFactory: @unchecked Sendable {
+        /// Contract id of the `TransferFactory` to exercise.
         public let factoryId: String
         /// "self" | "direct" | "offer" — how the registry will route this transfer.
         public let transferKind: String
+        /// The context for `TransferFactory_Transfer`.
         public let choiceContext: RegistryChoiceContext
     }
 

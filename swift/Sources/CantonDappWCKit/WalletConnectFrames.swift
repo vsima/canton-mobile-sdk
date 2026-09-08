@@ -19,13 +19,21 @@ import Foundation
 /// `method`/`params` are the CIP-0103 JSON-RPC call it carries; `expiresAt`
 /// is the envelope's expiry, when the dApp stops waiting for an answer.
 public struct WcRequest: Sendable, Equatable {
+    /// The WalletConnect session topic the request arrived on.
     public var topic: String
+    /// The envelope id the answer is posted against; duplicates are collapsed
+    /// per `(topic, requestId)`.
     public var requestId: Int64
+    /// The CAIP-2 chain the dApp addressed.
     public var chainId: String
+    /// The wire method, `canton_`-prefixed or bare CIP-0103.
     public var method: String
+    /// The JSON-RPC params, if any.
     public var params: JSONValue?
+    /// When the dApp stops waiting, if the envelope said.
     public var expiresAt: Date?
 
+    /// Creates a request; `params` and `expiresAt` are optional.
     public init(
         topic: String,
         requestId: Int64,
@@ -55,11 +63,16 @@ public enum WcResponse: Sendable, Equatable {
 /// accounts shared, the methods answered, and the events emitted. A Reown
 /// delegate turns this into the `Wallet.Params.SessionApprove` namespaces.
 public struct WcSessionNamespaces: Sendable, Equatable {
+    /// CAIP-2 chain ids — normally just the adapter's.
     public var chains: [String]
+    /// CAIP-10 accounts shared with the dApp.
     public var accounts: [String]
+    /// Request methods the wallet will answer.
     public var methods: [String]
+    /// Event names the dApp may subscribe to.
     public var events: [String]
 
+    /// Creates a namespace set.
     public init(chains: [String], accounts: [String], methods: [String], events: [String]) {
         self.chains = chains
         self.accounts = accounts

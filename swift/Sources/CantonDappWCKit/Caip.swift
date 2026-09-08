@@ -26,7 +26,9 @@ public enum Caip {
     /// A malformed CAIP identifier — a mistyped chain id, or a truncated
     /// percent-escape in an address segment.
     public struct CaipError: Error, Equatable {
+        /// What was malformed.
         public let message: String
+        /// Creates an error with `message`.
         public init(_ message: String) { self.message = message }
     }
 

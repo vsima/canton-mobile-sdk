@@ -20,18 +20,24 @@ struct WalletDecodeError: Error, CustomStringConvertible {
 /// they resolve against whichever package version the participant has vetted —
 /// exactly what a wallet talking to arbitrary registries needs.
 public enum TokenStandard {
+    /// `Splice.Api.Token.HoldingV1.Holding` — the interface every holding
+    /// UTXO implements.
     public static let holdingInterfaceID = interfaceID(
         packageName: "splice-api-token-holding-v1",
         module: "Splice.Api.Token.HoldingV1",
         entity: "Holding"
     )
 
+    /// `Splice.Api.Token.TransferInstructionV1.TransferInstruction` — a
+    /// pending two-step transfer.
     public static let transferInstructionInterfaceID = interfaceID(
         packageName: "splice-api-token-transfer-instruction-v1",
         module: "Splice.Api.Token.TransferInstructionV1",
         entity: "TransferInstruction"
     )
 
+    /// `Splice.Api.Token.TransferInstructionV1.TransferFactory` — exercised
+    /// to start a transfer.
     public static let transferFactoryInterfaceID = interfaceID(
         packageName: "splice-api-token-transfer-instruction-v1",
         module: "Splice.Api.Token.TransferInstructionV1",
@@ -84,9 +90,12 @@ public enum SpliceAmulet {
 
 /// `Splice.Api.Token.HoldingV1.InstrumentId` — admin party + admin-unique id.
 public struct InstrumentId: Sendable, Equatable {
+    /// The party administering the instrument (the DSO, for Amulet).
     public let admin: String
+    /// The admin-unique instrument id, e.g. `Amulet`.
     public let id: String
 
+    /// Creates an instrument id.
     public init(admin: String, id: String) {
         self.admin = admin
         self.id = id
@@ -95,35 +104,53 @@ public struct InstrumentId: Sendable, Equatable {
 
 /// `Splice.Api.Token.HoldingV1.Lock`. When both expiries are set, the earlier wins.
 public struct HoldingLock: Sendable, Equatable {
+    /// The parties holding the lock.
     public let holders: [String]
+    /// Absolute time the lock expires, if set.
     public let expiresAt: Date?
+    /// Relative lock duration in microseconds (`expiresAfter`), if set.
     public let expiresAfterMicros: Int64?
+    /// Human-readable reason for the lock, if the locker gave one.
     public let context: String?
 }
 
 /// A holding UTXO: one contract implementing the CIP-0056 Holding interface.
 public struct Holding: Sendable, Equatable {
+    /// Contract id of the holding UTXO.
     public let contractId: String
+    /// The party that owns the holding.
     public let owner: String
+    /// Which instrument this holding is of.
     public let instrumentId: InstrumentId
     /// Daml Decimal as its canonical string — lossless, render/convert at the edge.
     public let amount: String
+    /// The lock on this holding, or nil when unlocked.
     public let lock: HoldingLock?
+    /// CIP-0056 metadata as flat key/value text.
     public let meta: [String: String]
 }
 
 /// `Splice.Api.Token.TransferInstructionV1.Transfer` — the transfer specification.
 public struct Transfer: Sendable, Equatable {
+    /// The sending party.
     public let sender: String
+    /// The receiving party.
     public let receiver: String
     /// Daml Decimal as its canonical string (e.g. `"25.5"`).
     public let amount: String
+    /// The instrument to move.
     public let instrumentId: InstrumentId
+    /// When the sender asked. The registry requires it at or before ledger
+    /// time — see ``TokenStandardClient/clockSkewAllowance``.
     public let requestedAt: Date
+    /// Deadline after which the transfer can no longer execute.
     public let executeBefore: Date
+    /// The sender's holding UTXOs that fund the transfer.
     public let inputHoldingCids: [String]
+    /// Transfer metadata; put a memo under ``TokenStandard/reasonMetadataKey``.
     public let meta: [String: String]
 
+    /// Creates a transfer specification; `meta` defaults to empty.
     public init(
         sender: String,
         receiver: String,
@@ -145,6 +172,8 @@ public struct Transfer: Sendable, Equatable {
     }
 }
 
+/// Where a pending instruction stands, decoded from the
+/// `TransferInstruction` view's `status` variant.
 public enum TransferInstructionStatus: Sendable, Equatable {
     /// Waiting for the receiver to accept or reject — the wallet-inbox state.
     case pendingReceiverAcceptance
@@ -154,13 +183,21 @@ public enum TransferInstructionStatus: Sendable, Equatable {
 
 /// A pending two-step transfer (contract implementing the TransferInstruction interface).
 public struct TransferInstruction: Sendable, Equatable {
+    /// Contract id of the instruction — what accept/reject/withdraw exercise.
     public let contractId: String
+    /// The original instruction this one continues, when the registry has
+    /// replaced it with a new contract; nil for the first.
     public let originalInstructionCid: String?
+    /// The transfer being carried out.
     public let transfer: Transfer
+    /// Whose move it is.
     public let status: TransferInstructionStatus
+    /// Instruction metadata as flat key/value text.
     public let meta: [String: String]
 }
 
+/// The three choices a pending instruction offers: the receiver may
+/// `accept` or `reject`, the sender may `withdraw`.
 public enum TransferInstructionChoice: Sendable {
     case accept, reject, withdraw
 

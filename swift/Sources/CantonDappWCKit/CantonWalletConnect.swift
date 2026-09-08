@@ -48,6 +48,8 @@ public final class CantonWalletConnect: Sendable {
     /// proactive emission is a follow-up.
     public var events: [String] { WcMethod.events }
 
+    /// Wraps `handler` for one network. Throws ``Caip/CaipError`` if
+    /// `networkId` is not a CAIP-2 chain id.
     public init(handler: any DappRequestHandler, networkId: String) throws {
         self.handler = handler
         self.chainId = try Caip.chainId(networkId)

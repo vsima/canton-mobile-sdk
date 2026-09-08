@@ -26,6 +26,8 @@ public struct CantonClientConfiguration: Sendable {
     /// Backoff applied to retryable ledger errors.
     public var retryPolicy: RetryPolicy
 
+    /// Creates a configuration. Defaults: Canton's port 6865, TLS on, no
+    /// token, the platform trust store, ``RetryPolicy/default``.
     public init(
         host: String,
         port: Int = 6865,

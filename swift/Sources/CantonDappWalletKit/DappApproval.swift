@@ -12,15 +12,21 @@ import Foundation
 /// in its own request is a peer that can name itself anything, and this is
 /// what gets rendered on the approval sheet.
 public struct DappPeer: Sendable, Equatable {
+    /// Stable identifier of the peer — the key its spend policy and receipts
+    /// are filed under.
     public var id: String
+    /// Display name, as rendered on the approval sheet.
     public var name: String
+    /// The peer's URL, when the transport knows it.
     public var url: String?
+    /// Icon URL for the sheet, when the transport knows it.
     public var iconUrl: String?
     /// Whether the transport could verify `name`/`url` cryptographically or
     /// out of band. False means the UI must say so: an unverified peer name is
     /// a claim, not an identity.
     public var verified: Bool
 
+    /// Creates a peer record; `verified` defaults to false.
     public init(
         id: String,
         name: String,
@@ -62,6 +68,8 @@ public enum DappApprovalRequest: Sendable {
     /// Sign an arbitrary message with the account's key.
     case message(peer: DappPeer, signWith: DappWallet, message: String)
 
+    /// The peer behind any request, for a sheet that renders the header
+    /// before switching on the case.
     public var peer: DappPeer {
         switch self {
         case .connection(let peer, _, _): return peer
@@ -77,6 +85,7 @@ public enum DappApproval: Sendable, Equatable {
     /// chose to share — an empty list is a rejection, not an approval of
     /// nothing.
     case approved(accounts: [DappWallet] = [])
+    /// Declined; `reason` becomes the `4001` message the dApp sees.
     case rejected(reason: String = "User rejected the request")
 }
 
@@ -97,10 +106,13 @@ public protocol DappApprovalDelegate: Sendable {
 }
 
 public extension DappApprovalDelegate {
+    /// Default: forwards to ``approve(_:context:)`` with
+    /// ``DappRequestContext/none``.
     func approve(_ request: DappApprovalRequest) async -> DappApproval {
         await approve(request, context: .none)
     }
 
+    /// Default: drops the context and forwards to ``approve(_:)``.
     func approve(_ request: DappApprovalRequest, context: DappRequestContext) async -> DappApproval {
         await approve(request)
     }
@@ -112,6 +124,9 @@ public extension DappApprovalDelegate {
 /// in the wallet's own terms, while this returns the CIP-0103 projection of
 /// them. A host maps between the two and decides what is eligible to share.
 public protocol DappAccountsSource: Sendable {
+    /// The accounts eligible to share, in CIP-0103 form. Called on each
+    /// `connect` that needs a fresh grant; an already-connected peer gets
+    /// its existing grant back without a call.
     func accounts() async throws -> [DappWallet]
 }
 
@@ -131,6 +146,8 @@ public struct DappNetworkConfig: Sendable {
     /// Mints a ledger access token. Its value never reaches a dApp.
     public var accessTokenProvider: (@Sendable () async throws -> String)?
 
+    /// Creates a config; only `networkId` is required, but
+    /// ``synchronizerId`` must be set for `prepareExecute` to work.
     public init(
         networkId: String,
         jsonApiBaseUrl: String? = nil,
