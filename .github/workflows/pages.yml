@@ -33,6 +33,9 @@ jobs:
       - name: Generate one archive per library target
         run: |
           set -euo pipefail
+          # The plugin moves each finished archive into --output-path and
+          # needs the parent to exist.
+          mkdir -p site/api/swift
           # CantonLedgerAPI is generated stubs and is left out on purpose.
           for target in CantonKit CantonWalletKit CantonDappKit CantonDappWalletKit CantonDappLanKit CantonDappWCKit; do
             swift package --allow-writing-to-directory site \
