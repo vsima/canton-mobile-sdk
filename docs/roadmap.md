@@ -83,7 +83,7 @@ proven and where.
       with Canton's encodings — device-held keys are now hardware-verified
       at every tier: Secure Enclave, StrongBox, and TEE
 - [x] Full wallet loop on StrongBox hardware, verified on a Pixel 11 Pro
-      Fold (Android 17): a fresh party onboarded with a StrongBox-resident
+      (Android 17): a fresh party onboarded with a StrongBox-resident
       key, then the complete live flow against Splice LocalNet: faucet
       funding, WalletConnect pairing with an AI agent (canton-agent-mcp),
       per-request approval sheets, and a token-standard transfer signed in
