@@ -31,8 +31,10 @@ public data class JsonRpcRequest(
     val params: JsonElement? = null,
     val id: JsonElement? = null,
 ) {
+    /** True when [id] is absent, so no response is expected. */
     public val isNotification: Boolean get() = id == null
 
+    /** The frame as a JSON object: `jsonrpc` is always set, `params` and `id` only when present. */
     public fun encode(): JsonObject = buildJsonObject {
         put("jsonrpc", JSON_RPC_VERSION)
         put("method", method)
@@ -42,7 +44,14 @@ public data class JsonRpcRequest(
         if (id != null) put("id", id)
     }
 
+    /** Decoder for inbound request frames. */
     public companion object {
+        /**
+         * Parses one request frame.
+         *
+         * @throws DappException with [DappErrorCode.INVALID_PARAMS] when `jsonrpc`
+         *   is not `"2.0"` or `method` is not a string.
+         */
         public fun decode(json: JsonObject): JsonRpcRequest {
             json.requireVersion()
             val method = (json["method"] as? JsonPrimitive)?.takeIf { it.isString }?.content
@@ -68,9 +77,16 @@ public data class JsonRpcResponse(
     val result: JsonElement? = null,
     val error: JsonRpcErrorBody? = null,
 ) {
+    /** True when the response carries no [error]. */
     public val ok: Boolean get() = error == null
+    /** True when the response carries an [error]. */
     public val failed: Boolean get() = error != null
 
+    /**
+     * The frame as a JSON object. `id` is emitted as JSON `null` when absent,
+     * and when there is no error a null [result] is emitted as JSON `null` too —
+     * both are what the spec requires of a response, unlike a request.
+     */
     public fun encode(): JsonObject = buildJsonObject {
         put("jsonrpc", JSON_RPC_VERSION)
         put("id", id ?: JsonNull)
@@ -83,16 +99,31 @@ public data class JsonRpcResponse(
         return result ?: JsonNull
     }
 
+    /** Constructors for the two shapes a response can take, plus the decoder. */
     public companion object {
+        /** A successful response. A null [result] is emitted as JSON `null`. */
         public fun success(id: JsonElement?, result: JsonElement?): JsonRpcResponse =
             JsonRpcResponse(id = id, result = result ?: JsonNull)
 
+        /** A failed response carrying [error] verbatim. */
         public fun failure(id: JsonElement?, error: JsonRpcErrorBody): JsonRpcResponse =
             JsonRpcResponse(id = id, error = error)
 
+        /**
+         * A failed response whose error body is built from [exception] by
+         * [JsonRpcErrorBody.from].
+         */
         public fun failure(id: JsonElement?, exception: DappException): JsonRpcResponse =
             failure(id, JsonRpcErrorBody.from(exception))
 
+        /**
+         * Parses one response frame. Only the `error` member is validated here;
+         * `result` is kept raw for the typed decoders in [DappJson].
+         *
+         * @throws DappException with [DappErrorCode.INVALID_PARAMS] when `jsonrpc`
+         *   is not `"2.0"`, or [DappErrorCode.INTERNAL] when an `error` member has no
+         *   numeric `code`.
+         */
         public fun decode(json: JsonObject): JsonRpcResponse {
             json.requireVersion()
             val error = (json["error"] as? JsonObject)?.let { JsonRpcErrorBody.decode(it) }
@@ -107,6 +138,7 @@ public data class JsonRpcErrorBody(
     val message: String,
     val data: JsonElement? = null,
 ) {
+    /** The body as a JSON object; `data` is omitted when null. */
     public fun encode(): JsonObject = buildJsonObject {
         put("code", code)
         put("message", message)
@@ -125,13 +157,25 @@ public data class JsonRpcErrorBody(
         data = data,
     )
 
+    /** Conversions between the wire body and [DappException]. */
     public companion object {
+        /**
+         * The wire body for [exception]. Falls back to the error code's name
+         * when the exception has no message.
+         */
         public fun from(exception: DappException): JsonRpcErrorBody = JsonRpcErrorBody(
             code = exception.code,
             message = exception.message ?: exception.errorCode.name,
             data = exception.data,
         )
 
+        /**
+         * Parses an `error` member. A missing `message` reads as empty rather
+         * than failing: the code is the part a caller branches on.
+         *
+         * @throws DappException with [DappErrorCode.INTERNAL] when `code` is not an
+         *   integer.
+         */
         public fun decode(json: JsonObject): JsonRpcErrorBody = JsonRpcErrorBody(
             code = (json["code"] as? JsonPrimitive)?.content?.toIntOrNull()
                 ?: throw DappException(

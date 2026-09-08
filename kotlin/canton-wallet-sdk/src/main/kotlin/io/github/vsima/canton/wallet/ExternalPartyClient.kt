@@ -40,6 +40,16 @@ public class ExternalPartyClient(channel: Channel) {
         state.getConnectedSynchronizers(GetConnectedSynchronizersRequest.getDefaultInstance())
             .connectedSynchronizersList.map { it.synchronizerId }
 
+    /**
+     * Onboards a new external party whose signing key is [driver]'s, running
+     * the three steps in the class doc. [partyHint] is the readable prefix of
+     * the resulting party id; [userId], when given, is passed through as the
+     * allocation request's `user_id`.
+     *
+     * @return the allocated party id and the canonical fingerprint of the
+     *   driver's key — store both with the wallet record, since the
+     *   fingerprint is what later signatures must be marked `signed_by`.
+     */
     public suspend fun allocate(
         driver: SigningDriver,
         synchronizerId: String,

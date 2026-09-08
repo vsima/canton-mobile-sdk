@@ -87,6 +87,7 @@ public interface DappRequestHandler {
  *   transport carries it.
  */
 public data class DappRequestContext(val expiresAt: java.time.Instant? = null) {
+    /** Holds the shared [NONE] context. */
     public companion object {
         /** A transport that knows nothing extra. */
         public val NONE: DappRequestContext = DappRequestContext()

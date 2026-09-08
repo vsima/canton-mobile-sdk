@@ -445,6 +445,7 @@ public class TokenStandardClient(
         }
     }
 
+    /** Tunables shared by every client; only [clockSkewAllowance] so far. */
     public companion object {
         /** How far [createTransfer] backdates its default `requestedAt`, so
          *  transfers survive a sender clock that runs ahead of ledger time. */

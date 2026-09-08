@@ -33,6 +33,7 @@ public data class DappProvider(
     val userUrl: String? = null,
 )
 
+/** Where the wallet kernel runs. OpenRPC `Provider.providerType`; [wire] is the JSON spelling. */
 public enum class DappProviderType(public val wire: String) {
     BROWSER("browser"),
     DESKTOP("desktop"),
@@ -40,7 +41,9 @@ public enum class DappProviderType(public val wire: String) {
     REMOTE("remote"),
     ;
 
+    /** Lookup by wire spelling. */
     public companion object {
+        /** The type with this wire spelling, or null. */
         public fun fromWire(value: String): DappProviderType? = entries.find { it.wire == value }
     }
 }
@@ -103,13 +106,16 @@ public data class DappWallet(
     val reason: String? = null,
 )
 
+/** Where an account is in its lifecycle. OpenRPC `Wallet.status`; [wire] is the JSON spelling. */
 public enum class DappWalletStatus(public val wire: String) {
     INITIALIZED("initialized"),
     ALLOCATED("allocated"),
     REMOVED("removed"),
     ;
 
+    /** Lookup by wire spelling. */
     public companion object {
+        /** The status with this wire spelling, or null. */
         public fun fromWire(value: String): DappWalletStatus? = entries.find { it.wire == value }
     }
 }
@@ -145,6 +151,7 @@ public data class LedgerApiRequest(
     val path: JsonObject? = null,
 )
 
+/** HTTP method of a proxied [LedgerApiRequest]. [wire] is the lowercase JSON spelling. */
 public enum class LedgerApiMethod(public val wire: String) {
     GET("get"),
     POST("post"),
@@ -153,7 +160,9 @@ public enum class LedgerApiMethod(public val wire: String) {
     DELETE("delete"),
     ;
 
+    /** Lookup by wire spelling. */
     public companion object {
+        /** The method with this wire spelling, or null. */
         public fun fromWire(value: String): LedgerApiMethod? = entries.find { it.wire == value }
     }
 }
@@ -205,10 +214,19 @@ public data class PrepareSubmissionResult(
  * `executed` carries an update id.
  */
 public sealed interface TxChangedEvent {
+    /** The command id the submission was made under — the key a dApp correlates events on. */
     public val commandId: String
 
+    /** The wallet has accepted the submission and not yet executed it. */
     public data class Pending(override val commandId: String) : TxChangedEvent
 
+    /**
+     * The wallet has signed the prepared transaction. [signature] is the
+     * signature; [signedBy] and [party] are the signer and the party signed
+     * for, as the wallet reports them. The engine in `:canton-dapp-wallet`
+     * goes straight from `pending` to `executed` and never emits this state,
+     * but a remote wallet may.
+     */
     public data class Signed(
         override val commandId: String,
         val signature: String,
@@ -216,26 +234,43 @@ public sealed interface TxChangedEvent {
         val party: String,
     ) : TxChangedEvent
 
+    /**
+     * The participant executed the transaction. [updateId] names the
+     * resulting ledger update and [completionOffset] is the ledger offset it
+     * completed at.
+     */
     public data class Executed(
         override val commandId: String,
         val updateId: String,
         val completionOffset: Long,
     ) : TxChangedEvent
 
+    /**
+     * The submission did not execute: declined by the user or a spend policy,
+     * or failed downstream. The reason is not carried in the event; it travels
+     * in the request's error response.
+     */
     public data class Failed(override val commandId: String) : TxChangedEvent
 }
 
 /** Lifecycle of one `signMessage` request, as delivered by `messageSignature`. */
 public sealed interface MessageSignatureEvent {
+    /** Identifies the `signMessage` request the event belongs to. */
     public val messageId: String
 
+    /** The wallet has accepted the request and not yet signed. */
     public data class Pending(override val messageId: String) : MessageSignatureEvent
 
+    /** The wallet signed; [signature] is the result. */
     public data class Signed(
         override val messageId: String,
         val signature: String,
     ) : MessageSignatureEvent
 
+    /**
+     * The request was declined or signing failed. The reason travels in the
+     * request's error response, not here.
+     */
     public data class Failed(override val messageId: String) : MessageSignatureEvent
 }
 
@@ -248,10 +283,16 @@ public sealed interface MessageSignatureEvent {
  * [DappMethod.STATUS].
  */
 public sealed interface DappEvent {
+    /**
+     * The set of accounts the dApp may use changed. [accounts] is the whole new
+     * list, not a delta — empty after a disconnect.
+     */
     public data class AccountsChanged(val accounts: List<DappWallet>) : DappEvent
 
+    /** A submission moved to a new lifecycle state. */
     public data class TxChanged(val tx: TxChangedEvent) : DappEvent
 
+    /** A `signMessage` request moved to a new lifecycle state. */
     public data class MessageSignature(val signature: MessageSignatureEvent) : DappEvent
 }
 
@@ -280,9 +321,11 @@ public enum class DappMethod(public val wire: String) {
     MESSAGE_SIGNATURE("messageSignature"),
     ;
 
+    /** Lookup by wire method name. */
     public companion object {
         private val byWire: Map<String, DappMethod> = entries.associateBy { it.wire }
 
+        /** The method with this wire name, or null for one outside OpenRPC 0.5.0. */
         public fun fromWire(value: String): DappMethod? = byWire[value]
     }
 }

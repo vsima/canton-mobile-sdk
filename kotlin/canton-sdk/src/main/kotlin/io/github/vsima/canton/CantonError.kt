@@ -54,6 +54,10 @@ public data class CantonError(
             grpcCode == Status.Code.PERMISSION_DENIED ||
             errorCode == "ACCESS_TOKEN_EXPIRED"
 
+    /**
+     * Decoders from the two places a ledger failure arrives: a thrown gRPC
+     * status, or a `google.rpc.Status` inside a completion.
+     */
     public companion object {
         private val STATUS_DETAILS_KEY: Metadata.Key<ByteArray> =
             Metadata.Key.of("grpc-status-details-bin", Metadata.BINARY_BYTE_MARSHALLER)
@@ -140,6 +144,10 @@ public data class CantonError(
  * completion event (no cause).
  */
 public class CantonException(
+    /**
+     * The decoded failure; branch on [CantonError.retryable] and
+     * [CantonError.isAuthFailure] rather than on the message.
+     */
     public val error: CantonError,
     cause: Throwable? = null,
 ) : RuntimeException(buildString {

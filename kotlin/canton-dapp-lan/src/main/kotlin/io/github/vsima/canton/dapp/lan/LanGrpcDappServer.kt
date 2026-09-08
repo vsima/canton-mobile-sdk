@@ -50,6 +50,10 @@ public class LanGrpcDappServer(
     /** The port the server is listening on. Valid only after [start]. */
     public val port: Int get() = server?.port ?: error("server not started")
 
+    /**
+     * Binds to the configured address and starts accepting streams. Returns
+     * `this` for chaining; read [port] afterwards when the bind port was 0.
+     */
     public fun start(): LanGrpcDappServer {
         server = OkHttpServerBuilder
             .forPort(bindAddress, credentials)
@@ -59,6 +63,7 @@ public class LanGrpcDappServer(
         return this
     }
 
+    /** Stops the server at once, dropping live streams. [port] is invalid afterwards. */
     public fun shutdown() {
         server?.shutdownNow()
         server = null

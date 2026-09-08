@@ -70,6 +70,7 @@ public class CantonWalletConnect(
     public fun sessionNamespaces(accounts: List<DappWallet>): WcSessionNamespaces =
         sessionNamespaces(chainId, accounts)
 
+    /** Namespace building without an adapter instance, for proposal time. */
     public companion object {
         /**
          * [sessionNamespaces] without an adapter instance. A wallet that keeps

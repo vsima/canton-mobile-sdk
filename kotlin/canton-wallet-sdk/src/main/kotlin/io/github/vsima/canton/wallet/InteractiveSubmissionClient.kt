@@ -56,6 +56,16 @@ public class InteractiveSubmissionClient(channel: Channel) {
     private val completions =
         CommandCompletionServiceGrpcKt.CommandCompletionServiceCoroutineStub(channel)
 
+    /**
+     * Step one of the flow: asks the participant to prepare [commands] for
+     * [actAs] on [synchronizerId] and returns the raw `PreparedTransaction`
+     * plus its hash, ready for [signAndExecute]. Verbose hashing is off, so
+     * the response carries no hashing trace.
+     *
+     * [commandId] defaults to a fresh UUID; [disclosedContracts] are forwarded
+     * unchanged. [userId] is the ledger user submitting, when the participant
+     * requires one.
+     */
     public suspend fun prepare(
         commands: List<CommandsOuterClass.Command>,
         actAs: String,

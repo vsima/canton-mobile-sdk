@@ -38,9 +38,19 @@ public object TokenStandard {
      */
     public const val reasonMetadataKey: String = "splice.lfdecentralizedtrust.org/reason"
 
+    /**
+     * Interface id of `Splice.Api.Token.HoldingV1.Holding` — the view every
+     * token holding is read through.
+     */
     public val holdingInterfaceId: ValueOuterClass.Identifier =
         interfaceId("splice-api-token-holding-v1", "Splice.Api.Token.HoldingV1", "Holding")
 
+    /**
+     * Interface id of
+     * `Splice.Api.Token.TransferInstructionV1.TransferInstruction` — a pending
+     * two-step transfer, and the interface [TransferInstructionChoice]s are
+     * exercised on.
+     */
     public val transferInstructionInterfaceId: ValueOuterClass.Identifier =
         interfaceId(
             "splice-api-token-transfer-instruction-v1",
@@ -48,6 +58,12 @@ public object TokenStandard {
             "TransferInstruction",
         )
 
+    /**
+     * Interface id of `Splice.Api.Token.TransferInstructionV1.TransferFactory`
+     * — the interface `TransferFactory_Transfer` is exercised on, at the
+     * factory contract the registry names
+     * ([TransferRegistryClient.transferFactory]).
+     */
     public val transferFactoryInterfaceId: ValueOuterClass.Identifier =
         interfaceId(
             "splice-api-token-transfer-instruction-v1",
@@ -135,6 +151,7 @@ public data class Transfer(
     val meta: Map<String, String>,
 )
 
+/** Where a [TransferInstruction] stands, from the interface view's `status` variant. */
 public sealed interface TransferInstructionStatus {
     /** Waiting for the receiver to accept or reject — the wallet-inbox state. */
     public data object PendingReceiverAcceptance : TransferInstructionStatus
@@ -154,6 +171,11 @@ public data class TransferInstruction(
     val meta: Map<String, String>,
 )
 
+/**
+ * The three choices on a pending [TransferInstruction] — accept, reject or
+ * withdraw — each carrying its Daml choice name and the path segment the
+ * registry's choice-context endpoint uses for it.
+ */
 public enum class TransferInstructionChoice(
     internal val choiceName: String,
     internal val registryPathSegment: String,
@@ -263,6 +285,10 @@ internal fun Value.genMapEntries(): List<ValueOuterClass.GenMap.Entry> {
 // Encoding: typed values -> Daml values for choice arguments
 // ---------------------------------------------------------------------------
 
+/**
+ * This transfer as the Daml `Transfer` record a choice argument expects;
+ * [Transfer.meta] becomes a `Metadata` record.
+ */
 public fun Transfer.toValue(): Value =
     DamlValues.record(
         "sender" to DamlValues.party(sender),

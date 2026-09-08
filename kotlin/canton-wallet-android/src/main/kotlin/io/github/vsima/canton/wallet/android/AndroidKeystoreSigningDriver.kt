@@ -34,12 +34,18 @@ import java.security.spec.ECGenParameterSpec
  * key handle) and [load] it on the next start.
  */
 public class AndroidKeystoreSigningDriver private constructor(
+    /**
+     * The keystore alias the key lives under — the value to persist as a key
+     * handle and pass to [load].
+     */
     public val alias: String,
     private val privateKey: PrivateKey,
     private val publicKeyDer: ByteArray,
+    /** Where the key actually landed, as the platform reports it. */
     public val securityLevel: SecurityLevel,
 ) : SigningDriver {
 
+    /** The hardware tier holding a key, strongest first. */
     public enum class SecurityLevel {
         /** Dedicated tamper-resistant secure element. */
         STRONGBOX,
@@ -81,6 +87,7 @@ public class AndroidKeystoreSigningDriver private constructor(
             .build()
     }
 
+    /** Keystore lifecycle: [generate], [load], [delete]. */
     public companion object {
         private const val KEYSTORE = "AndroidKeyStore"
 

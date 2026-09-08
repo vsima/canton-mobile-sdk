@@ -40,13 +40,19 @@ public data class WalletRecord(
  * deliberately small so that's a page of code.
  */
 public interface WalletStore {
+    /**
+     * Inserts the record, or replaces the one already stored for the same
+     * [WalletRecord.partyId].
+     */
     public suspend fun save(record: WalletRecord)
 
     /** All records, oldest first. */
     public suspend fun list(): List<WalletRecord>
 
+    /** The record for [partyId], or null when none is stored. */
     public suspend fun find(partyId: String): WalletRecord?
 
+    /** Removes the record for [partyId]; a no-op when there is none. */
     public suspend fun delete(partyId: String)
 }
 

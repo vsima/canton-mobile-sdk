@@ -566,6 +566,7 @@ public class DappSession(
         return proxy.call(request)
     }
 
+    /** Holds [DEFAULT_PROVIDER]. */
     public companion object {
         /** Identifies this SDK to dApps. Hosts override it to name themselves. */
         public val DEFAULT_PROVIDER: DappProvider = DappProvider(

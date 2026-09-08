@@ -30,6 +30,7 @@ import okhttp3.Response
  * load — all worth retrying.
  */
 public class ValidatorException(
+    /** HTTP status of the failed call, or null when the response could not be parsed. */
     public val statusCode: Int?,
     message: String,
 ) : RuntimeException(message)
@@ -149,11 +150,15 @@ public class ValidatorClient(
             /** Human-readable rejection detail, when the automation provided one. */
             val rejectionReason: String?,
         ) : BuyTrafficStatus {
+            /** Why the wallet automation gave up on the request. */
             public enum class FailureReason {
                 /** The wallet automation did not process the request before its expiry. */
                 EXPIRED,
 
-                /** The automation rejected it — e.g. insufficient funds or below the minimum top-up. */
+                /**
+                 * The automation rejected it — e.g. insufficient funds or below
+                 * the minimum top-up.
+                 */
                 REJECTED,
             }
         }

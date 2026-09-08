@@ -50,9 +50,11 @@ public enum class DappErrorCode(public val code: Int) {
     TRANSACTION_REJECTED(-32003),
     ;
 
+    /** Lookup by numeric wire code. */
     public companion object {
         private val byCode: Map<Int, DappErrorCode> = entries.associateBy { it.code }
 
+        /** The code with this numeric value, or null for one this SDK does not know. */
         public fun fromCode(code: Int): DappErrorCode? = byCode[code]
     }
 }
@@ -66,8 +68,10 @@ public enum class DappErrorCode(public val code: Int) {
  * shape a wallet might attach.
  */
 public class DappException(
+    /** Which CIP-0103 error this is. */
     public val errorCode: DappErrorCode,
     message: String,
+    /** The JSON-RPC `error.data`, unchanged, if the wallet attached any. */
     public val data: JsonElement? = null,
     cause: Throwable? = null,
 ) : RuntimeException(message, cause) {

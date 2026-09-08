@@ -66,11 +66,21 @@ public data class PrepareExecuteContext(
  * this interface is the only place that check can live.
  */
 public fun interface PrepareExecutePipeline {
+    /**
+     * Runs prepare, verify, sign and execute for [context] and returns the
+     * executed event. Throw [DappException] to fail the request with a specific
+     * code; any other exception becomes `-32603`.
+     */
     public suspend fun execute(context: PrepareExecuteContext): TxChangedEvent.Executed
 }
 
 /** Performs an authenticated call against the JSON Ledger API. */
 public fun interface LedgerApiProxy {
+    /**
+     * Performs [request] with the wallet's own credentials and returns the
+     * response body as raw JSON. Called only after the session's
+     * [LedgerApiPolicy] allowed it.
+     */
     public suspend fun call(request: LedgerApiRequest): JsonElement
 }
 
@@ -83,8 +93,13 @@ public fun interface LedgerApiProxy {
  * deliberately.
  */
 public fun interface LedgerApiPolicy {
+    /**
+     * Whether [request] may be proxied. Consulted on every `ledgerApi` call
+     * after the grant check; a refusal answers `4100`.
+     */
     public fun allows(request: LedgerApiRequest): Boolean
 
+    /** Stock policies and the [allowing] builder. */
     public companion object {
         /**
          * The rules [ReadOnly] is built from, exposed so a host can

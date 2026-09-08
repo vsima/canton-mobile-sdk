@@ -48,6 +48,10 @@ public data class TlsTrust(
     val trustRoots: TrustRoots = TrustRoots.SystemDefault,
     val verifyHostname: Boolean = true,
 ) {
+    /**
+     * The set of trust anchors; the two cases are the platform store or an
+     * explicit CA list, by design nothing finer.
+     */
     public sealed interface TrustRoots {
         /** The platform trust store (plus Network Security Config on Android). */
         public data object SystemDefault : TrustRoots
