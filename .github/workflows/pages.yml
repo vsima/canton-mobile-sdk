@@ -45,10 +45,14 @@ jobs:
               --hosting-base-path "canton-mobile-sdk/api/swift/$target" \
               --output-path "site/api/swift/$target"
           done
+      # DocC names operator pages like `!=(_:_:).json`; upload-artifact rejects
+      # colons, so the tree travels as a tarball.
+      - name: Pack
+        run: tar -czf docc.tgz -C site/api swift
       - uses: actions/upload-artifact@v4
         with:
           name: docc
-          path: site/api/swift
+          path: docc.tgz
           retention-days: 1
 
   dokka:
@@ -66,10 +70,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Generate the aggregated reference
         run: ./gradlew dokkaGenerate
+      - name: Pack
+        run: tar -czf dokka.tgz -C build/dokka html
       - uses: actions/upload-artifact@v4
         with:
           name: dokka
-          path: kotlin/build/dokka/html
+          path: kotlin/dokka.tgz
           retention-days: 1
 
   deploy:
@@ -89,11 +95,18 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: docc
-          path: site/api/swift
+          path: artifacts/docc
       - uses: actions/download-artifact@v4
         with:
           name: dokka
-          path: site/api/kotlin
+          path: artifacts/dokka
+      - name: Unpack the references
+        run: |
+          set -euo pipefail
+          tar -xzf artifacts/docc/docc.tgz -C site/api
+          tar -xzf artifacts/dokka/dokka.tgz -C site/api
+          mv site/api/html site/api/kotlin
+          ls site/api site/api/swift
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
