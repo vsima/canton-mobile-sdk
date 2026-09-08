@@ -39,9 +39,17 @@ public interface SigningDriver {
  */
 public class SoftwareSigningDriver private constructor(
     private val keyPair: KeyPair,
+    /**
+     * Which scheme the key pair uses. Decides the JCA algorithm and the Canton
+     * signature format and spec the driver emits.
+     */
     public val algorithm: Algorithm,
 ) : SigningDriver {
 
+    /**
+     * The two schemes a software key can use: Ed25519 (Canton's default) or
+     * ECDSA over P-256 (what hardware enclaves speak).
+     */
     public enum class Algorithm { ED25519, EC_P256 }
 
     override suspend fun publicKey(): CryptoOuterClass.SigningPublicKey =
@@ -82,7 +90,13 @@ public class SoftwareSigningDriver private constructor(
             .build()
     }
 
+    /** The only way to obtain a driver: keys are generated here, never imported. */
     public companion object {
+        /**
+         * Generates a fresh JCA key pair for [algorithm] — `Ed25519`, or `EC`
+         * on `secp256r1` — and wraps it. The private key lives in process memory
+         * for the driver's lifetime; nothing persists it.
+         */
         public fun generate(algorithm: Algorithm): SoftwareSigningDriver {
             val keyPair = when (algorithm) {
                 Algorithm.ED25519 -> KeyPairGenerator.getInstance("Ed25519").generateKeyPair()

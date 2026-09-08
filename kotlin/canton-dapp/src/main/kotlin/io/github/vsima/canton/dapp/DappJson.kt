@@ -25,11 +25,16 @@ import kotlinx.serialization.json.put
  * JSON-RPC, but round-tripping it changes the document, and the golden
  * vectors in `testdata/dapp/` assert that decode-then-encode is a fixpoint.
  * Decoding is the tolerant direction — an explicit `null` reads as absent.
+ *
+ * Every `decode…` throws [DappException] with
+ * [DappErrorCode.INVALID_PARAMS], naming the field that was missing or of
+ * the wrong shape; every `encode…` is total.
  */
 public object DappJson {
 
     // ── Provider / status ──────────────────────────────────────────────
 
+    /** Encodes a `Provider`. */
     public fun encode(value: DappProvider): JsonObject = buildJsonObject {
         put("id", value.id)
         value.version?.let { put("version", it) }
@@ -38,6 +43,7 @@ public object DappJson {
         value.userUrl?.let { put("userUrl", it) }
     }
 
+    /** Decodes a `Provider`. An unknown `providerType` is rejected rather than dropped. */
     public fun decodeProvider(json: JsonElement): DappProvider {
         val obj = json.asObject("Provider")
         return DappProvider(
@@ -52,6 +58,7 @@ public object DappJson {
         )
     }
 
+    /** Encodes a `ConnectResult`. */
     public fun encode(value: ConnectResult): JsonObject = buildJsonObject {
         put("isConnected", value.isConnected)
         value.reason?.let { put("reason", it) }
@@ -60,6 +67,7 @@ public object DappJson {
         value.userUrl?.let { put("userUrl", it) }
     }
 
+    /** Decodes a `ConnectResult`. */
     public fun decodeConnectResult(json: JsonElement): ConnectResult {
         val obj = json.asObject("ConnectResult")
         return ConnectResult(
@@ -71,12 +79,14 @@ public object DappJson {
         )
     }
 
+    /** Encodes a `Network`. */
     public fun encode(value: DappNetwork): JsonObject = buildJsonObject {
         put("networkId", value.networkId)
         value.ledgerApi?.let { put("ledgerApi", it) }
         value.accessToken?.let { put("accessToken", it) }
     }
 
+    /** Decodes a `Network`. */
     public fun decodeNetwork(json: JsonElement): DappNetwork {
         val obj = json.asObject("Network")
         return DappNetwork(
@@ -86,11 +96,13 @@ public object DappJson {
         )
     }
 
+    /** Encodes a `Session`. */
     public fun encode(value: DappSessionInfo): JsonObject = buildJsonObject {
         put("accessToken", value.accessToken)
         put("userId", value.userId)
     }
 
+    /** Decodes a `Session`. */
     public fun decodeSessionInfo(json: JsonElement): DappSessionInfo {
         val obj = json.asObject("Session")
         return DappSessionInfo(
@@ -99,6 +111,7 @@ public object DappJson {
         )
     }
 
+    /** Encodes a `StatusEvent`, nesting the provider, connection, network and session shapes. */
     public fun encode(value: DappStatus): JsonObject = buildJsonObject {
         put("provider", encode(value.provider))
         put("connection", encode(value.connection))
@@ -106,6 +119,7 @@ public object DappJson {
         value.session?.let { put("session", encode(it)) }
     }
 
+    /** Decodes a `StatusEvent`. */
     public fun decodeStatus(json: JsonElement): DappStatus {
         val obj = json.asObject("StatusEvent")
         return DappStatus(
@@ -118,6 +132,7 @@ public object DappJson {
 
     // ── Accounts ───────────────────────────────────────────────────────
 
+    /** Encodes one `Wallet`. */
     public fun encode(value: DappWallet): JsonObject = buildJsonObject {
         put("primary", value.primary)
         put("partyId", value.partyId)
@@ -133,6 +148,7 @@ public object DappJson {
         value.reason?.let { put("reason", it) }
     }
 
+    /** Decodes one `Wallet`. An unknown `status` is rejected rather than dropped. */
     public fun decodeWallet(json: JsonElement): DappWallet {
         val obj = json.asObject("Wallet")
         val status = obj.string("status")
@@ -153,30 +169,40 @@ public object DappJson {
         )
     }
 
+    /** Encodes a `ListAccountsResult`: an array of `Wallet`. */
     public fun encodeAccounts(value: List<DappWallet>): JsonArray =
         buildJsonArray { for (wallet in value) add(encode(wallet)) }
 
+    /** Decodes a `ListAccountsResult`. */
     public fun decodeAccounts(json: JsonElement): List<DappWallet> =
         json.asArray("ListAccountsResult").map { decodeWallet(it) }
 
     // ── signMessage ────────────────────────────────────────────────────
 
+    /** Encodes `SignMessageRequest` params. */
     public fun encode(value: SignMessageRequest): JsonObject = buildJsonObject {
         put("message", value.message)
     }
 
+    /** Decodes `SignMessageRequest` params. */
     public fun decodeSignMessageRequest(json: JsonElement): SignMessageRequest =
         SignMessageRequest(message = json.asObject("SignMessageRequest").string("message"))
 
+    /** Encodes a `SignMessageResult`. */
     public fun encode(value: SignMessageResult): JsonObject = buildJsonObject {
         put("signature", value.signature)
     }
 
+    /** Decodes a `SignMessageResult`. */
     public fun decodeSignMessageResult(json: JsonElement): SignMessageResult =
         SignMessageResult(signature = json.asObject("SignMessageResult").string("signature"))
 
     // ── ledgerApi ──────────────────────────────────────────────────────
 
+    /**
+     * Encodes `LedgerApiRequest` params; `body`, `query` and `path` are passed
+     * through as raw JSON.
+     */
     public fun encode(value: LedgerApiRequest): JsonObject = buildJsonObject {
         put("requestMethod", value.requestMethod.wire)
         put("resource", value.resource)
@@ -185,6 +211,7 @@ public object DappJson {
         value.path?.let { put("path", it) }
     }
 
+    /** Decodes `LedgerApiRequest` params. An unknown `requestMethod` is rejected. */
     public fun decodeLedgerApiRequest(json: JsonElement): LedgerApiRequest {
         val obj = json.asObject("LedgerApiRequest")
         val method = obj.string("requestMethod")
@@ -200,6 +227,10 @@ public object DappJson {
 
     // ── prepareExecute ─────────────────────────────────────────────────
 
+    /**
+     * Encodes `JsPrepareSubmissionRequest` params. Empty party and package
+     * lists are omitted, not emitted as `[]`.
+     */
     public fun encode(value: PrepareSubmission): JsonObject = buildJsonObject {
         value.commandId?.let { put("commandId", it) }
         put("commands", value.commands)
@@ -212,6 +243,7 @@ public object DappJson {
         }
     }
 
+    /** Decodes `JsPrepareSubmissionRequest` params; absent lists read as empty. */
     public fun decodePrepareSubmission(json: JsonElement): PrepareSubmission {
         val obj = json.asObject("JsPrepareSubmissionRequest")
         return PrepareSubmission(
@@ -225,11 +257,13 @@ public object DappJson {
         )
     }
 
+    /** Encodes a `JsPrepareSubmissionResponse`. */
     public fun encode(value: PrepareSubmissionResult): JsonObject = buildJsonObject {
         value.preparedTransaction?.let { put("preparedTransaction", it) }
         value.preparedTransactionHash?.let { put("preparedTransactionHash", it) }
     }
 
+    /** Decodes a `JsPrepareSubmissionResponse`. */
     public fun decodePrepareSubmissionResult(json: JsonElement): PrepareSubmissionResult {
         val obj = json.asObject("JsPrepareSubmissionResponse")
         return PrepareSubmissionResult(
@@ -243,6 +277,10 @@ public object DappJson {
         put("tx", encode(value))
     }
 
+    /**
+     * Decodes a `prepareExecuteAndWaitResult`, insisting the nested `tx` is in
+     * the `executed` state — any other state there is a protocol error.
+     */
     public fun decodeExecutedResult(json: JsonElement): TxChangedEvent.Executed {
         val tx = decodeTxChanged(json.asObject("prepareExecuteAndWaitResult").required("tx"))
         return tx as? TxChangedEvent.Executed
@@ -251,6 +289,10 @@ public object DappJson {
 
     // ── Events ─────────────────────────────────────────────────────────
 
+    /**
+     * Encodes a `TxChangedEvent`: `status` and `commandId` always, `payload`
+     * only for `signed` and `executed`.
+     */
     public fun encode(value: TxChangedEvent): JsonObject = buildJsonObject {
         put("status", value.statusWire())
         put("commandId", value.commandId)
@@ -274,6 +316,10 @@ public object DappJson {
         }
     }
 
+    /**
+     * Decodes a `TxChangedEvent`, picking the sealed case from `status`. An
+     * unknown status is rejected.
+     */
     public fun decodeTxChanged(json: JsonElement): TxChangedEvent {
         val obj = json.asObject("TxChangedEvent")
         val commandId = obj.string("commandId")
@@ -301,12 +347,17 @@ public object DappJson {
         }
     }
 
+    /** Encodes a `MessageSignatureEvent`; `signature` is present only for `signed`. */
     public fun encode(value: MessageSignatureEvent): JsonObject = buildJsonObject {
         put("status", value.statusWire())
         put("messageId", value.messageId)
         if (value is MessageSignatureEvent.Signed) put("signature", value.signature)
     }
 
+    /**
+     * Decodes a `MessageSignatureEvent`, picking the sealed case from `status`.
+     * An unknown status is rejected.
+     */
     public fun decodeMessageSignature(json: JsonElement): MessageSignatureEvent {
         val obj = json.asObject("MessageSignatureEvent")
         val messageId = obj.string("messageId")

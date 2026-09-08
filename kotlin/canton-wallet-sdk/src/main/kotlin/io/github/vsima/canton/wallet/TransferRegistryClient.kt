@@ -73,11 +73,23 @@ public class TransferRegistryClient(
         }
     }
 
+    /**
+     * What a registry returns for one choice. [choiceContextData] is the
+     * Daml-JSON `ChoiceContext` the choice's `extraArgs` must carry —
+     * [ChoiceContextJson.extraArgsValue] re-encodes it for gRPC — or null when
+     * the registry sent none; [disclosedContracts] must be submitted with the
+     * command.
+     */
     public data class RegistryChoiceContext(
         val choiceContextData: JsonElement?,
         val disclosedContracts: List<RegistryDisclosedContract>,
     )
 
+    /**
+     * The registry's answer to [transferFactory]: which factory contract to
+     * exercise, how the registry will route the transfer, and the choice
+     * context to submit with it.
+     */
     public data class TransferFactory(
         val factoryId: String,
         /** "self" | "direct" | "offer" — how the registry will route this transfer. */

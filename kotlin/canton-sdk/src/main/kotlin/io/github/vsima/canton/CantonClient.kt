@@ -49,6 +49,12 @@ public class CantonClient(
     accessTokenProvider: (suspend () -> String)? = null,
 ) : Closeable {
 
+    /**
+     * Opens an OkHttp-backed gRPC channel to [CantonClientConfiguration.host]
+     * — TLS with the configured [TlsTrust] unless `useTls` is off — and takes
+     * the retry policy and access-token provider from the same configuration.
+     * The client owns the channel it built: [close] shuts it down.
+     */
     public constructor(configuration: CantonClientConfiguration) : this(
         configuration.buildChannel(),
         null,

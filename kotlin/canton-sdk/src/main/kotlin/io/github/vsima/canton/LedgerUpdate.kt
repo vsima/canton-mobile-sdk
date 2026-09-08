@@ -15,6 +15,7 @@ import com.daml.ledger.api.v2.UpdateServiceOuterClass.GetUpdatesResponse
  * [UpdateSubscription.beginExclusive] to resume without gaps or duplicates.
  */
 public sealed interface LedgerUpdate {
+    /** The participant-local offset of this update; the resume point for the next subscription. */
     public val offset: Long
 
     /** A committed Daml transaction. */
@@ -43,6 +44,7 @@ public sealed interface LedgerUpdate {
      */
     public data class Checkpoint(override val offset: Long) : LedgerUpdate
 
+    /** Internal decoding from the raw stream response. */
     public companion object {
         internal fun from(response: GetUpdatesResponse): LedgerUpdate? = when {
             response.hasTransaction() -> Transaction(response.transaction)

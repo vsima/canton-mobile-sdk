@@ -32,8 +32,11 @@ public data class RetryPolicy(
         require(maxAttempts >= 1) { "maxAttempts must be at least 1" }
     }
 
+    /** The two policies most callers want. */
     public companion object {
+        /** Four attempts, 250 ms doubling to a 5 s cap, with ±20% jitter. */
         public val DEFAULT: RetryPolicy = RetryPolicy()
+        /** A single attempt: every failure surfaces immediately. */
         public val NONE: RetryPolicy = RetryPolicy(maxAttempts = 1)
     }
 

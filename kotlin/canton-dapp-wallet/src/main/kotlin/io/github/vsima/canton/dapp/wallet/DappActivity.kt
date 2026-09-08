@@ -27,6 +27,11 @@ public data class DappActivity(
     /** Refusal reason, decline reason, update id, or error detail. */
     val detail: String? = null,
 ) {
+    /**
+     * What happened. The sheetless kinds — [TRANSACTION_AUTO_APPROVED],
+     * [TRANSACTION_REFUSED], [TRANSACTION_RATE_LIMITED] — are the ones a host
+     * should notify on.
+     */
     public enum class Kind {
         /** The human shared accounts with this peer. */
         CONNECTED,
@@ -72,5 +77,6 @@ public data class DappActivity(
  * policy honest.
  */
 public fun interface DappActivityObserver {
+    /** Called once per activity, on the session's own path. Return quickly and do not throw. */
     public fun onActivity(activity: DappActivity)
 }

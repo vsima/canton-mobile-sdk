@@ -32,6 +32,7 @@ public data class DappPeer(
 
 /** What the user is being asked to approve. */
 public sealed interface DappApprovalRequest {
+    /** Who is asking, as attested by the transport — what the sheet shows. */
     public val peer: DappPeer
 
     /**
@@ -85,6 +86,7 @@ public sealed interface DappApproval {
      */
     public data class Approved(val accounts: List<DappWallet> = emptyList()) : DappApproval
 
+    /** Declined. [reason] goes back to the dApp as the `4001` error message. */
     public data class Rejected(val reason: String = "User rejected the request") : DappApproval
 }
 
@@ -98,6 +100,7 @@ public sealed interface DappApproval {
  * review.
  */
 public fun interface DappApprovalDelegate {
+    /** Presents [request] to the user and suspends until they answer. */
     public suspend fun approve(request: DappApprovalRequest): DappApproval
 
     /** [approve] with what the transport knew, such as the dApp's deadline.
@@ -118,6 +121,11 @@ public fun interface DappApprovalDelegate {
  * all.
  */
 public fun interface DappAccountsSource {
+    /**
+     * The accounts the wallet is currently willing to offer. [DappSession]
+     * calls it at connect time to build
+     * [DappApprovalRequest.Connection.available].
+     */
     public suspend fun accounts(): List<DappWallet>
 }
 

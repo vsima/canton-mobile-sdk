@@ -140,8 +140,11 @@ public class AndroidKeystoreWalletStore(
                 .firstOrNull() ?: error
         }
 
+    /** Defaults, plus the per-file DataStore registry that lets many instances share one file. */
     public companion object {
+        /** Store file name inside `filesDir` when none is given. */
         public const val DEFAULT_FILE_NAME: String = "canton-wallet-store"
+        /** Keystore alias of the AES-GCM wrapping key when none is given. */
         public const val DEFAULT_KEY_ALIAS: String = "canton-wallet-store"
 
         private val lock = Any()

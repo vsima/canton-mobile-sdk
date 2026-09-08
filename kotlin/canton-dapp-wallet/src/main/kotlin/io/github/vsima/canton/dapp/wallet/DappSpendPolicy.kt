@@ -137,6 +137,10 @@ public data class SpendReceipt(
  * list, because an empty list resets every cap.
  */
 public interface SpendLedger {
+    /**
+     * Records one executed spend. The session calls this after execution
+     * succeeds, never before.
+     */
     public suspend fun append(receipt: SpendReceipt)
 
     /** Receipts for [peerId] with `at >= since`, oldest first. */
