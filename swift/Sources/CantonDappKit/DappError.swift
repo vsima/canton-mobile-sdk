@@ -51,10 +51,15 @@ public enum DappErrorCode: Int, Sendable, CaseIterable {
 /// can surface a participant `traceId` without this SDK having to model every
 /// shape a wallet might attach.
 public struct DappError: Error, Sendable, Equatable {
+    /// Which failure, from the CIP-0103/EIP-1193 set.
     public var code: DappErrorCode
+    /// Human-readable detail, sent to the peer as the JSON-RPC
+    /// `error.message`.
     public var message: String
+    /// The JSON-RPC `error.data`, passed through unchanged; nil when none.
     public var data: JSONValue?
 
+    /// Creates an error; `data` is optional.
     public init(code: DappErrorCode, message: String, data: JSONValue? = nil) {
         self.code = code
         self.message = message
@@ -69,9 +74,11 @@ public struct DappError: Error, Sendable, Equatable {
 }
 
 extension DappError: CustomStringConvertible {
+    /// `DappError(<code>/<number>): <message>`, for logs.
     public var description: String { "DappError(\(code)/\(rawCode)): \(message)" }
 }
 
 extension DappError: LocalizedError {
+    /// The ``message``, so `localizedDescription` says something useful.
     public var errorDescription: String? { message }
 }

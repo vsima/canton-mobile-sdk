@@ -26,6 +26,9 @@ public actor CachingTokenProvider {
     private var expiresAt: Date?
     private var inFlight: Task<String, any Error>?
 
+    /// Creates a cache in front of `fetch`. `refreshLeeway` is how long
+    /// before its `exp` a token counts as stale; `now` is injectable for
+    /// tests.
     public init(
         refreshLeeway: Duration = .seconds(30),
         now: @escaping @Sendable () -> Date = { Date() },

@@ -24,6 +24,10 @@ public struct TokenStandardClient: Sendable {
     /// so transfers survive a sender clock that runs ahead of ledger time.
     public static let clockSkewAllowance: TimeInterval = 60
 
+    /// `registry` is needed only by the writes that consult one —
+    /// ``createTransfer(driver:party:receiver:instrumentId:amount:inputHoldingCids:synchronizerId:userId:meta:requestedAt:executeBefore:)``
+    /// and ``exerciseTransferInstruction(driver:party:transferInstructionId:choice:synchronizerId:userId:)``;
+    /// reads and the preapproval flows work without it.
     public init(client: CantonClient, registry: TransferRegistryClient? = nil) {
         self.client = client
         self.registry = registry
@@ -54,10 +58,16 @@ public struct TokenStandardClient: Sendable {
     /// transfer-level reading (direction, counterparty, signed net amount,
     /// memo) when one is derivable.
     public struct HoldingsChange: Sendable {
+        /// Id of the committed update.
         public let updateId: String
+        /// The update's participant offset, for resuming a history read.
         public let offset: Int64
+        /// The update's ledger record time.
         public let recordTime: Date
+        /// Holdings the update created for the party, with full views.
         public let created: [Holding]
+        /// Every archived holding by contract id, including ones ``archived``
+        /// could not resolve.
         public let archivedContractIds: [String]
 
         /// The archived holdings resolved against creations seen since ledger

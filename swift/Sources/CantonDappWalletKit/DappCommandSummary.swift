@@ -24,6 +24,7 @@ public struct DappTransferSummary: Sendable, Equatable {
     /// ISO timestamp the transfer must execute before, when present.
     public var executeBefore: String?
 
+    /// Creates a summary; `admin`, `memo` and `executeBefore` are optional.
     public init(
         receiver: String,
         amount: String,

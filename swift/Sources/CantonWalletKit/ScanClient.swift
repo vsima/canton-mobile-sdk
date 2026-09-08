@@ -5,6 +5,7 @@ import Foundation
 
 /// A scan call failed (non-2xx status other than 404, or malformed payload).
 public struct ScanError: Error, CustomStringConvertible {
+    /// What failed: the HTTP status and body, or the malformed field.
     public let description: String
 }
 
@@ -19,9 +20,13 @@ public struct ScanError: Error, CustomStringConvertible {
 /// endpoints mount at the vhost root (`/registry/...`), scan endpoints under
 /// `/api/scan`.
 public struct ScanClient: Sendable {
+    /// The scan API root (`.../api/scan`); `v0/...` and `v1/...` paths are
+    /// appended.
     public let baseURL: URL
     private let session: URLSession
 
+    /// Creates a client; pass a pinned `session` to match the ledger
+    /// channel's trust.
     public init(baseURL: URL, session: URLSession = .shared) {
         self.baseURL = baseURL
         self.session = session
@@ -29,9 +34,13 @@ public struct ScanClient: Sendable {
 
     /// One ANS (Amulet Name Service) entry — a name bound to a party.
     public struct AnsEntry: Sendable, Equatable {
+        /// The registered name.
         public let name: String
+        /// The party the name resolves to.
         public let party: String
+        /// URL the owner registered, or empty.
         public let url: String
+        /// Free-text description the owner registered, or empty.
         public let description: String
     }
 
@@ -59,9 +68,15 @@ public struct ScanClient: Sendable {
 
     /// An active TransferPreapproval: senders can transfer to `receiver` directly.
     public struct TransferPreapprovalInfo: Sendable, Equatable {
+        /// Contract id of the `TransferPreapproval` — what
+        /// ``TokenStandardClient/cancelTransferPreapproval(driver:party:preapprovalCid:synchronizerId:userId:)``
+        /// archives.
         public let contractId: String
+        /// The party that receives directly, when the payload carried it.
         public let receiver: String?
+        /// The party paying for the preapproval, when the payload carried it.
         public let provider: String?
+        /// When the preapproval lapses, when the payload carried it.
         public let expiresAt: Date?
     }
 
@@ -104,6 +119,7 @@ public struct ScanClient: Sendable {
 
     /// Aggregate Amulet totals for one owner party in a scan ACS snapshot.
     public struct HoldingsSummary: Sendable, Equatable {
+        /// The owner party these totals are for.
         public let partyId: String
         /// Sum of unlocked amulet initial amounts (holding fees not deducted),
         /// as the Daml Decimal's canonical string — lossless, convert at the edge.

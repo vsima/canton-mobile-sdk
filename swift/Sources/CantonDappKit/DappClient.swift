@@ -29,6 +29,8 @@ public protocol DappTransport: Sendable {
 }
 
 extension DappTransport {
+    /// The default: an already-finished stream, for transports that cannot
+    /// push events.
     public var events: AsyncStream<DappEvent> {
         AsyncStream { $0.finish() }
     }
@@ -54,6 +56,8 @@ public actor DappClient {
     private let transport: DappTransport
     private var nextId: Int64 = 1
 
+    /// Wraps `transport`. Request ids are assigned per client, counting up
+    /// from 1.
     public init(transport: DappTransport) {
         self.transport = transport
     }

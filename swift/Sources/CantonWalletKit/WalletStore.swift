@@ -12,12 +12,20 @@ import Foundation
 /// material for hardware/custody drivers (their handles are references, not
 /// keys).
 public struct WalletRecord: Sendable, Equatable, Codable {
+    /// The allocated party id, `hint::fingerprint`.
     public let partyId: String
+    /// Canonical fingerprint of the registered signing key; goes into every
+    /// signature's `signedBy`.
     public let publicKeyFingerprint: String
+    /// The synchronizer the party was allocated on.
     public let synchronizerId: String
+    /// Opaque driver handle for reviving the signer; nil if the driver needs
+    /// nothing stored.
     public let keyHandle: Data?
+    /// When the record was created; ``WalletStore/list()`` orders by it.
     public let createdAt: Date
 
+    /// Creates a record.
     public init(
         partyId: String,
         publicKeyFingerprint: String,
@@ -38,13 +46,16 @@ public struct WalletRecord: Sendable, Equatable, Codable {
 /// (durable, device-bound — the right home for enclave key handles); the
 /// surface is deliberately small so custom backends are a page of code.
 public protocol WalletStore: Sendable {
+    /// Inserts, or replaces the record with the same party id.
     func save(_ record: WalletRecord) async throws
 
     /// All records, oldest first.
     func list() async throws -> [WalletRecord]
 
+    /// The record for `partyId`, or nil.
     func find(partyId: String) async throws -> WalletRecord?
 
+    /// Removes the record for `partyId`; a missing record is not an error.
     func delete(partyId: String) async throws
 }
 
@@ -53,8 +64,11 @@ public actor InMemoryWalletStore: WalletStore {
     private var records: [String: WalletRecord] = [:]
     private var order: [String] = []
 
+    /// An empty store.
     public init() {}
 
+    /// Inserts or replaces by party id; first-insertion order is kept for
+    /// ``list()``.
     public func save(_ record: WalletRecord) {
         if records[record.partyId] == nil {
             order.append(record.partyId)
@@ -62,14 +76,17 @@ public actor InMemoryWalletStore: WalletStore {
         records[record.partyId] = record
     }
 
+    /// Records in insertion order.
     public func list() -> [WalletRecord] {
         order.compactMap { records[$0] }
     }
 
+    /// The record for `partyId`, or nil.
     public func find(partyId: String) -> WalletRecord? {
         records[partyId]
     }
 
+    /// Removes the record, if present.
     public func delete(partyId: String) {
         records[partyId] = nil
         order.removeAll { $0 == partyId }
@@ -84,16 +101,23 @@ import Security
 /// device-bound like the enclave handles it typically stores, and available
 /// to background refresh once the device has been unlocked.
 public struct KeychainWalletStore: WalletStore {
+    /// The keychain service attribute records are filed under — one
+    /// namespace per app.
     public let service: String
 
+    /// Creates a store under `service`.
     public init(service: String = "io.github.vsima.canton.wallet") {
         self.service = service
     }
 
+    /// A Security framework call failed; carries the operation and `OSStatus`.
     public struct KeychainError: Error, CustomStringConvertible {
+        /// Which operation failed, and the `OSStatus`.
         public let description: String
     }
 
+    /// Updates the item for the party, or adds it with
+    /// `afterFirstUnlockThisDeviceOnly` protection.
     public func save(_ record: WalletRecord) async throws {
         let payload = try JSONEncoder().encode(record)
         var query = baseQuery(account: record.partyId)
@@ -108,6 +132,8 @@ public struct KeychainWalletStore: WalletStore {
         }
     }
 
+    /// All records under ``service``, oldest ``WalletRecord/createdAt``
+    /// first.
     public func list() async throws -> [WalletRecord] {
         var query = baseQuery(account: nil)
         query[kSecMatchLimit as String] = kSecMatchLimitAll
@@ -122,6 +148,7 @@ public struct KeychainWalletStore: WalletStore {
             .sorted { $0.createdAt < $1.createdAt }
     }
 
+    /// The record for `partyId`, or nil when the keychain has none.
     public func find(partyId: String) async throws -> WalletRecord? {
         var query = baseQuery(account: partyId)
         query[kSecReturnData as String] = true
@@ -133,6 +160,7 @@ public struct KeychainWalletStore: WalletStore {
         return try JSONDecoder().decode(WalletRecord.self, from: data)
     }
 
+    /// Removes the item; a missing item is not an error.
     public func delete(partyId: String) async throws {
         let status = SecItemDelete(baseQuery(account: partyId) as CFDictionary)
         if status != errSecItemNotFound {

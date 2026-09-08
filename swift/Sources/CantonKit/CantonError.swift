@@ -131,6 +131,8 @@ public struct CantonError: Error, Sendable, Hashable {
 }
 
 extension CantonError: CustomStringConvertible {
+    /// `<grpcCode>[/<errorCode>]: <message>`, plus the correlation id when
+    /// present — the line to put in a bug report.
     public var description: String {
         var text = "\(grpcCode)"
         if let errorCode { text += "/\(errorCode)" }

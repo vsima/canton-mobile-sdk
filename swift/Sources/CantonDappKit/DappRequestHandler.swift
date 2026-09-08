@@ -14,6 +14,7 @@ public struct DappRequestContext: Sendable, Equatable {
     /// When the dApp stops waiting for an answer, if the transport carries it.
     public var expiresAt: Date?
 
+    /// Creates a context; pass nil for a transport without a deadline.
     public init(expiresAt: Date? = nil) {
         self.expiresAt = expiresAt
     }
@@ -48,6 +49,7 @@ public protocol DappRequestHandler: Sendable {
 }
 
 public extension DappRequestHandler {
+    /// Default: drops the context and forwards to ``handle(_:)``.
     func handle(_ request: JSONRPCRequest, context: DappRequestContext) async -> JSONRPCResponse {
         await handle(request)
     }

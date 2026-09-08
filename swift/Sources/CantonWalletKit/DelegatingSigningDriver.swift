@@ -18,6 +18,8 @@ public struct DelegatingSigningDriver: SigningDriver {
     private let publicKeyProvider: @Sendable () async throws -> Com_Daml_Ledger_Api_V2_SigningPublicKey
     private let signer: @Sendable (Data) async throws -> Com_Daml_Ledger_Api_V2_Signature
 
+    /// Wraps the two closures; see the type docs for the encodings they must
+    /// produce.
     public init(
         publicKeyProvider: @escaping @Sendable () async throws -> Com_Daml_Ledger_Api_V2_SigningPublicKey,
         signer: @escaping @Sendable (Data) async throws -> Com_Daml_Ledger_Api_V2_Signature
@@ -26,10 +28,12 @@ public struct DelegatingSigningDriver: SigningDriver {
         self.signer = signer
     }
 
+    /// Calls `publicKeyProvider`.
     public func publicKey() async throws -> Com_Daml_Ledger_Api_V2_SigningPublicKey {
         try await publicKeyProvider()
     }
 
+    /// Calls `signer` with the hash to sign.
     public func sign(_ bytes: Data) async throws -> Com_Daml_Ledger_Api_V2_Signature {
         try await signer(bytes)
     }

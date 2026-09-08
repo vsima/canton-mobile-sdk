@@ -34,6 +34,8 @@ private let ed25519SPKIPrefix = Data([
 /// scheme the Secure Enclave signs). Both are accepted by the Ledger API;
 /// verified live in the Kotlin `ExternalPartyIntegrationTest`.
 public struct SoftwareSigningDriver: SigningDriver {
+    /// The key type: `ed25519` (Canton's default) or `ecP256` (what the
+    /// Secure Enclave also produces).
     public enum Algorithm: Sendable {
         case ed25519
         case ecP256
@@ -46,6 +48,7 @@ public struct SoftwareSigningDriver: SigningDriver {
 
     private let key: Key
 
+    /// Which key type this driver holds.
     public var algorithm: Algorithm {
         switch key {
         case .ed25519: .ed25519
@@ -53,6 +56,8 @@ public struct SoftwareSigningDriver: SigningDriver {
         }
     }
 
+    /// A driver around a freshly generated key of `algorithm`. The key lives
+    /// in process memory and is not persisted.
     public static func generate(_ algorithm: Algorithm) -> SoftwareSigningDriver {
         switch algorithm {
         case .ed25519: SoftwareSigningDriver(key: .ed25519(Curve25519.Signing.PrivateKey()))
@@ -60,6 +65,8 @@ public struct SoftwareSigningDriver: SigningDriver {
         }
     }
 
+    /// The public key as DER SubjectPublicKeyInfo, with the matching
+    /// `keySpec`.
     public func publicKey() async throws -> Com_Daml_Ledger_Api_V2_SigningPublicKey {
         var proto = Com_Daml_Ledger_Api_V2_SigningPublicKey()
         proto.format = .derX509SubjectPublicKeyInfo
@@ -74,6 +81,8 @@ public struct SoftwareSigningDriver: SigningDriver {
         return proto
     }
 
+    /// Ed25519 signs raw (`concat` format); P-256 signs ECDSA-SHA256 and
+    /// returns DER.
     public func sign(_ bytes: Data) async throws -> Com_Daml_Ledger_Api_V2_Signature {
         var proto = Com_Daml_Ledger_Api_V2_Signature()
         switch key {
@@ -100,6 +109,7 @@ public struct SoftwareSigningDriver: SigningDriver {
 public struct SecureEnclaveSigningDriver: SigningDriver {
     private let key: SecureEnclave.P256.Signing.PrivateKey
 
+    /// Whether this device has a Secure Enclave; false in the simulator.
     public static var isAvailable: Bool { SecureEnclave.isAvailable }
 
     /// Generates a fresh enclave-resident key. Pass access control flags to
@@ -128,6 +138,7 @@ public struct SecureEnclaveSigningDriver: SigningDriver {
     /// Persist this alongside the party id to reuse the key across launches.
     public var dataRepresentation: Data { key.dataRepresentation }
 
+    /// The enclave key's P-256 public key as DER SubjectPublicKeyInfo.
     public func publicKey() async throws -> Com_Daml_Ledger_Api_V2_SigningPublicKey {
         var proto = Com_Daml_Ledger_Api_V2_SigningPublicKey()
         proto.format = .derX509SubjectPublicKeyInfo
@@ -136,6 +147,8 @@ public struct SecureEnclaveSigningDriver: SigningDriver {
         return proto
     }
 
+    /// ECDSA-SHA256 inside the enclave, DER-encoded. Prompts for biometry if
+    /// the key was created with such access control.
     public func sign(_ bytes: Data) async throws -> Com_Daml_Ledger_Api_V2_Signature {
         var proto = Com_Daml_Ledger_Api_V2_Signature()
         proto.signature = try key.signature(for: bytes).derRepresentation

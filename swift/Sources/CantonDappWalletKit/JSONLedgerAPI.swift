@@ -173,10 +173,12 @@ public struct JSONLedgerAPIClient: Sendable {
 public struct HTTPLedgerApiProxy: LedgerApiProxy {
     private let client: JSONLedgerAPIClient
 
+    /// Wraps `client`. Policy is applied by the session, not here.
     public init(client: JSONLedgerAPIClient) {
         self.client = client
     }
 
+    /// Forwards to ``JSONLedgerAPIClient/call(_:)``.
     public func call(_ request: LedgerApiRequest) async throws -> JSONValue {
         try await client.call(request)
     }

@@ -29,6 +29,8 @@ public final class LanGrpcDappServer: @unchecked Sendable {
     private let shutdownContinuation: AsyncStream<Void>.Continuation
     private var runner: Task<Void, Never>?
 
+    /// Creates a server bound to `handler`; nothing listens until
+    /// ``start(port:)``.
     public init(
         handler: any DappRequestHandler,
         host: String = "127.0.0.1",
@@ -70,6 +72,7 @@ public final class LanGrpcDappServer: @unchecked Sendable {
         return try await bound.value()
     }
 
+    /// Stops listening and cancels the run task. Safe to call more than once.
     public func shutdown() {
         shutdownContinuation.finish()
         runner?.cancel()

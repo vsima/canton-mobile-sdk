@@ -31,6 +31,7 @@ public struct SubmissionCompletion: Sendable, Hashable {
     /// Offset of the completion on the participant.
     public let offset: Int64
 
+    /// Creates a completion record.
     public init(updateId: String, offset: Int64) {
         self.updateId = updateId
         self.offset = offset
@@ -60,10 +61,16 @@ struct CompletionStreamEndedError: Error, CustomStringConvertible {
 public struct InteractiveSubmissionClient: Sendable {
     private let client: CantonClient
 
+    /// Creates a client over `client`'s connection settings.
     public init(client: CantonClient) {
         self.client = client
     }
 
+    /// `PrepareSubmission`: asks the participant to interpret `commands` as
+    /// `actAs` on `synchronizerId` and return the transaction to sign plus
+    /// its hash. `disclosedContracts` ride along for registry choices;
+    /// verbose hashing is off. Sign and execute the response with
+    /// ``signAndExecute(prepared:driver:partyId:keyFingerprint:userId:submissionId:verifyHash:)``.
     public func prepare(
         commands: [Com_Daml_Ledger_Api_V2_Command],
         actAs: String,

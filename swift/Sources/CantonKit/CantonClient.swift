@@ -22,9 +22,11 @@ public struct CantonClient: Sendable {
     /// VPN behavior on Apple platforms.
     public typealias Transport = HTTP2ClientTransport.TransportServices
     #else
+    /// POSIX-sockets transport, on platforms without Network.framework.
     public typealias Transport = HTTP2ClientTransport.Posix
     #endif
 
+    /// The connection settings this client was created with.
     public let configuration: CantonClientConfiguration
 
     /// Expiry-aware cache in front of `configuration.accessTokenProvider`:
@@ -33,6 +35,8 @@ public struct CantonClient: Sendable {
     /// reconnecting.
     private let tokenCache: CachingTokenProvider?
 
+    /// Creates a client. No connection is opened until ``withServices(_:)``
+    /// or one of the convenience calls runs.
     public init(configuration: CantonClientConfiguration) {
         self.configuration = configuration
         self.tokenCache = configuration.accessTokenProvider.map {
@@ -46,18 +50,22 @@ public struct CantonClient: Sendable {
         /// around this for APIs not yet surfaced by CantonKit.
         public let grpc: GRPCClient<Transport>
 
+        /// `VersionService`: the Ledger API version and feature descriptors.
         public var version: Com_Daml_Ledger_Api_V2_VersionService.Client<Transport> {
             .init(wrapping: grpc)
         }
 
+        /// `CommandService`: synchronous submit-and-wait.
         public var command: Com_Daml_Ledger_Api_V2_CommandService.Client<Transport> {
             .init(wrapping: grpc)
         }
 
+        /// `StateService`: ledger end, active contracts, connected synchronizers.
         public var state: Com_Daml_Ledger_Api_V2_StateService.Client<Transport> {
             .init(wrapping: grpc)
         }
 
+        /// `UpdateService`: the transaction and reassignment stream.
         public var update: Com_Daml_Ledger_Api_V2_UpdateService.Client<Transport> {
             .init(wrapping: grpc)
         }

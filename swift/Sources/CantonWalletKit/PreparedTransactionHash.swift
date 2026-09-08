@@ -8,6 +8,7 @@ import Foundation
 /// The PreparedTransaction cannot be hashed (or verified) by this client —
 /// unknown hashing scheme, or features hashing scheme V2 cannot encode.
 public struct PreparedTransactionHashError: Error, Sendable, CustomStringConvertible {
+    /// Why hashing was impossible.
     public let description: String
 
     init(_ description: String) {
@@ -22,6 +23,7 @@ public struct PreparedTransactionHashMismatchError: Error, Sendable, CustomStrin
     /// Hex of the hash recomputed locally from the PreparedTransaction proto.
     public let computedHashHex: String
 
+    /// Both hashes as hex, plus the refusal to sign.
     public var description: String {
         "prepared_transaction_hash mismatch: the node returned \(nodeHashHex) but the " +
             "PreparedTransaction re-hashes to \(computedHashHex). Refusing to sign — the " +

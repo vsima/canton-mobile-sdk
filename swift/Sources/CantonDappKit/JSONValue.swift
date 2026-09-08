@@ -23,40 +23,49 @@ public enum JSONValue: Sendable, Equatable {
     case array([JSONValue])
     case object([String: JSONValue])
 
+    /// An integer, kept as its decimal text.
     public static func int(_ value: Int64) -> JSONValue { .number(String(value)) }
 
     // ── Accessors ──────────────────────────────────────────────────────
 
+    /// The members when this is an object; nil otherwise.
     public var objectValue: [String: JSONValue]? {
         if case .object(let value) = self { return value }
         return nil
     }
 
+    /// The elements when this is an array; nil otherwise.
     public var arrayValue: [JSONValue]? {
         if case .array(let value) = self { return value }
         return nil
     }
 
+    /// The text when this is a string; nil otherwise.
     public var stringValue: String? {
         if case .string(let value) = self { return value }
         return nil
     }
 
+    /// The value when this is a boolean; nil otherwise.
     public var boolValue: Bool? {
         if case .bool(let value) = self { return value }
         return nil
     }
 
+    /// The value when this is a number with integral text; nil for fractions
+    /// and non-numbers.
     public var int64Value: Int64? {
         if case .number(let text) = self { return Int64(text) }
         return nil
     }
 
+    /// True when this is JSON null.
     public var isNull: Bool { self == .null }
 
     // ── Foundation bridging ────────────────────────────────────────────
 
-    /// Parses JSON text. Throws ``DappError`` so callers have one error type.
+    /// Parses JSON bytes; a bare scalar (fragment) is accepted. Malformed
+    /// input surfaces `JSONSerialization`'s own error, not a ``DappError``.
     public static func parse(_ data: Data) throws -> JSONValue {
         let object = try JSONSerialization.jsonObject(
             with: data,
@@ -65,6 +74,8 @@ public enum JSONValue: Sendable, Equatable {
         return from(object)
     }
 
+    /// Parses JSON text; throws ``DappError`` (`invalidParams`) if it is not
+    /// valid UTF-8, otherwise as the `Data` overload.
     public static func parse(_ text: String) throws -> JSONValue {
         guard let data = text.data(using: .utf8) else {
             throw DappError(code: .invalidParams, message: "input is not valid UTF-8")
@@ -135,13 +146,16 @@ public enum JSONValue: Sendable, Equatable {
 }
 
 extension JSONValue: ExpressibleByStringLiteral {
+    /// A string literal is a `.string`.
     public init(stringLiteral value: String) { self = .string(value) }
 }
 
 extension JSONValue: ExpressibleByBooleanLiteral {
+    /// A boolean literal is a `.bool`.
     public init(booleanLiteral value: Bool) { self = .bool(value) }
 }
 
 extension JSONValue: ExpressibleByIntegerLiteral {
+    /// An integer literal is a `.number` with integral text.
     public init(integerLiteral value: Int) { self = .number(String(value)) }
 }

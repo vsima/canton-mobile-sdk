@@ -7,8 +7,11 @@
 public struct RetryPolicy: Sendable, Hashable {
     /// Total attempts including the first; 1 disables retries.
     public var maxAttempts: Int
+    /// Delay before the second attempt.
     public var initialBackoff: Duration
+    /// Growth factor per further attempt, before jitter.
     public var backoffMultiplier: Double
+    /// Cap on the computed delay, applied before the ±20% jitter.
     public var maxBackoff: Duration
     /// A reconnecting stream's retry budget resets only after a connection
     /// has both delivered at least one update and stayed alive for this
@@ -16,9 +19,12 @@ public struct RetryPolicy: Sendable, Hashable {
     /// consuming the budget.
     public var streamHealthyWindow: Duration
 
+    /// Four attempts, 250 ms doubling to a 5 s cap, a 10 s healthy window.
     public static let `default` = RetryPolicy()
+    /// A single attempt: no retries.
     public static let none = RetryPolicy(maxAttempts: 1)
 
+    /// Creates a policy; `maxAttempts` must be at least 1.
     public init(
         maxAttempts: Int = 4,
         initialBackoff: Duration = .milliseconds(250),

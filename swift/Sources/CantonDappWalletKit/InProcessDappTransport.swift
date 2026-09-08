@@ -31,13 +31,17 @@ import Foundation
 public struct InProcessDappTransport: DappTransport {
     private let session: DappSession
 
+    /// Binds to `session`.
     public init(session: DappSession) {
         self.session = session
     }
 
+    /// Dispatches straight into the session. Never throws: the session
+    /// answers protocol failures with an error response.
     public func send(_ request: JSONRPCRequest) async throws -> JSONRPCResponse {
         await session.handle(request)
     }
 
+    /// The session's events.
     public var events: AsyncStream<DappEvent> { session.events }
 }
