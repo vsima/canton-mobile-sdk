@@ -1,0 +1,99 @@
+name: pages
+
+# The public site (docs/) plus the generated API reference: DocC for every
+# Swift library target, Dokka for the Kotlin modules, published together at
+# vsima.github.io/canton-mobile-sdk with the reference under /api.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - swift/**
+      - kotlin/**
+      - Package.swift
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  docc:
+    name: DocC (Swift)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate one archive per library target
+        run: |
+          set -euo pipefail
+          # CantonLedgerAPI is generated stubs and is left out on purpose.
+          for target in CantonKit CantonWalletKit CantonDappKit CantonDappWalletKit CantonDappLanKit CantonDappWCKit; do
+            swift package --allow-writing-to-directory site \
+              generate-documentation --target "$target" \
+              --disable-indexing \
+              --transform-for-static-hosting \
+              --hosting-base-path "canton-mobile-sdk/api/swift/$target" \
+              --output-path "site/api/swift/$target"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docc
+          path: site/api/swift
+          retention-days: 1
+
+  dokka:
+    name: Dokka (Kotlin)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kotlin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Generate the aggregated reference
+        run: ./gradlew dokkaGenerate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dokka
+          path: kotlin/build/dokka/html
+          retention-days: 1
+
+  deploy:
+    name: Assemble and deploy
+    needs: [docc, dokka]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble the site
+        run: |
+          set -euo pipefail
+          mkdir -p site/api
+          cp -R docs/. site/
+      - uses: actions/download-artifact@v4
+        with:
+          name: docc
+          path: site/api/swift
+      - uses: actions/download-artifact@v4
+        with:
+          name: dokka
+          path: site/api/kotlin
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

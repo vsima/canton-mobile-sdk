@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API reference · Canton mobile SDK</title>
+<meta name="description" content="Generated API reference for the Canton mobile SDKs: DocC for the Swift packages, Dokka for the Kotlin modules.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root { --paper:#F6F6F3; --ink:#15161A; --muted:#5C5F66; --line:#DEDED8; --swift:#E8502F; --kotlin:#6E4BD8; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 Archivo, system-ui, sans-serif }
+  .wrap { max-width:880px; margin:0 auto; padding:56px 24px 80px }
+  .crumb { font-size:14px; color:var(--muted) } .crumb a { color:inherit }
+  h1 { font-size:36px; line-height:1.1; margin:12px 0 8px; letter-spacing:-.01em }
+  .lede { color:var(--muted); max-width:62ch; margin:0 0 40px }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:36px 0 12px; display:flex; align-items:center; gap:10px }
+  h2 .dot { width:10px; height:10px; border-radius:50% }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px }
+  a.mod { display:block; padding:16px 18px; border:1px solid var(--line); border-radius:12px; background:#fff; color:inherit; text-decoration:none }
+  a.mod:hover, a.mod:focus-visible { border-color:var(--ink); outline:none }
+  a.mod code { font:14px/1.3 "JetBrains Mono", ui-monospace, monospace; display:block; margin-bottom:6px }
+  a.mod span { font-size:14px; color:var(--muted) }
+  .note { margin-top:40px; padding-top:20px; border-top:1px solid var(--line); font-size:14px; color:var(--muted) }
+  .note code { font-family:"JetBrains Mono", ui-monospace, monospace; font-size:13px }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="crumb"><a href="../">Canton mobile SDK</a> / API reference</p>
+  <h1>API reference</h1>
+  <p class="lede">Generated from the sources on every push to <code>main</code>: DocC for each Swift package, Dokka for the Kotlin modules. Same names on both platforms, so a page on one side maps to the other.</p>
+
+  <h2><span class="dot" style="background:var(--swift)"></span>Swift packages</h2>
+  <div class="grid">
+    <a class="mod" href="swift/CantonKit/documentation/cantonkit/"><code>CantonKit</code><span>Ledger API client: connections, auth, submission, state sync</span></a>
+    <a class="mod" href="swift/CantonWalletKit/documentation/cantonwalletkit/"><code>CantonWalletKit</code><span>Wallet layer: signing drivers, external parties, token standard, Scan and validator clients</span></a>
+    <a class="mod" href="swift/CantonDappKit/documentation/cantondappkit/"><code>CantonDappKit</code><span>CIP-0103 protocol types, JSON-RPC codec, dApp-side client</span></a>
+    <a class="mod" href="swift/CantonDappWalletKit/documentation/cantondappwalletkit/"><code>CantonDappWalletKit</code><span>Wallet-side provider engine: grants, approvals, spend policy, activity</span></a>
+    <a class="mod" href="swift/CantonDappWCKit/documentation/cantondappwckit/"><code>CantonDappWCKit</code><span>WalletConnect transport adapter</span></a>
+    <a class="mod" href="swift/CantonDappLanKit/documentation/cantondapplankit/"><code>CantonDappLanKit</code><span>LAN gRPC transport</span></a>
+  </div>
+
+  <h2><span class="dot" style="background:var(--kotlin)"></span>Kotlin modules</h2>
+  <div class="grid">
+    <a class="mod" href="kotlin/"><code>canton-mobile-sdk (Kotlin)</code><span>One aggregated reference: canton-sdk, canton-wallet-sdk, canton-wallet-android, canton-dapp, canton-dapp-wallet, canton-dapp-wc, canton-dapp-lan</span></a>
+  </div>
+
+  <p class="note">The generated Ledger API stubs (<code>CantonLedgerAPI</code>, <code>canton-ledger-api</code>) are not rendered; they mirror the <a href="https://github.com/digital-asset/canton/tree/main/community/ledger-api/src/main/protobuf">Ledger API protobuf definitions</a> one to one. Built by the <code>pages</code> workflow from the tip of <code>main</code>; the version chips on the <a href="../">front page</a> say which release that corresponds to. Guides live in the repository's <a href="https://github.com/vsima/canton-mobile-sdk/tree/main/docs">docs/</a>.</p>
+</main>
+</body>
+</html>

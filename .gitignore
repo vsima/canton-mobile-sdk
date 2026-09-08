@@ -24,3 +24,7 @@ examples/ios/DerivedData/
 
 # Local Canton run output
 log/
+
+# Generated API reference (the pages workflow assembles it; local previews land here)
+docs/api/swift/
+docs/api/kotlin/

@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
 }
 
 description = "Wallet-grade Kotlin SDK for the Canton Network: external signing, party onboarding, token standard"

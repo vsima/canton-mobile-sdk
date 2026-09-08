@@ -25,6 +25,9 @@ let package = Package(
         .package(url: "https://github.com/grpc/grpc-swift-protobuf.git", from: "2.4.0"),
         .package(url: "https://github.com/grpc/grpc-swift-nio-transport.git", from: "2.9.0"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.28.0"),
+        // Documentation only: `swift package generate-documentation` (the
+        // Pages workflow runs it); adds nothing to a consumer's build.
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.4.0"),
     ],
     targets: [
         // Generated Ledger API messages and service clients. Regenerate with

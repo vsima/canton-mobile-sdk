@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
 }
 
 description = "WalletConnect transport for CIP-0103: carries JSON-RPC frames over a WalletConnect session"

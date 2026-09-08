@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
 }
 
 description = "LAN gRPC transport for CIP-0103: JSON-RPC frames over a bidirectional stream"

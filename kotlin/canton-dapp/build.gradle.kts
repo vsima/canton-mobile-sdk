@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
 }
 
 description = "CIP-0103 dApp API for Canton: protocol types, JSON-RPC codec, and dApp-side client"

@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
 }
 
 description = "Wallet-side CIP-0103 provider: request dispatch, per-peer grants, and approval seams"
