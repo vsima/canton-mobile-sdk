@@ -11,7 +11,7 @@ plugins {
 
 allprojects {
     group = "io.github.vsima.canton"
-    version = "0.7.0"
+    version = "0.8.0-SNAPSHOT"
 }
 
 dokka {
