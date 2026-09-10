@@ -348,7 +348,7 @@
     <a class="btn ghost" href="https://github.com/vsima/canton-mobile-app">See the reference apps</a>
   </div>
   <div class="chip-row">
-    <span class="chip">v0.6.0</span>
+    <span class="chip">v0.7.0</span>
     <span class="chip">Canton 3.5.11 – 3.5.12</span>
     <span class="chip">Maven Central + Swift PM</span>
     <span class="chip">gRPC Ledger API</span>
@@ -522,7 +522,7 @@ submission.signAndExecute(
   </div>
   <div class="compat-scroll">
   <table class="compat">
-    <tr><td>SDK</td><td>0.6.x on Maven Central (<code>io.github.vsima.canton:*</code>) and Swift Package Manager</td></tr>
+    <tr><td>SDK</td><td>0.7.x on Maven Central (<code>io.github.vsima.canton:*</code>) and Swift Package Manager</td></tr>
     <tr><td>Canton</td><td>3.5.11 to 3.5.12 over the gRPC Ledger API; stubs generated from the 3.5.12 protobuf definitions and checked fresh on every CI run</td></tr>
     <tr><td>Token standard</td><td>CIP-0056 holdings, transfers, and preapprovals, verified against the Amulet registry on Splice LocalNet 0.7.1</td></tr>
     <tr><td>dApp protocol</td><td>CIP-0103 as published in OpenRPC 0.5.0, both sides, held to shared golden vectors</td></tr>
@@ -587,7 +587,7 @@ submission.signAndExecute(
 <pre><code>dependencies: [
   .package(
     url: <span class="s">"https://github.com/vsima/canton-mobile-sdk.git"</span>,
-    from: <span class="s">"0.6.0"</span>),
+    from: <span class="s">"0.7.0"</span>),
 ]
 <span class="c">// then import CantonWalletKit, CantonDappKit, …</span></code></pre>
     </div>
@@ -595,7 +595,7 @@ submission.signAndExecute(
       <div class="pane-head"><span class="lamp"></span>Gradle</div>
 <pre><code>dependencies {
     implementation(
-        <span class="s">"io.github.vsima.canton:canton-wallet-sdk:0.6.0"</span>)
+        <span class="s">"io.github.vsima.canton:canton-wallet-sdk:0.7.0"</span>)
     <span class="c">// + canton-wallet-android for StrongBox / TEE keys</span>
 }</code></pre>
     </div>

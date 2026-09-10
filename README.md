@@ -145,7 +145,7 @@ One package, however many products you import.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/vsima/canton-mobile-sdk.git", from: "0.6.0"),
+    .package(url: "https://github.com/vsima/canton-mobile-sdk.git", from: "0.7.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -164,7 +164,7 @@ Each layer brings the ones below it, so name only the highest you need.
 
 ```kotlin
 dependencies {
-    implementation("io.github.vsima.canton:canton-sdk:0.6.0")
+    implementation("io.github.vsima.canton:canton-sdk:0.7.0")
     // Wallet apps:          canton-wallet-sdk  (+ canton-wallet-android on Android)
     // dApps:                canton-dapp
     // Wallets taking dApp connections: canton-dapp-wallet
@@ -364,7 +364,7 @@ try {
 
 | SDK version | Canton release | Ledger API |
 |---|---|---|
-| 0.1.x – 0.6.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
+| 0.1.x – 0.7.x | 3.5.11 – 3.5.12 | `com.daml.ledger.api.v2` |
 
 ## Repository layout
 
