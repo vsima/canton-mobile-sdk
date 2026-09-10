@@ -242,9 +242,41 @@ proven and where.
 
 ## Next
 
+Ordered by what unblocks what. The agent items continue the arc M2 shipped
+(wallet-side spend policy, #57); the rest close the gaps against the
+other Canton client SDKs.
+
+- **Push-to-approve (Agent Connect M3).** Wallet force-killed, an agent
+  requests a payment, the phone buzzes, tap, approve, hardware signs.
+  Through the WalletConnect Push Server with encrypted payloads decrypted
+  on the device (the cleartext mode leaks request metadata to APNs and
+  FCM), so no push backend of our own. Android first: the device token
+  registered through WalletKit and the SDK's messaging service routing a
+  tap to the pending approval. Then iOS: a notification service extension
+  decrypting via WalletKit with a keychain group shared with the app. The
+  relay mailbox stays the fallback, delivering on next open within the
+  request's expiry. Acceptance is the live run on both platforms, not
+  green CI.
+- **M2 follow-ups.** Two things the spend-policy design asked for that the
+  shipped slice does not yet have: shared policy-decision golden vectors
+  in `testdata/`, so both platforms are held to the same decisions the way
+  every other cross-platform surface here is; and, in the reference
+  wallets, the per-dApp policy and spend-receipt files encrypted at rest
+  (fail-loud on an unreadable store already ships; the encrypted wallet
+  stores are the pattern). A per-instrument per-transaction cap is not
+  planned: one cap plus the instrument allowlist covers the cases that
+  matter.
+- **Token Standard V2 reads (CIP-0112).** Account-typed holdings decoded
+  from the upcoming V2 packages and verified in the LocalNet harness, with
+  V1/V2 selected from what the registry advertises rather than a build
+  flag. The full V2 surface (account migration, allocations, `EventLog`
+  history) stays under *Exploring* until Splice carries V2 to DevNet.
+- **Telemetry.** OpenTelemetry spans on submit, stream, and sign in both
+  SDKs, so a wallet can see where a slow payment spent its time.
 - **DevNet registry run.** The SDK-level tap shipped (`ValidatorClient`,
-  below); still pending is running the full token-standard loop against a
-  DevNet registry, which needs DevNet validator credentials.
+  above); still pending is running the full token-standard loop against a
+  DevNet registry, which needs the DevNet allowlist to land. Transaction
+  ids on Scan are the evidence.
 - **TLS + QR pairing for the LAN transport.** The LAN gRPC transport has
   shipped (above), plaintext; what remains is a TLS stream paired by QR for
   two devices. Deliberately no relay, so the honest limit is that a dApp
@@ -252,16 +284,31 @@ proven and where.
   cellular. (The reference apps in `canton-mobile-app` also demonstrate a
   self-describing `canton-checkout:` deep link — a camera-openable
   scan-to-pay QR that opens the wallet prefilled.)
+- **Listing in the dApp SDK wallet registry.** A `wallets.json` entry so
+  the official dApp SDK's picker discovers the reference wallets.
 
 ## Exploring
 
+- **Inbox push watcher.** A self-hosted service that maps registered
+  parties to push tokens and notifies on inbox arrivals and incoming
+  transfers, storing party ids and tokens, never keys. Serves core wallet
+  UX and any future non-WalletConnect agent flow; deferred while
+  push-to-approve covers the agent story.
+- **x402 interop.** Payer side in the wallet for x402-on-Canton requests
+  (their settlement likely maps to a token-standard transfer we already
+  sign), and optional merchant-side middleware. Adapters to the
+  ecosystem's rails, never a facilitator of our own. Gated on demand.
 - **Custody-provider integrations.** `DelegatingSigningDriver` already
   adapts any external signer; first-party drivers (Fireblocks raw
   signing, BitGo) land once they can be verified against real provider
   accounts.
-- **CIP-0112 / Token Standard V2.** Tracking the next token-standard
-  iteration — including provider-side preapproval renewal — as it
-  stabilizes.
+- **CIP-0112 / Token Standard V2, the rest.** Account migration,
+  allocation request / accept / commit / top-up, `EventLog` history
+  parsing, and provider-side preapproval renewal, as the standard
+  stabilizes and reaches DevNet.
+- **DAR → typed Swift/Kotlin codegen.** Generated builders and readers
+  for a package's templates and choices, so an app never hand-writes a
+  Daml record.
 
 Deliberately out of scope: a JSON Ledger API fallback transport. The classic
 HTTP/2-hostility that motivates JSON fallbacks is a browser problem; native
